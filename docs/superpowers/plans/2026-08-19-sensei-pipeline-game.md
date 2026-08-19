@@ -93,6 +93,7 @@ These values are executable contracts, not prose estimates.
 - Create: `tsconfig.node.json`
 - Create: `eslint.config.js`
 - Create: `.prettierrc.json`
+- Create: `.prettierignore`
 - Create: `src/main.tsx`
 - Create: `src/app/App.test.tsx`
 - Create: `src/app/App.tsx`
@@ -123,7 +124,7 @@ Create `package.json` with this exact public surface:
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
+    "@testing-library/dom": "10.4.0",
     "@testing-library/react": "16.3.2",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/user-event": "14.6.5",
@@ -138,7 +139,7 @@ Create `package.json` with this exact public surface:
     "globals": "17.11.0",
     "jsdom": "30.0.1",
     "prettier": "3.9.6",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.67.0",
     "vite": "8.2.1",
     "vitest": "4.1.11"
