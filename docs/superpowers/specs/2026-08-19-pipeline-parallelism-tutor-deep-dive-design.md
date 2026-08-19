@@ -1,11 +1,15 @@
 # Pipeline Parallelism Tutor Deep Dive — Design
 
-**Status:** Approved design
+**Status:** Superseded by `2026-08-19-sensei-pipeline-game-design.md`
 
 **Date:** 2026-08-19
 
 **Primary source pin:**
 `ezyang/pipeline-parallelism-tutor@4cf0b7247ee9334a3795af746dfd745fb5562601`
+
+> This companion-only direction was superseded when Sensei pivoted to an
+> original playable game. Its source and licensing analysis remains historical
+> context; it is not the implementation contract.
 
 ## 1. Outcome
 

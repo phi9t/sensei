@@ -50,3 +50,31 @@ reference and can sometimes be beaten; it is not synonymous with optimal.
 
 A marker identifying why a statement is trustworthy: `SOURCE`, `EXECUTABLE
 CONTRACT`, `INTERPRETATION`, or `SIMULATOR BOUNDARY`.
+
+## Level
+
+A configured scheduling problem with a topology, operation durations,
+microbatches, optional memory cap, coaching capabilities, and transparent
+mastery targets.
+
+## Legal completion
+
+A completed level in which every required operation appears exactly once and no
+schedule invariant is violated. Legal completion unlocks progression.
+
+## Mastery
+
+A legal completion that also meets the level's explicit optimization targets.
+Mastery records deeper achievement but never blocks access to the next level.
+
+## Interesting boundary
+
+A point at which automation should return control to the learner: materially
+different legal choices, unavoidable idle, a memory-cap boundary, completion,
+or mastery.
+
+## Clean-room implementation
+
+An original implementation informed by observed behavior and general ideas but
+containing no copied upstream code, text, styling, level definitions, fixtures,
+screenshots, or assets.
