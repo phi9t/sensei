@@ -41,6 +41,25 @@ Idle rank capacity within a schedule. A forced bubble follows from unavailable
 legal work; a voluntary bubble results from choosing to wait despite available
 work. Bubble and internal bubble use different accounting boundaries.
 
+## Dependency-forced gap
+
+An idle interval derived when a placed operation cannot start at its rank
+frontier because a predecessor finishes later. It is not a learner action and
+does not count as intentional idle.
+
+## Intentional idle
+
+One discrete tick appended by a learner wait action at a rank frontier. It is
+replayable, undoable, and counted by the intentional-idle metric.
+
+## Memory-blocked move
+
+A dependency-ready forward operation whose completion would make its owning
+rank exceed the activation-memory cap. It is a blocked operation state, not an
+elapsed idle interval. An incomplete attempt with no legal operation is in
+deadlock; the deadlock is memory-caused when at least one dependency-ready move
+is memory-blocked.
+
 ## Par
 
 The score produced by a level's configured reference policy. Par is a teaching
@@ -69,9 +88,10 @@ Mastery records deeper achievement but never blocks access to the next level.
 
 ## Interesting boundary
 
-A point at which automation should return control to the learner: materially
-different legal choices, unavoidable idle, a memory-cap boundary, completion,
-or mastery.
+A point at which automation should return control to the learner: more than one
+operation is legal at the minimum earliest-start time, the next unique operation
+would introduce a dependency-forced gap, a dependency-ready operation is
+memory-blocked, the schedule completes, or the attempt deadlocks.
 
 ## Clean-room implementation
 

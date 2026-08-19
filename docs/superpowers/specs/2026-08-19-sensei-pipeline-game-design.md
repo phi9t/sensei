@@ -71,6 +71,13 @@ Sensei therefore uses a **clean-room spiritual fork**:
 - use the general scheduling domain and independently derived behavior as the
   basis of implementation.
 
+The clean-room audit permits overlap in domain concepts and their natural
+pedagogical order—dependencies precede pipelining, compute asymmetry precedes
+cost optimization, and memory pressure follows activation lifetime. It requires
+independent derivation of topology, microbatch counts, targets, fixtures, prose,
+visuals, and implementation. `F = 1`, `B = 2` is an explicitly chosen domain
+approximation, not copied expression.
+
 The first release deliberately diverges rather than seeking feature parity.
 
 ## 4. Scope
@@ -150,7 +157,7 @@ LevelConfig + ordered Action[] -> ScheduleState
   duration.
 - `PlaceOperationAction`: append one operation at the owning rank's earliest
   legal frontier.
-- `InsertIdleAction`: append an intentional idle interval to one rank.
+- `InsertIdleAction`: append exactly one tick of intentional idle to one rank.
 - `Action`: the discriminated union of those commands.
 - `Placement`: operation plus rank and half-open interval `[start, end)`.
 - `ScheduleState`: placements, rank frontiers, completed dependencies, live
@@ -158,13 +165,18 @@ LevelConfig + ordered Action[] -> ScheduleState
   history.
 - `LegalMove`: an operation, earliest placement, dependencies satisfied, and
   projected memory consequence.
-- `BlockedMove`: an operation plus one or more typed blocker reasons.
+- `BlockedMove`: an operation plus one or more typed blocker reasons, including
+  dependency-not-finished and memory-cap admission failure.
 - `Score`: makespan, total work, bubble ratio, intentional idle, current memory,
   and per-rank and global peak activation memory.
 - `MasteryTarget`: a named metric, comparison operator, threshold, and displayed
   accounting explanation.
 - `LevelConfig`: topology, microbatch count, operation durations, optional
   per-rank memory caps, goals, mastery targets, and coaching capabilities.
+
+For V1, topology is one-to-one and order preserving: logical stage `s` is owned
+by physical rank `s`, and `stageCount === rankCount`. Every level configuration
+must satisfy that invariant. Multiple or virtual stages per rank are deferred.
 
 ### 6.2 Command path
 
@@ -196,12 +208,16 @@ For a stage `s` and microbatch `m`:
 - An operation runs only on its owning rank and only after that rank's frontier.
 - `F(s,m)` acquires one activation unit when the forward placement finishes.
 - `B(s,m)` releases that activation when the backward placement finishes.
-- A move that would exceed the owning rank's memory cap is blocked even when its
-  data dependencies are satisfied.
+- A forward move is admissible on rank `r` exactly when activation units from
+  other live forwards at its completion, plus this move's one new unit, are less
+  than or equal to `cap(r)`. Otherwise it is memory-blocked even when its data
+  dependencies are satisfied.
 
 Memory is derived from timestamped placement-completion events, not from the
-order in which actions happened to be appended across different ranks. Events at
-the same timestamp apply releases before acquisitions for cap accounting.
+order in which actions happened to be appended across different ranks. V1 caps
+are per-rank and each rank is serial, so acquisition and release events on one
+rank never collide at the same timestamp; no cross-rank tie-break affects
+admission.
 
 Time is discrete. Placements occupy half-open intervals. The primary model uses
 `F = 1` and `B = 2`, so backward blocks are visibly and numerically twice the
@@ -221,6 +237,8 @@ measured hardware ratio.
 
 The UI always displays the accounting boundary with the value. Targets refer to
 these definitions directly; the game never uses an unexplained aggregate score.
+Dependency-forced gaps and memory-blocked selections do not contribute to
+`intentionalIdle`; only explicit one-tick `InsertIdleAction`s do.
 
 ## 7. Four-level curriculum
 
@@ -294,13 +312,20 @@ disabled control with no explanation. Tile width previews modeled duration, so
 - Label and shape identify `F` versus `B`.
 - Horizontal width means compute duration.
 - Outline or glow means selected, ready, dependency-related, or critical.
-- Empty intervals are diagnosed as forced or intentional idle.
+- Empty intervals are diagnosed as dependency-forced or intentional idle.
+- Dependency-ready operations rejected by memory admission are shown as
+  memory-blocked; memory blocking is a move state, not automatically an elapsed
+  interval.
 - A thin aligned strip shows activation memory over time for each rank.
 
-A forced gap is created implicitly when an operation's earliest dependency-safe
-start is later than its rank frontier. It is not stored as an action. A learner
-creates intentional idle through a rank-local **wait one tick** control at that
-rank's frontier; repeated waits remain separate replayable actions.
+A dependency-forced gap is created implicitly when a placed operation's earliest
+dependency-safe start is later than its rank frontier. It is not stored as an
+action. A learner creates intentional idle through a rank-local **wait one tick**
+control at that rank's frontier; every invocation emits one `InsertIdleAction`,
+and repeated waits remain separate replayable actions. An incomplete attempt
+with no legal operation is deadlocked; it is diagnosed as memory deadlock when
+at least one dependency-ready operation is memory-blocked. That is a terminal
+attempt state, not a time interval that would eventually unblock itself.
 
 SVG owns geometry and overlays. Accessible HTML descriptions expose the same
 state without requiring visual inspection.
@@ -355,19 +380,24 @@ does not infer legality from the rendered board.
 
 ### 10.2 Interesting boundaries
 
-Automation stops before:
+At each step, automation computes `earliestStart` for every legal operation and
+finds the minimum. It may continue only when exactly one legal operation has that
+minimum and placing it starts at its rank's current frontier. This predicate is a
+pure function of `ScheduleState`. Automation stops before:
 
-- two or more materially different legal choices;
-- unavoidable idle;
-- a memory-cap boundary;
-- completion; or
-- mastery.
+- two or more legal operations share the minimum `earliestStart`;
+- the unique earliest operation would introduce a dependency-forced gap;
+- at least one dependency-ready operation is memory-blocked; or
+- the next placement would complete the schedule.
 
 It also stops with a diagnostic result if no operation can progress and the
 schedule is incomplete. Every automated step places exactly one previously
 unplaced operation; forced gaps are derived from that placement and automation
 never inserts learner wait actions. Iteration is therefore bounded by the number
-of remaining operations.
+of remaining operations. A memory deadlock is an expected, undo-recoverable
+attempt outcome; automation reports it with the actions that must be reconsidered
+rather than treating it as an engine failure. Mastery is evaluated after
+completion and therefore does not require a separate pre-placement stop.
 
 Suggestions describe the local trade-off; they do not claim global optimality.
 
@@ -386,10 +416,22 @@ attempt. A compact URL payload reproduces one level and action sequence. On load
 the engine replays actions and recomputes truth; persisted score summaries are
 never trusted over replay.
 
+Within each category, attempts are ranked lexicographically by lower makespan,
+then lower peak activation memory, then lower intentional idle, then fewer
+actions. The UI displays this tuple whenever it labels an attempt “best”; there
+is no hidden weighted aggregate.
+
 Unknown versions, malformed payloads, invalid level identifiers, and inconsistent
 actions yield an explicit recovery message. Bad URL state does not overwrite
 valid local progress. Replay identifies the first inconsistent action index and
 typed reason.
+
+An attempt whose `level-definition version` differs from the current level is
+historical and is never replayed against the new definition automatically. It is
+retained for export, excluded from current best-attempt ranking, and accompanied
+by a restart notice. Explicit migrations may translate a named old version to a
+new action log; the migrated log must pass normal replay before it replaces
+the historical record or enters current ranking.
 
 ## 12. Visual identity and accessibility
 
@@ -415,6 +457,8 @@ labels or controls.
 - Invalid level definitions fail validation before a level opens.
 - Replay stops at the first inconsistent action and reports its index and reason.
 - Policy deadlock becomes a diagnostic state rather than an infinite loop.
+- Memory deadlock is presented as a recoverable attempt outcome with undo and
+  reset actions, not as a crashed engine.
 - Malformed persisted state is quarantined from valid local progress.
 - A React error boundary shows a recoverable shell and preserves the serialized
   active attempt where possible.
@@ -434,7 +478,8 @@ labels or controls.
 - `F = 1`, `B = 2` duration and half-open placement;
 - activation acquisition, release, admission, and peak tracking;
 - ready and blocked classification with multiple reasons;
-- forced versus intentional idle;
+- dependency-forced versus intentional idle;
+- dependency-forced gaps, memory-blocked moves, and memory deadlock;
 - completion, mastery, and score accounting; and
 - invalid configuration and malformed replay diagnostics.
 
@@ -456,7 +501,8 @@ Every level has at least:
 - one legal, non-mastered action log;
 - one mastered action log;
 - expected makespan, bubble, intentional idle, and memory metrics; and
-- expected assistance unlocks and interesting-boundary stops.
+- expected assistance unlocks and interesting-boundary stops; and
+- expected best-attempt ranking tuples and level-version handling where relevant.
 
 Golden fixtures are original Sensei artifacts and are independently checked by
 the engine.
@@ -484,7 +530,8 @@ the engine.
 - responsive checks at desktop, 764-pixel IDE, and narrow mobile widths;
 - unique DOM/SVG identifiers and reduced-motion verification; and
 - clean-room audit for copied upstream code, text, styling, fixtures, screenshots,
-  or assets.
+  or assets; the audit permits domain concepts and checks independent derivation
+  of the concrete level and presentation artifacts.
 
 ## 15. Acceptance criteria
 
@@ -494,7 +541,7 @@ V1 is complete when:
    or keyboard input;
 2. the engine and UI consistently render and score `F = 1`, `B = 2`;
 3. illegal moves expose structured, causal explanations;
-4. memory-ready versus dependency-ready distinctions are visible in level 4;
+4. dependency-ready but memory-blocked operations are visible in level 4;
 5. suggestions choose only legal work and `run until interesting` stops at every
    specified boundary;
 6. legal/mastery progress and best attempts survive reload and replay exactly;
