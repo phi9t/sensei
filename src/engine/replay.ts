@@ -118,9 +118,11 @@ function computeCurrentMemory(
 function cloneConfig(config: LevelConfig): LevelConfig {
   const cloned: LevelConfig = {
     ...config,
-    durations: { ...config.durations },
-    masteryTargets: config.masteryTargets ? config.masteryTargets.map((t) => ({ ...t })) : [],
-    coaching: { ...config.coaching },
+    durations: Object.freeze({ ...config.durations }),
+    masteryTargets: config.masteryTargets
+      ? Object.freeze(config.masteryTargets.map((t) => Object.freeze({ ...t })))
+      : Object.freeze([]),
+    coaching: Object.freeze({ ...config.coaching }),
   };
   if (config.memoryCaps) {
     cloned.memoryCaps = Object.freeze([...config.memoryCaps]);

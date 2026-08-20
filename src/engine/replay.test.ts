@@ -468,6 +468,65 @@ describe('immutability at caller boundaries', () => {
       expect(Object.isFrozen(state.config.memoryCaps)).toBe(true);
     }
   });
+
+  it('durations object is frozen in returned config', () => {
+    const state = initialState(makeConfig());
+    expect(Object.isFrozen(state.config.durations)).toBe(true);
+  });
+
+  it('coaching object is frozen in returned config', () => {
+    const state = initialState(makeConfig());
+    expect(Object.isFrozen(state.config.coaching)).toBe(true);
+  });
+
+  it('masteryTargets array is frozen in returned config', () => {
+    const config = makeConfig({
+      masteryTargets: [{ metric: 'makespan', op: '<=', value: 100 }],
+    });
+    const state = initialState(config);
+    expect(Object.isFrozen(state.config.masteryTargets)).toBe(true);
+  });
+
+  it('masteryTargets element objects are frozen in returned config', () => {
+    const config = makeConfig({
+      masteryTargets: [{ metric: 'makespan', op: '<=', value: 100 }],
+    });
+    const state = initialState(config);
+    for (const target of state.config.masteryTargets) {
+      expect(Object.isFrozen(target)).toBe(true);
+    }
+  });
+
+  it('durations mutation attempt does not affect returned state.config', () => {
+    const durations = { F: 1, B: 2 };
+    const config = makeConfig({ durations });
+    const state = initialState(config);
+    durations.F = 999;
+    expect(state.config.durations.F).toBe(1);
+    durations.B = 888;
+    expect(state.config.durations.B).toBe(2);
+  });
+
+  it('coaching mutation attempt does not affect returned state.config', () => {
+    const coaching = { readySet: true, suggest: false, auto: false };
+    const config = makeConfig({ coaching });
+    const state = initialState(config);
+    coaching.readySet = false;
+    expect(state.config.coaching.readySet).toBe(true);
+    coaching.suggest = true;
+    expect(state.config.coaching.suggest).toBe(false);
+  });
+
+  it('masteryTargets mutation attempt does not affect returned state.config', () => {
+    const targets = [{ metric: 'makespan' as const, op: '<=' as const, value: 100 }];
+    const config = makeConfig({ masteryTargets: targets });
+    const state = initialState(config);
+    targets[0]!.value = 999;
+    expect(state.config.masteryTargets[0]!.value).toBe(100);
+    const newTarget = { metric: 'bubbleRatio' as const, op: '<=' as const, value: 50 };
+    targets.push(newTarget as unknown as Parameters<typeof targets.push>[0]);
+    expect(state.config.masteryTargets.length).toBe(1);
+  });
 });
 
 describe('unknown OperationId handling', () => {
