@@ -1,7 +1,12 @@
 import fc from 'fast-check';
 import type { Action, LevelConfig, OperationId, PlaceOperationAction } from '../engine/types';
 import { applyAction, classifyMoves, initialState } from '../engine/replay';
-import type { MoveClassification, ReplayResult, ScheduleState } from '../engine/replay';
+import type {
+  ApplyResult,
+  MoveClassification,
+  ReplayResult,
+  ScheduleState,
+} from '../engine/replay';
 
 export function makeConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
   return {
@@ -26,6 +31,13 @@ export function placeIds(...operationIds: OperationId[]): PlaceOperationAction[]
 export function expectState(result: ReplayResult): ScheduleState {
   if (!result.ok) {
     throw new Error(`replay failed at action ${result.index}: ${result.reason.kind}`);
+  }
+  return result.state;
+}
+
+export function expectApplied(result: ApplyResult): ScheduleState {
+  if (!result.ok) {
+    throw new Error(result.reason.kind);
   }
   return result.state;
 }

@@ -8,8 +8,10 @@ import {
   type MoveClassification,
 } from './replay';
 import { score } from './score';
-import type { Action, LevelConfig } from './types';
+import type { Action, LevelConfig, PlaceOperationAction } from './types';
 import { legalReplayArbitrary, makeConfig } from '../test/factories';
+import { classifyOperation } from './replay';
+import { runUntilInteresting } from '../coaching/coaching';
 
 const PROPERTY_RUNS = 150;
 const MAX_WAIT_ACTIONS = 12;
@@ -247,6 +249,49 @@ describe('engine properties', () => {
         expect(result.state.placements.map((placement) => placement.operationId).sort()).toEqual(
           result.state.operations.map((operation) => operation.id).sort(),
         );
+      }),
+      { numRuns: PROPERTY_RUNS, verbose: 1 },
+    );
+  });
+
+  it('automation only applies legal unique place actions, replays to the returned state, and does not mutate input', () => {
+    fc.assert(
+      fc.property(legalReplayArbitrary, ({ config, actions }) => {
+        const replayResult = replay(config, actions);
+        expect(replayResult.ok).toBe(true);
+        if (!replayResult.ok) {
+          return;
+        }
+        const { state } = replayResult;
+
+        const snapshot = JSON.parse(JSON.stringify(state));
+        const initialRemaining = state.operations.length - state.placements.length;
+
+        const result = runUntilInteresting(state);
+
+        expect(result.applied.every((action) => action.type === 'place')).toBe(true);
+
+        const appliedIds = result.applied.map((a) => (a as PlaceOperationAction).operationId);
+        expect(new Set(appliedIds).size).toBe(appliedIds.length);
+
+        for (const action of result.applied) {
+          if (action.type === 'place') {
+            const classification = classifyOperation(result.state, action.operationId);
+            expect(classification.status === 'legal' || classification.status === 'completed').toBe(
+              true,
+            );
+          }
+        }
+
+        const replayed = replay(config, [...actions, ...result.applied]);
+        expect(replayed.ok).toBe(true);
+        if (replayed.ok) {
+          expect(replayed.state).toEqual(result.state);
+        }
+
+        expect(result.applied.length).toBeLessThanOrEqual(initialRemaining);
+
+        expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
       }),
       { numRuns: PROPERTY_RUNS, verbose: 1 },
     );
