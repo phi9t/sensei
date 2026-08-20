@@ -9,7 +9,7 @@ import {
 } from './replay';
 import { score } from './score';
 import type { Action, LevelConfig, PlaceOperationAction } from './types';
-import { legalReplayArbitrary, makeConfig } from '../test/factories';
+import { expectApplied, legalReplayArbitrary, makeConfig } from '../test/factories';
 import { classifyOperation } from './replay';
 import { runUntilInteresting } from '../coaching/coaching';
 
@@ -274,13 +274,17 @@ describe('engine properties', () => {
         const appliedIds = result.applied.map((a) => (a as PlaceOperationAction).operationId);
         expect(new Set(appliedIds).size).toBe(appliedIds.length);
 
+        let cursor = state;
         for (const action of result.applied) {
-          if (action.type === 'place') {
-            const classification = classifyOperation(result.state, action.operationId);
-            expect(classification.status === 'legal' || classification.status === 'completed').toBe(
-              true,
-            );
+          expect(action.type).toBe('place');
+          expect(Object.isFrozen(action)).toBe(true);
+          if (action.type !== 'place') {
+            continue;
           }
+
+          const classification = classifyOperation(cursor, action.operationId);
+          expect(classification.status).toBe('legal');
+          cursor = expectApplied(applyAction(cursor, action));
         }
 
         const replayed = replay(config, [...actions, ...result.applied]);
@@ -288,6 +292,7 @@ describe('engine properties', () => {
         if (replayed.ok) {
           expect(replayed.state).toEqual(result.state);
         }
+        expect(cursor).toEqual(result.state);
 
         expect(result.applied.length).toBeLessThanOrEqual(initialRemaining);
 

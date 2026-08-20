@@ -1,6 +1,7 @@
 import {
   classifyOperation,
   classifyMoves,
+  type BlockReason,
   type MoveClassification,
   type ScheduleState,
 } from '../engine/replay';
@@ -12,7 +13,7 @@ export type StopReason =
   | { kind: 'choice'; operationIds: readonly OperationId[]; earliestStart: number }
   | { kind: 'dependency-gap'; operationId: OperationId; start: number; rankFrontier: number }
   | { kind: 'memory-boundary'; operationIds: readonly OperationId[] }
-  | { kind: 'would-complete'; operationId: OperationId }
+  | { kind: 'would-complete'; operationId?: OperationId }
   | { kind: 'memory-deadlock' }
   | { kind: 'deadlock' };
 
@@ -55,8 +56,22 @@ export type ExplanationResult =
 
 export interface ExplanationEntry {
   kind: string;
-  reason: { kind: string; [key: string]: unknown };
+  reason: BlockReason;
   message: string;
+}
+
+function compareLegalMoves(
+  a: Extract<MoveClassification, { status: 'legal' }>,
+  b: Extract<MoveClassification, { status: 'legal' }>,
+): number {
+  if (a.earliestStart !== b.earliestStart) {
+    return a.earliestStart - b.earliestStart;
+  }
+  return a.operation.id.localeCompare(b.operation.id);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled block reason: ${JSON.stringify(value)}`);
 }
 
 function getLegal(
@@ -71,10 +86,7 @@ function getLegal(
 
 export function revealReadySet(state: ScheduleState): readonly ReadyEntry[] {
   const legal = getLegal(state);
-  const sorted = [...legal].sort((a, b) => {
-    if (a.earliestStart !== b.earliestStart) return a.earliestStart - b.earliestStart;
-    return a.operation.id.localeCompare(b.operation.id);
-  });
+  const sorted = [...legal].sort(compareLegalMoves);
   return Object.freeze(
     sorted.map((m) =>
       Object.freeze({
@@ -90,10 +102,7 @@ export function suggestMove(state: ScheduleState): Suggestion | null {
   const legal = getLegal(state);
   if (legal.length === 0) return null;
 
-  const sorted = [...legal].sort((a, b) => {
-    if (a.earliestStart !== b.earliestStart) return a.earliestStart - b.earliestStart;
-    return a.operation.id.localeCompare(b.operation.id);
-  });
+  const sorted = [...legal].sort(compareLegalMoves);
 
   const first = sorted[0]!;
   const parsed = parseOperationId(first.operation.id);
@@ -112,29 +121,22 @@ export function suggestMove(state: ScheduleState): Suggestion | null {
   });
 }
 
-function formatBlockMessage(reason: { kind: string; [key: string]: unknown }): string {
+function formatBlockMessage(reason: BlockReason): string {
   switch (reason.kind) {
     case 'dependency-not-finished': {
-      const opId = reason.operationId as string;
-      return `Needs ${opId} to finish first.`;
+      return `Needs ${reason.operationId} to finish first.`;
     }
     case 'memory-cap': {
-      const rank = reason.rank as number;
-      const resident = reason.resident as number;
-      const cap = reason.cap as number;
-      return `Rank ${rank} is at memory cap ${resident}/${cap} and cannot place another forward activation.`;
+      return `Rank ${reason.rank} is at memory cap ${reason.resident}/${reason.cap} and cannot place another forward activation.`;
     }
     case 'already-placed': {
-      const opId = reason.operationId as string;
-      return `${opId} is already placed.`;
+      return `${reason.operationId} is already placed.`;
     }
     case 'invalid-rank': {
-      const rank = reason.rank as number;
-      return `Rank ${rank} is invalid.`;
+      return `Rank ${reason.rank} is invalid.`;
     }
-    default:
-      return `Blocked: ${reason.kind}`;
   }
+  return assertNever(reason);
 }
 
 export function explainBlockedMove(
@@ -165,7 +167,7 @@ export function explainBlockedMove(
       Object.freeze({
         kind: reason.kind,
         reason: Object.freeze({ ...reason }),
-        message: formatBlockMessage(reason as unknown as { kind: string; [key: string]: unknown }),
+        message: formatBlockMessage(reason),
       }),
     ),
   );
@@ -182,6 +184,14 @@ export function runUntilInteresting(state: ScheduleState): CoachingResult {
   const applied: Action[] = [];
   const initialRemaining = state.operations.length - state.placements.length;
 
+  if (initialRemaining === 0) {
+    return Object.freeze({
+      state: currentState,
+      applied: Object.freeze([...applied]),
+      stop: Object.freeze({ kind: 'would-complete' }),
+    });
+  }
+
   for (let guard = 0; guard < initialRemaining; guard++) {
     const legal = getLegal(currentState);
     const blockedMap = getBlockedWithMemoryCap(currentState);
@@ -194,7 +204,7 @@ export function runUntilInteresting(state: ScheduleState): CoachingResult {
       return Object.freeze({
         state: currentState,
         applied: Object.freeze([...applied]),
-        stop: Object.freeze({ kind: 'would-complete', operationId: '' as OperationId }),
+        stop: Object.freeze({ kind: 'would-complete' }),
       });
     }
 
@@ -215,17 +225,14 @@ export function runUntilInteresting(state: ScheduleState): CoachingResult {
       });
     }
 
-    // Check if all operations are legal (would-complete on last unplaced)
-    if (legal.length === unplaced) {
-      const sorted = [...legal].sort((a, b) => {
-        if (a.earliestStart !== b.earliestStart) return a.earliestStart - b.earliestStart;
-        return a.operation.id.localeCompare(b.operation.id);
-      });
-      const last = sorted[sorted.length - 1]!;
+    if (unplaced === 1) {
       return Object.freeze({
         state: currentState,
         applied: Object.freeze([...applied]),
-        stop: Object.freeze({ kind: 'would-complete', operationId: last.operation.id }),
+        stop: Object.freeze({
+          kind: 'would-complete',
+          operationId: legal[0]!.operation.id,
+        }),
       });
     }
 
@@ -242,10 +249,7 @@ export function runUntilInteresting(state: ScheduleState): CoachingResult {
       });
     }
 
-    const sortedLegal = [...legal].sort((a, b) => {
-      if (a.earliestStart !== b.earliestStart) return a.earliestStart - b.earliestStart;
-      return a.operation.id.localeCompare(b.operation.id);
-    });
+    const sortedLegal = [...legal].sort(compareLegalMoves);
 
     const minStart = sortedLegal[0]!.earliestStart;
     const atMinStart = sortedLegal.filter((m) => m.earliestStart === minStart);
@@ -281,21 +285,9 @@ export function runUntilInteresting(state: ScheduleState): CoachingResult {
       });
     }
 
-    // Would-complete: unique min is the last unplaced operation
-    if (legal.length === unplaced) {
-      return Object.freeze({
-        state: currentState,
-        applied: Object.freeze([...applied]),
-        stop: Object.freeze({
-          kind: 'would-complete',
-          operationId: singleMin.operation.id,
-        }),
-      });
-    }
-
     // Otherwise, apply the first sorted legal move and loop
     const first = sortedLegal[0]!;
-    const action: Action = { type: 'place', operationId: first.operation.id };
+    const action: Action = Object.freeze({ type: 'place', operationId: first.operation.id });
     const result = applyAction(currentState, action);
     if (!result.ok) {
       return Object.freeze({

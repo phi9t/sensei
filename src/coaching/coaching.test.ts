@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { explainBlockedMove, revealReadySet, runUntilInteresting, suggestMove } from './coaching';
 import { applyAction, classifyOperation, replay } from '../engine/replay';
 import { getLevel } from '../levels/levels';
-import { expectApplied, expectState, placeIds } from '../test/factories';
+import { expectApplied, expectState, makeConfig, placeIds } from '../test/factories';
 
 describe('coaching', () => {
   it('stops when two legal operations share minimum earliestStart', () => {
@@ -16,6 +16,25 @@ describe('coaching', () => {
       stop: {
         kind: 'choice',
         operationIds: ['B:1:0', 'F:1:1'],
+        earliestStart: 2,
+      },
+    });
+  });
+
+  it('prefers choice over would-complete when all remaining legal operations share the minimum start', () => {
+    const config = makeConfig({
+      rankCount: 1,
+      stageCount: 1,
+      microbatchCount: 2,
+    });
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:0:1')));
+
+    expect(runUntilInteresting(state)).toEqual({
+      state,
+      applied: [],
+      stop: {
+        kind: 'choice',
+        operationIds: ['B:0:0', 'B:0:1'],
         earliestStart: 2,
       },
     });
@@ -174,6 +193,38 @@ describe('coaching', () => {
     expect(replayed).toEqual(automated.state);
   });
 
+  it('auto-applies a unique minimum legal tail and then stops at the actual would-complete boundary', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 2,
+      microbatchCount: 1,
+    });
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0')));
+    expect(state.operations.length - state.placements.length).toBe(2);
+
+    const result = runUntilInteresting(state);
+
+    expect(result).toEqual({
+      state: expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'B:1:0'))),
+      applied: Object.freeze([Object.freeze({ type: 'place', operationId: 'B:1:0' })]),
+      stop: Object.freeze({
+        kind: 'would-complete',
+        operationId: 'B:0:0',
+      }),
+    });
+
+    // Verify the applied action is frozen and replayable
+    expect(result.applied).toHaveLength(1);
+    const action = result.applied[0]!;
+    expect(Object.isFrozen(action)).toBe(true);
+    expect(action).toEqual({ type: 'place', operationId: 'B:1:0' });
+    expect(action.type).toBe('place');
+    const replayed = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'B:1:0')));
+    expect(replayed).toEqual(result.state);
+    expect(replayed.placements).toHaveLength(3);
+    expect(replayed.placementById['B:1:0']).toBeDefined();
+  });
+
   it('stops with would-complete before placing the final remaining operation', () => {
     const state = expectState(
       replay(getLevel('dependency-chain'), placeIds('F:0:0', 'F:1:0', 'B:1:0')),
@@ -187,6 +238,21 @@ describe('coaching', () => {
         operationId: 'B:0:0',
       },
     });
+  });
+
+  it('omits operationId when coaching is already complete', () => {
+    const state = expectState(
+      replay(getLevel('dependency-chain'), placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0')),
+    );
+
+    expect(runUntilInteresting(state)).toEqual({
+      state,
+      applied: [],
+      stop: {
+        kind: 'would-complete',
+      },
+    });
+    expect('operationId' in runUntilInteresting(state).stop).toBe(false);
   });
 
   it('returns frozen coaching structures', () => {
@@ -209,7 +275,29 @@ describe('coaching', () => {
     );
     expect(Object.isFrozen(automated)).toBe(true);
     expect(Object.isFrozen(automated.applied)).toBe(true);
+    expect(automated.applied.every((action) => Object.isFrozen(action))).toBe(true);
     expect(Object.isFrozen(automated.stop)).toBe(true);
+  });
+
+  it('returns nonempty applied actions that are frozen and sequentially legal', () => {
+    const start = expectState(replay(getLevel('dependency-chain'), []));
+    const automated = runUntilInteresting(start);
+
+    expect(automated.applied).toHaveLength(1);
+
+    let cursor = start;
+    for (const action of automated.applied) {
+      expect(action.type).toBe('place');
+      expect(Object.isFrozen(action)).toBe(true);
+      if (action.type !== 'place') {
+        continue;
+      }
+
+      expect(classifyOperation(cursor, action.operationId).status).toBe('legal');
+      cursor = expectApplied(applyAction(cursor, action));
+    }
+
+    expect(cursor).toEqual(automated.state);
   });
 
   it('does not mutate input state while computing coaching surfaces', () => {
