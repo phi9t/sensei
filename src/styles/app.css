@@ -57,6 +57,7 @@ a:focus-visible,
   gap: var(--space-4);
   padding: var(--space-4);
   max-width: 1500px;
+  min-width: 0;
   margin: 0 auto;
 }
 
@@ -115,11 +116,16 @@ a:focus-visible,
 .content-grid {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
   grid-template-columns: minmax(0, 2.3fr) minmax(20rem, 1fr);
   grid-template-areas:
     'tray tray'
     'board inspector'
     'metrics controls';
+}
+
+.content-grid > * {
+  min-width: 0;
 }
 
 .tray-panel {
@@ -367,6 +373,16 @@ a:focus-visible,
 @media (max-width: 764px) {
   .app-shell {
     padding: var(--space-3);
+  }
+
+  .hero-panel__topline {
+    flex-wrap: wrap;
+  }
+
+  .hero-panel__topline > *,
+  .hero-panel select {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .board-scroll-region {
