@@ -1,10 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../app/App';
+import * as replayModule from '../engine/replay';
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+  vi.restoreAllMocks();
 });
 
 async function tabUntil(
@@ -43,6 +49,39 @@ describe('Game shell', () => {
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/F:0:0/)).toBeInTheDocument();
     expect(within(inspector).getByText(/B:1:0/)).toBeInTheDocument();
+  });
+
+  it('surfaces legal-then-rejected engine inconsistencies instead of overlaying them', async () => {
+    const user = userEvent.setup();
+    const actualApplyAction = replayModule.applyAction;
+    const applyActionSpy = vi
+      .spyOn(replayModule, 'applyAction')
+      .mockImplementation((state, action) => {
+        if (action.type === 'place' && action.operationId === 'F:0:0') {
+          return {
+            ok: false,
+            action,
+            reason: { kind: 'dependency-not-finished', operationId: 'F:1:0' },
+          };
+        }
+        return actualApplyAction(state, action);
+      });
+
+    render(<App initialLevelId="dependency-chain" />);
+
+    const blocked = screen.getByRole('button', {
+      name: /place B stage 0 microbatch 0/i,
+    });
+    await user.click(blocked);
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /blocked by 2 blockers/i,
+    );
+
+    await expect(
+      user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i })),
+    ).rejects.toThrow(/Engine inconsistency while placing F:0:0: dependency-not-finished/);
+
+    expect(applyActionSpy).toHaveBeenCalled();
   });
 
   it('renders forward and backward duration geometry at a 1:2 ratio before placement', () => {

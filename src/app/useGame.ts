@@ -195,13 +195,9 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
       const action: Action = { type: 'place', operationId };
       const applied = applyAction(currentSchedule, action);
       if (!applied.ok) {
-        return {
-          ...current,
-          selectedOperationId: operationId,
-          overlay: {
-            message: `${formatOperationName(operationId)} could not be placed: ${applied.reason.kind}.`,
-          },
-        };
+        throw new Error(
+          `Engine inconsistency while placing ${operationId}: ${applied.reason.kind}`,
+        );
       }
 
       const nextActions = [...prefix, action];
