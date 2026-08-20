@@ -73,19 +73,18 @@ docs/clean-room-audit.md             concrete independent-derivation receipt
 Use these independently specified values throughout the plan. Operation IDs use
 `F:<stage>:<microbatch>` and `B:<stage>:<microbatch>`.
 
-| Level               | Ranks | Microbatches | Cap       | Mastered makespan | Bubble | Peak memory |
-| ------------------- | ----: | -----------: | --------- | ----------------: | -----: | ----------- |
-| dependency-chain    |     2 |            1 | unbounded |                 6 |    0.5 | `[1,1]`     |
-| fill-the-pipe       |     2 |            3 | unbounded |                12 |   0.25 | `[3,3]`     |
-| backward-is-heavier |     3 |            3 | unbounded |                15 |    0.4 | `[3,3,3]`   |
-| memory-wall         |     3 |            4 | `[3,2,1]` |                18 |    1/3 | `[3,2,1]`   |
+| Level | Ranks | Microbatches | Cap | Mastered makespan | Bubble | Peak memory |
+|---|---:|---:|---|---:|---:|---|
+| dependency-chain | 2 | 1 | unbounded | 6 | 0.5 | `[1,1]` |
+| fill-the-pipe | 2 | 3 | unbounded | 12 | 0.25 | `[3,3]` |
+| backward-is-heavier | 3 | 3 | unbounded | 15 | 0.4 | `[3,3,3]` |
+| memory-wall | 3 | 4 | `[3,2,1]` | 18 | 1/3 | `[3,2,1]` |
 
 These values are executable contracts, not prose estimates.
 
 ### Task 1: Bootstrap the strict React/Vite test surface
 
 **Files:**
-
 - Create: `package.json`
 - Create: `package-lock.json`
 - Create: `index.html`
@@ -150,7 +149,7 @@ Create `package.json` with this exact public surface:
 }
 ```
 
-Run `npm install`. Use `npm install --legacy-peer-deps` for the initial install because typescript-eslint 8.67 pins `typescript >=4.8.4 <6.1.0` while Vite 8 and React 19 pull TypeScript 7 types transitively; the explicit `typescript: 6.0.3` pin is the newest version compatible with typescript-eslint 8.67.0. Add `@testing-library/dom: 10.4.0` explicitly because `@testing-library/jest-dom` requires it as a peer and `--legacy-peer-deps` will not satisfy the peer constraint automatically. Pin `jsdom: 29.0.1` because it supports Node >=24.0, matching the project baseline of Node 24.13; jsdom 30.x requires Node >=24.15 which is not yet available in this environment. Commit the generated `package-lock.json`; do not hand-edit it.
+Run `npm install`. Use `npm install --legacy-peer-deps` for the initial install because typescript-eslint 8.67 pins `typescript >=4.8.4 <6.1.0` while Vite 8 and React 19 pull TypeScript 7 types transitively; the explicit `typescript: 6.0.3` pin is the newest version compatible with typescript-eslint 8.67.0. Add `@testing-library/dom: 10.4.0` explicitly because `@testing-library/jest-dom` requires it as a peer and `--legacy-peer-deps` will not satisfy the peer constraint automatically. Commit the generated `package-lock.json`; do not hand-edit it. jsdom 29.0.1 pins Node >=24.13, which matches the project baseline; jsdom 30 requires Node >=24.15 and is intentionally avoided.
 Configure `vite.config.ts` with React, `jsdom`, `src/test/setup.ts`, and test
 includes `src/**/*.test.{ts,tsx}` plus `tests/**/*.{test,spec}.{ts,tsx,mjs}`. In
 `src/test/setup.ts`, import `@testing-library/jest-dom/vitest`. Set all
@@ -168,7 +167,9 @@ import { App } from './App';
 describe('App', () => {
   it('announces Sensei as a pipeline scheduling game', () => {
     render(<App />);
-    expect(screen.getByRole('heading', { name: /sensei pipeline scheduling/i })).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: /sensei pipeline scheduling/i }),
+    ).toBeInTheDocument();
   });
 });
 ```
@@ -213,7 +214,6 @@ git commit -m "build: bootstrap sensei web app"
 ### Task 2: Define and validate the scheduling domain
 
 **Files:**
-
 - Create: `src/engine/types.ts`
 - Create: `src/engine/config.ts`
 - Create: `src/engine/config.test.ts`
@@ -243,10 +243,8 @@ describe('operation inventory', () => {
   it('derives F=1 and B=2 operations and the forward/backward DAG', () => {
     const operations = deriveOperations(config);
     expect(operations.map((op) => [op.id, op.rank, op.duration])).toEqual([
-      ['F:0:0', 0, 1],
-      ['B:0:0', 0, 2],
-      ['F:1:0', 1, 1],
-      ['B:1:0', 1, 2],
+      ['F:0:0', 0, 1], ['B:0:0', 0, 2],
+      ['F:1:0', 1, 1], ['B:1:0', 1, 2],
     ]);
     expect(predecessorsOf('F:1:0', config)).toEqual(['F:0:0']);
     expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0']);
@@ -276,14 +274,8 @@ export interface Operation {
   microbatch: number;
   duration: number;
 }
-export interface PlaceOperationAction {
-  type: 'place';
-  operationId: OperationId;
-}
-export interface InsertIdleAction {
-  type: 'wait';
-  rank: number;
-}
+export interface PlaceOperationAction { type: 'place'; operationId: OperationId }
+export interface InsertIdleAction { type: 'wait'; rank: number }
 export type Action = PlaceOperationAction | InsertIdleAction;
 export interface MasteryTarget {
   metric: 'makespan' | 'bubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
@@ -291,15 +283,9 @@ export interface MasteryTarget {
   value: number;
 }
 export interface LevelConfig {
-  id: string;
-  version: number;
-  title: string;
-  rankCount: number;
-  stageCount: number;
-  microbatchCount: number;
-  durations: Record<OperationKind, number>;
-  memoryCaps: readonly number[] | null;
-  masteryTargets: readonly MasteryTarget[];
+  id: string; version: number; title: string; rankCount: number; stageCount: number;
+  microbatchCount: number; durations: Record<OperationKind, number>;
+  memoryCaps: readonly number[] | null; masteryTargets: readonly MasteryTarget[];
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
 }
 ```
@@ -313,14 +299,8 @@ Create the shared helpers at the same time:
 ```ts
 export function makeConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
   return {
-    id: 'test',
-    version: 1,
-    title: 'Test',
-    rankCount: 2,
-    stageCount: 2,
-    microbatchCount: 1,
-    durations: { F: 1, B: 2 },
-    memoryCaps: null,
+    id: 'test', version: 1, title: 'Test', rankCount: 2, stageCount: 2,
+    microbatchCount: 1, durations: { F: 1, B: 2 }, memoryCaps: null,
     masteryTargets: [],
     coaching: { readySet: true, suggest: false, auto: false },
     ...overrides,
@@ -349,7 +329,6 @@ git commit -m "feat: define pipeline scheduling domain"
 ### Task 3: Implement immutable replay, legality, gaps, and memory
 
 **Files:**
-
 - Create: `src/engine/replay.ts`
 - Create: `src/engine/replay.test.ts`
 - Modify: `src/test/factories.ts`
@@ -370,38 +349,29 @@ it('replays the dependency chain with a dependency-forced gap', () => {
   expect(result.ok).toBe(true);
   if (!result.ok) return;
   expect(result.state.placements.map((p) => [p.operationId, p.start, p.end])).toEqual([
-    ['F:0:0', 0, 1],
-    ['F:1:0', 1, 2],
-    ['B:1:0', 2, 4],
-    ['B:0:0', 4, 6],
+    ['F:0:0', 0, 1], ['F:1:0', 1, 2], ['B:1:0', 2, 4], ['B:0:0', 4, 6],
   ]);
-  expect(result.state.gaps).toContainEqual({
-    rank: 0,
-    start: 1,
-    end: 4,
-    kind: 'dependency-forced',
-  });
+  expect(result.state.gaps).toContainEqual({ rank: 0, start: 1, end: 4, kind: 'dependency-forced' });
 });
 
 it('keeps missing dependencies inspectable', () => {
   const state = initialState(config);
   expect(classifyOperation(state, 'B:0:0')).toMatchObject({
     status: 'blocked',
-    reasons: expect.arrayContaining([{ kind: 'dependency-not-finished', operationId: 'F:0:0' }]),
+    reasons: expect.arrayContaining([
+      { kind: 'dependency-not-finished', operationId: 'F:0:0' },
+    ]),
   });
 });
 
 it('blocks a forward whose completion would exceed its rank cap', () => {
   const capped = { ...config, microbatchCount: 3, memoryCaps: [2, 2] };
-  const state = expectState(
-    replay(capped, [
-      { type: 'place', operationId: 'F:0:0' },
-      { type: 'place', operationId: 'F:0:1' },
-    ]),
-  );
+  const state = expectState(replay(capped, [
+    { type: 'place', operationId: 'F:0:0' },
+    { type: 'place', operationId: 'F:0:1' },
+  ]));
   expect(classifyOperation(state, 'F:0:2')).toMatchObject({
-    status: 'blocked',
-    reasons: [{ kind: 'memory-cap', rank: 0, resident: 2, requested: 1, cap: 2 }],
+    status: 'blocked', reasons: [{ kind: 'memory-cap', rank: 0, resident: 2, requested: 1, cap: 2 }],
   });
 });
 
@@ -424,15 +394,10 @@ Expose exactly:
 
 ```ts
 export interface Placement {
-  operationId: OperationId;
-  rank: number;
-  start: number;
-  end: number;
+  operationId: OperationId; rank: number; start: number; end: number;
 }
 export interface Gap {
-  rank: number;
-  start: number;
-  end: number;
+  rank: number; start: number; end: number;
   kind: 'dependency-forced' | 'intentional';
 }
 export type BlockReason =
@@ -445,18 +410,14 @@ export type MoveClassification =
   | { status: 'blocked'; operation: Operation; reasons: readonly BlockReason[] }
   | { status: 'completed'; operation: Operation; placement: Placement };
 export interface ScheduleState {
-  config: LevelConfig;
-  operations: readonly Operation[];
-  placements: readonly Placement[];
+  config: LevelConfig; operations: readonly Operation[]; placements: readonly Placement[];
   placementById: Readonly<Partial<Record<OperationId, Placement>>>;
-  rankFrontiers: readonly number[];
-  currentMemory: readonly number[];
-  peakMemory: readonly number[];
-  gaps: readonly Gap[];
-  actions: readonly Action[];
+  rankFrontiers: readonly number[]; currentMemory: readonly number[];
+  peakMemory: readonly number[]; gaps: readonly Gap[]; actions: readonly Action[];
 }
 export type ApplyResult =
-  { ok: true; state: ScheduleState } | { ok: false; action: Action; reason: BlockReason };
+  | { ok: true; state: ScheduleState }
+  | { ok: false; action: Action; reason: BlockReason };
 export type ReplayResult =
   | { ok: true; state: ScheduleState }
   | { ok: false; index: number; action: Action; reason: BlockReason };
@@ -514,7 +475,6 @@ git commit -m "feat: add deterministic schedule replay"
 ### Task 4: Add scoring, mastery, ranking, and properties
 
 **Files:**
-
 - Create: `src/engine/score.ts`
 - Create: `src/engine/score.test.ts`
 - Create: `src/engine/properties.test.ts`
@@ -529,34 +489,24 @@ it('scores the mastered dependency chain', () => {
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
   });
-  const state = expectState(
-    replay(config, [
-      { type: 'place', operationId: 'F:0:0' },
-      { type: 'place', operationId: 'F:1:0' },
-      { type: 'place', operationId: 'B:1:0' },
-      { type: 'place', operationId: 'B:0:0' },
-    ]),
-  );
+  const state = expectState(replay(config, [
+    { type: 'place', operationId: 'F:0:0' },
+    { type: 'place', operationId: 'F:1:0' },
+    { type: 'place', operationId: 'B:1:0' },
+    { type: 'place', operationId: 'B:0:0' },
+  ]));
   expect(score(state)).toEqual({
-    makespan: 6,
-    totalWork: 6,
-    capacity: 12,
-    bubbleRatio: 0.5,
-    intentionalIdle: 0,
-    peakActivationMemoryByRank: [1, 1],
-    peakActivationMemory: 1,
-    complete: true,
-    mastered: true,
+    makespan: 6, totalWork: 6, capacity: 12, bubbleRatio: 0.5,
+    intentionalIdle: 0, peakActivationMemoryByRank: [1, 1],
+    peakActivationMemory: 1, complete: true, mastered: true,
   });
 });
 
 it('ranks attempts lexicographically without a hidden aggregate', () => {
-  expect(
-    compareAttempts(
-      { makespan: 18, peakActivationMemory: 3, intentionalIdle: 0, actionCount: 24 },
-      { makespan: 19, peakActivationMemory: 1, intentionalIdle: 0, actionCount: 24 },
-    ),
-  ).toBeLessThan(0);
+  expect(compareAttempts(
+    { makespan: 18, peakActivationMemory: 3, intentionalIdle: 0, actionCount: 24 },
+    { makespan: 19, peakActivationMemory: 1, intentionalIdle: 0, actionCount: 24 },
+  )).toBeLessThan(0);
 });
 ```
 
@@ -582,54 +532,47 @@ Use `fast-check` to generate `rankCount` 1–4, `microbatchCount` 1–4, optiona
 1–4, and legal prefixes selected from the current ready set. Assert:
 
 ```ts
-export const legalReplayArbitrary = fc
-  .record({
-    rankCount: fc.integer({ min: 1, max: 4 }),
-    microbatchCount: fc.integer({ min: 1, max: 4 }),
-    cap: fc.option(fc.integer({ min: 1, max: 4 }), { nil: null }),
-    choices: fc.array(fc.nat(), { maxLength: 64 }),
-  })
-  .map(({ rankCount, microbatchCount, cap, choices }) => {
-    const config = makeConfig({
-      rankCount,
-      stageCount: rankCount,
-      microbatchCount,
-      memoryCaps: cap === null ? null : Array(rankCount).fill(cap),
-    });
-    const actions: Action[] = [];
-    let state = initialState(config);
-    for (const choice of choices) {
-      const legal = classifyMoves(state).filter(
-        (move): move is Extract<MoveClassification, { status: 'legal' }> => move.status === 'legal',
-      );
-      if (legal.length === 0) break;
-      const selected = legal[choice % legal.length]!;
-      const action: Action = { type: 'place', operationId: selected.operation.id };
-      const result = applyAction(state, action);
-      if (!result.ok) throw new Error('classified legal move was rejected');
-      actions.push(action);
-      state = result.state;
-    }
-    return { config, actions };
+export const legalReplayArbitrary = fc.record({
+  rankCount: fc.integer({ min: 1, max: 4 }),
+  microbatchCount: fc.integer({ min: 1, max: 4 }),
+  cap: fc.option(fc.integer({ min: 1, max: 4 }), { nil: null }),
+  choices: fc.array(fc.nat(), { maxLength: 64 }),
+}).map(({ rankCount, microbatchCount, cap, choices }) => {
+  const config = makeConfig({
+    rankCount, stageCount: rankCount, microbatchCount,
+    memoryCaps: cap === null ? null : Array(rankCount).fill(cap),
   });
+  const actions: Action[] = [];
+  let state = initialState(config);
+  for (const choice of choices) {
+    const legal = classifyMoves(state).filter(
+      (move): move is Extract<MoveClassification, { status: 'legal' }> =>
+        move.status === 'legal',
+    );
+    if (legal.length === 0) break;
+    const selected = legal[choice % legal.length]!;
+    const action: Action = { type: 'place', operationId: selected.operation.id };
+    const result = applyAction(state, action);
+    if (!result.ok) throw new Error('classified legal move was rejected');
+    actions.push(action);
+    state = result.state;
+  }
+  return { config, actions };
+});
 
-fc.assert(
-  fc.property(legalReplayArbitrary, ({ config, actions }) => {
-    const first = replay(config, actions);
-    const second = replay(config, actions);
-    expect(second).toEqual(first);
-    if (!first.ok) return;
-    expect(
-      first.state.currentMemory.every(
-        (n, rank) => config.memoryCaps === null || n <= config.memoryCaps[rank]!,
-      ),
-    ).toBe(true);
-    const result = score(first.state);
-    expect(result.bubbleRatio).toBeGreaterThanOrEqual(0);
-    expect(result.bubbleRatio).toBeLessThanOrEqual(1);
-    expect(result.totalWork).toBeLessThanOrEqual(result.capacity);
-  }),
-);
+fc.assert(fc.property(legalReplayArbitrary, ({ config, actions }) => {
+  const first = replay(config, actions);
+  const second = replay(config, actions);
+  expect(second).toEqual(first);
+  if (!first.ok) return;
+  expect(first.state.currentMemory.every((n, rank) =>
+    config.memoryCaps === null || n <= config.memoryCaps[rank]!,
+  )).toBe(true);
+  const result = score(first.state);
+  expect(result.bubbleRatio).toBeGreaterThanOrEqual(0);
+  expect(result.bubbleRatio).toBeLessThanOrEqual(1);
+  expect(result.totalWork).toBeLessThanOrEqual(result.capacity);
+}));
 ```
 
 Keep `legalReplayArbitrary` in `src/test/factories.ts` so Task 6 can extend it.
@@ -653,7 +596,6 @@ git commit -m "feat: score and verify schedule attempts"
 ### Task 5: Encode four original levels and golden replays
 
 **Files:**
-
 - Create: `src/levels/levels.ts`
 - Create: `src/levels/fixtures.ts`
 - Create: `src/levels/levels.test.ts`
@@ -702,10 +644,7 @@ Define the public level identity and lookup surface exactly:
 
 ```ts
 export const LEVEL_IDS = [
-  'dependency-chain',
-  'fill-the-pipe',
-  'backward-is-heavier',
-  'memory-wall',
+  'dependency-chain', 'fill-the-pipe', 'backward-is-heavier', 'memory-wall',
 ] as const;
 export type LevelId = (typeof LEVEL_IDS)[number];
 export function getLevel(id: LevelId): LevelConfig;
@@ -717,66 +656,27 @@ The mastered logs are exactly:
 
 ```ts
 export const MASTERED_ACTIONS = {
-  'dependency-chain': placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0'),
+  'dependency-chain': placeIds(
+    'F:0:0', 'F:1:0', 'B:1:0', 'B:0:0',
+  ),
   'fill-the-pipe': placeIds(
-    'F:0:0',
-    'F:0:1',
-    'F:0:2',
-    'F:1:0',
-    'F:1:1',
-    'F:1:2',
-    'B:1:0',
-    'B:0:0',
-    'B:1:1',
-    'B:0:1',
-    'B:1:2',
-    'B:0:2',
+    'F:0:0', 'F:0:1', 'F:0:2',
+    'F:1:0', 'F:1:1', 'F:1:2',
+    'B:1:0', 'B:0:0', 'B:1:1', 'B:0:1', 'B:1:2', 'B:0:2',
   ),
   'backward-is-heavier': placeIds(
-    'F:0:0',
-    'F:0:1',
-    'F:0:2',
-    'F:1:0',
-    'F:1:1',
-    'F:1:2',
-    'F:2:0',
-    'F:2:1',
-    'F:2:2',
-    'B:2:0',
-    'B:1:0',
-    'B:0:0',
-    'B:2:1',
-    'B:1:1',
-    'B:0:1',
-    'B:2:2',
-    'B:1:2',
-    'B:0:2',
+    'F:0:0', 'F:0:1', 'F:0:2',
+    'F:1:0', 'F:1:1', 'F:1:2',
+    'F:2:0', 'F:2:1', 'F:2:2',
+    'B:2:0', 'B:1:0', 'B:0:0',
+    'B:2:1', 'B:1:1', 'B:0:1',
+    'B:2:2', 'B:1:2', 'B:0:2',
   ),
   'memory-wall': placeIds(
-    'F:0:0',
-    'F:0:1',
-    'F:0:2',
-    'F:1:0',
-    'F:1:1',
-    'F:2:0',
-    'B:2:0',
-    'B:1:0',
-    'B:0:0',
-    'F:0:3',
-    'F:1:2',
-    'F:2:1',
-    'B:2:1',
-    'B:1:1',
-    'B:0:1',
-    'F:1:3',
-    'F:2:2',
-    'B:2:2',
-    'B:1:2',
-    'B:0:2',
-    'F:2:3',
-    'B:2:3',
-    'B:1:3',
-    'B:0:3',
+    'F:0:0', 'F:0:1', 'F:0:2', 'F:1:0', 'F:1:1', 'F:2:0',
+    'B:2:0', 'B:1:0', 'B:0:0', 'F:0:3', 'F:1:2', 'F:2:1',
+    'B:2:1', 'B:1:1', 'B:0:1', 'F:1:3', 'F:2:2', 'B:2:2',
+    'B:1:2', 'B:0:2', 'F:2:3', 'B:2:3', 'B:1:3', 'B:0:3',
   ),
 } satisfies Record<LevelId, readonly Action[]>;
 ```
@@ -812,7 +712,6 @@ git commit -m "feat: add four pipeline learning levels"
 ### Task 6: Implement causal coaching and bounded automation
 
 **Files:**
-
 - Create: `src/coaching/coaching.ts`
 - Create: `src/coaching/coaching.test.ts`
 
@@ -823,16 +722,12 @@ boundary order:
 
 ```ts
 it('stops when two legal operations share minimum earliestStart', () => {
-  const state = expectState(
-    replay(getLevel('fill-the-pipe'), placeIds('F:0:0', 'F:0:1', 'F:0:2', 'F:1:0')),
-  );
+  const state = expectState(replay(getLevel('fill-the-pipe'), placeIds(
+    'F:0:0', 'F:0:1', 'F:0:2', 'F:1:0',
+  )));
   expect(runUntilInteresting(state)).toEqual({
-    state,
-    applied: [],
-    stop: {
-      kind: 'choice',
-      operationIds: ['B:1:0', 'F:1:1'],
-      earliestStart: 2,
+    state, applied: [], stop: {
+      kind: 'choice', operationIds: ['B:1:0', 'F:1:1'], earliestStart: 2,
     },
   });
 });
@@ -840,23 +735,23 @@ it('stops when two legal operations share minimum earliestStart', () => {
 it('stops before a dependency-forced gap', () => {
   const state = expectState(replay(getLevel('dependency-chain'), placeIds('F:0:0')));
   expect(runUntilInteresting(state).stop).toMatchObject({
-    kind: 'dependency-gap',
-    operationId: 'F:1:0',
-    start: 1,
-    rankFrontier: 0,
+    kind: 'dependency-gap', operationId: 'F:1:0', start: 1, rankFrontier: 0,
   });
 });
 
 it('stops when a dependency-ready operation is memory-blocked', () => {
-  const state = expectState(replay(getLevel('memory-wall'), placeIds('F:0:0', 'F:0:1', 'F:0:2')));
+  const state = expectState(replay(getLevel('memory-wall'), placeIds(
+    'F:0:0', 'F:0:1', 'F:0:2',
+  )));
   expect(runUntilInteresting(state).stop).toMatchObject({
-    kind: 'memory-boundary',
-    operationIds: ['F:0:3'],
+    kind: 'memory-boundary', operationIds: ['F:0:3'],
   });
 });
 
 it('never suggests a blocked move', () => {
-  const state = expectState(replay(getLevel('fill-the-pipe'), placeIds('F:0:0', 'F:0:1', 'F:1:0')));
+  const state = expectState(replay(getLevel('fill-the-pipe'), placeIds(
+    'F:0:0', 'F:0:1', 'F:1:0',
+  )));
   const suggestion = suggestMove(state);
   expect(suggestion).not.toBeNull();
   if (suggestion === null) return;
@@ -890,17 +785,15 @@ Run: `npm test -- src/coaching src/engine/properties.test.ts`
 Expected: PASS. Add this property to `src/engine/properties.test.ts`:
 
 ```ts
-fc.assert(
-  fc.property(legalReplayArbitrary, ({ config, actions }) => {
-    let cursor = expectState(replay(config, actions));
-    const automated = runUntilInteresting(cursor);
-    for (const action of automated.applied) {
-      const move = classifyOperation(cursor, action.operationId);
-      expect(move.status).toBe('legal');
-      cursor = expectApplied(applyAction(cursor, action));
-    }
-  }),
-);
+fc.assert(fc.property(legalReplayArbitrary, ({ config, actions }) => {
+  let cursor = expectState(replay(config, actions));
+  const automated = runUntilInteresting(cursor);
+  for (const action of automated.applied) {
+    const move = classifyOperation(cursor, action.operationId);
+    expect(move.status).toBe('legal');
+    cursor = expectApplied(applyAction(cursor, action));
+  }
+}));
 ```
 
 Add `expectApplied(result: ApplyResult): ScheduleState` beside `expectState` in
@@ -916,7 +809,6 @@ git commit -m "feat: add progressive schedule coaching"
 ### Task 7: Add versioned replay and best-attempt persistence
 
 **Files:**
-
 - Create: `src/persistence/codec.ts`
 - Create: `src/persistence/storage.ts`
 - Create: `tests/persistence.test.ts`
@@ -926,30 +818,17 @@ git commit -m "feat: add progressive schedule coaching"
 ```ts
 const actions = MASTERED_ACTIONS['dependency-chain'];
 const bestAttempt: StoredAttempt = {
-  levelId: 'dependency-chain',
-  levelVersion: 1,
-  actions,
+  levelId: 'dependency-chain', levelVersion: 1, actions,
   outcome: 'mastered',
   tuple: { makespan: 6, peakActivationMemory: 1, intentionalIdle: 0, actionCount: 4 },
 };
 
 it('decodes only matching level versions and replays truth', () => {
-  const encoded = encodeAttempt({
-    schemaVersion: 1,
-    levelId: 'dependency-chain',
-    levelVersion: 1,
-    actions,
-  });
+  const encoded = encodeAttempt({ schemaVersion: 1, levelId: 'dependency-chain', levelVersion: 1, actions });
   expect(decodeAttempt(encoded, getLevel)).toMatchObject({ ok: true, attempt: { actions } });
-  const historical = encodeAttempt({
-    schemaVersion: 1,
-    levelId: 'dependency-chain',
-    levelVersion: 0,
-    actions,
-  });
+  const historical = encodeAttempt({ schemaVersion: 1, levelId: 'dependency-chain', levelVersion: 0, actions });
   expect(decodeAttempt(historical, getLevel)).toMatchObject({
-    ok: false,
-    reason: 'historical-level-version',
+    ok: false, reason: 'historical-level-version',
   });
 });
 
@@ -994,22 +873,17 @@ level IDs plus optional best legal/mastered attempts per level. In the test,
 
 ```ts
 function memoryStorageWith(attempt: StoredAttempt): Storage {
-  const values = new Map<string, string>([
-    ['sensei.progress.v1', JSON.stringify(progressContaining(attempt))],
-  ]);
+  const values = new Map<string, string>([[
+    'sensei.progress.v1',
+    JSON.stringify(progressContaining(attempt)),
+  ]]);
   return {
-    get length() {
-      return values.size;
-    },
+    get length() { return values.size; },
     clear: () => values.clear(),
     getItem: (key) => values.get(key) ?? null,
     key: (index) => [...values.keys()][index] ?? null,
-    removeItem: (key) => {
-      values.delete(key);
-    },
-    setItem: (key, value) => {
-      values.set(key, value);
-    },
+    removeItem: (key) => { values.delete(key); },
+    setItem: (key, value) => { values.set(key, value); },
   };
 }
 ```
@@ -1033,7 +907,6 @@ git commit -m "feat: persist versioned schedule attempts"
 ### Task 8: Build the accessible game shell and operation workflow
 
 **Files:**
-
 - Create: `src/app/useGame.ts`
 - Modify: `src/app/App.tsx`
 - Create: `src/components/OperationTray.tsx`
@@ -1089,7 +962,9 @@ async function tabUntil(
     if (document.activeElement === target) return;
     await user.tab();
   }
-  throw new Error(`could not focus ${target.getAttribute('aria-label') ?? target.textContent}`);
+  throw new Error(
+    `could not focus ${target.getAttribute('aria-label') ?? target.textContent}`,
+  );
 }
 ```
 
@@ -1140,7 +1015,6 @@ git commit -m "feat: build accessible scheduling tabletop"
 ### Task 9: Connect progression, coaching, persistence, and all four levels
 
 **Files:**
-
 - Modify: `src/app/useGame.ts`
 - Modify: `src/app/App.tsx`
 - Modify: `src/components/GameControls.tsx`
@@ -1158,9 +1032,7 @@ match the level capability. Add an axe-core test:
 it('has no serious or critical axe violations', async () => {
   const { container } = render(<App initialLevelId="memory-wall" />);
   const results = await axe.run(container, { resultTypes: ['violations'] });
-  expect(
-    results.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? '')),
-  ).toEqual([]);
+  expect(results.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))).toEqual([]);
 });
 ```
 
@@ -1196,7 +1068,6 @@ git commit -m "feat: connect sensei learning progression"
 ### Task 10: Add native offline caching and failure recovery
 
 **Files:**
-
 - Create: `src/offline/register.ts`
 - Create: `scripts/generate-service-worker.mjs`
 - Create: `tests/offline.test.mjs`
@@ -1252,7 +1123,6 @@ git commit -m "feat: support atomic offline play"
 ### Task 11: Document, audit, and run the release gate
 
 **Files:**
-
 - Create: `README.md`
 - Create: `docs/clean-room-audit.md`
 - Modify: `package.json` only if a verified release command is incorrect
