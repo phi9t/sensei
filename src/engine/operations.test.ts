@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveOperations, predecessorsOf } from './operations';
+import { deriveOperations, parseOperationId, predecessorsOf } from './operations';
 import type { OperationId } from './types';
 import { makeConfig } from '../test/factories';
 
@@ -36,6 +36,43 @@ describe('deriveOperations', () => {
     const ids = operations.map((op) => op.id);
     expect(ids).toEqual(['F:0:0', 'B:0:0', 'F:1:0', 'B:1:0', 'F:2:0', 'B:2:0']);
   });
+
+  it('freezes each operation and the operations array', () => {
+    const config = makeConfig();
+    const operations = deriveOperations(config);
+    expect(Object.isFrozen(operations)).toBe(true);
+    for (const op of operations) {
+      expect(Object.isFrozen(op)).toBe(true);
+    }
+  });
+
+  it('throws on invalid config before deriving operations', () => {
+    expect(() => deriveOperations({ ...makeConfig(), stageCount: 0 })).toThrow(
+      /stageCount must be/,
+    );
+  });
+});
+
+describe('parseOperationId', () => {
+  it('parses valid IDs', () => {
+    expect(parseOperationId('F:0:0')).toEqual({ kind: 'F', stage: 0, microbatch: 0 });
+    expect(parseOperationId('B:1:2')).toEqual({ kind: 'B', stage: 1, microbatch: 2 });
+    expect(parseOperationId('F:99:99')).toEqual({ kind: 'F', stage: 99, microbatch: 99 });
+  });
+
+  it('rejects leading-zero forms', () => {
+    expect(() => parseOperationId('F:01:0')).toThrow(/Invalid operation ID/);
+    expect(() => parseOperationId('F:0:01')).toThrow(/Invalid operation ID/);
+    expect(() => parseOperationId('B:00:0')).toThrow(/Invalid operation ID/);
+    expect(() => parseOperationId('F:1:00')).toThrow(/Invalid operation ID/);
+  });
+
+  it('rejects malformed IDs', () => {
+    expect(() => parseOperationId('bad-id' as OperationId)).toThrow();
+    expect(() => parseOperationId('X:0:0' as OperationId)).toThrow();
+    expect(() => parseOperationId('F:0:' as OperationId)).toThrow();
+    expect(() => parseOperationId('F::0' as OperationId)).toThrow();
+  });
 });
 
 describe('predecessorsOf', () => {
@@ -58,21 +95,20 @@ describe('predecessorsOf', () => {
   });
 
   it('B:0:0 only depends on F:0:0 when it is the last stage', () => {
-    // With rankCount=1, B:0:0 depends only on F:0:0 (no next stage)
     const singleRank = makeConfig({ rankCount: 1, stageCount: 1 });
     expect(predecessorsOf('B:0:0', singleRank)).toEqual(['F:0:0']);
   });
 
+  it('B:1:1 under 3 stages/2 batches depends on [F:1:1, B:2:1]', () => {
+    const config3 = makeConfig({ rankCount: 3, stageCount: 3, microbatchCount: 2 });
+    expect(predecessorsOf('B:1:1', config3)).toEqual(['F:1:1', 'B:2:1']);
+  });
+
   it('produces deterministic order without duplicates', () => {
     const config3 = makeConfig({ rankCount: 3, stageCount: 3, microbatchCount: 2 });
-    // B:0:0 should have F:0:0, B:1:0 (no duplicates)
     const preds = predecessorsOf('B:0:0', config3);
     expect(new Set(preds).size).toBe(preds.length);
     expect(preds).toEqual(['F:0:0', 'B:1:0']);
-  });
-
-  it('validates operation ID format', () => {
-    expect(() => predecessorsOf('bad-id' as OperationId, config)).toThrow();
   });
 
   it('validates stage is within config bounds', () => {
@@ -81,5 +117,15 @@ describe('predecessorsOf', () => {
 
   it('validates microbatch is within config bounds', () => {
     expect(() => predecessorsOf('F:0:5' as OperationId, config)).toThrow();
+  });
+
+  it('mentions stageCount not rankCount in stage bounds error', () => {
+    expect(() => predecessorsOf('F:5:0' as OperationId, config)).toThrow(/stageCount/);
+  });
+
+  it('throws on invalid config before checking dependencies', () => {
+    expect(() => predecessorsOf('F:0:0', { ...makeConfig(), stageCount: 0 })).toThrow(
+      /stageCount must be/,
+    );
   });
 });

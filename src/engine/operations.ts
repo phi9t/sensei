@@ -1,31 +1,35 @@
 import type { LevelConfig, Operation, OperationId } from './types';
+import { validateLevelConfig } from './config';
 
 export function deriveOperations(config: LevelConfig): readonly Operation[] {
+  validateLevelConfig(config);
   const ops: Operation[] = [];
   const kinds = ['F', 'B'] as const;
   for (let stage = 0; stage < config.stageCount; stage++) {
     for (const kind of kinds) {
       for (let microbatch = 0; microbatch < config.microbatchCount; microbatch++) {
-        ops.push({
-          id: `${kind}:${stage}:${microbatch}`,
-          kind,
-          stage,
-          rank: stage,
-          microbatch,
-          duration: config.durations[kind],
-        });
+        ops.push(
+          Object.freeze({
+            id: `${kind}:${stage}:${microbatch}`,
+            kind,
+            stage,
+            rank: stage,
+            microbatch,
+            duration: config.durations[kind],
+          }),
+        );
       }
     }
   }
-  return ops;
+  return Object.freeze(ops);
 }
 
-function parseOperationId(id: OperationId): {
+export function parseOperationId(id: OperationId): {
   kind: 'F' | 'B';
   stage: number;
   microbatch: number;
 } {
-  const match = /^(F|B):(\d+):(\d+)$/.exec(id);
+  const match = /^(F|B):(0|[1-9]\d*):(0|[1-9]\d*)$/.exec(id);
   if (!match) {
     throw new Error(`Invalid operation ID: ${id}`);
   }
@@ -37,11 +41,12 @@ function parseOperationId(id: OperationId): {
 }
 
 export function predecessorsOf(id: OperationId, config: LevelConfig): readonly OperationId[] {
+  validateLevelConfig(config);
   const parsed = parseOperationId(id);
 
   if (parsed.stage < 0 || parsed.stage >= config.stageCount) {
     throw new Error(
-      `Operation ID ${id} stage ${parsed.stage} out of bounds for rankCount ${config.rankCount}`,
+      `Operation ID ${id} stage ${parsed.stage} out of bounds for stageCount ${config.stageCount}`,
     );
   }
   if (parsed.microbatch < 0 || parsed.microbatch >= config.microbatchCount) {
@@ -53,14 +58,11 @@ export function predecessorsOf(id: OperationId, config: LevelConfig): readonly O
   const result: OperationId[] = [];
 
   if (parsed.kind === 'F') {
-    // F(s,m) depends on F(s-1,m) unless s is first stage
     if (parsed.stage > 0) {
       result.push(`F:${parsed.stage - 1}:${parsed.microbatch}`);
     }
   } else {
-    // B(s,m) depends on F(s,m)
     result.push(`F:${parsed.stage}:${parsed.microbatch}`);
-    // B(s,m) also depends on B(s+1,m) unless s is last stage
     if (parsed.stage < config.stageCount - 1) {
       result.push(`B:${parsed.stage + 1}:${parsed.microbatch}`);
     }

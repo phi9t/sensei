@@ -1,20 +1,28 @@
 import type { LevelConfig } from './types';
 
+function isFinitePositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && Number.isFinite(value) && value > 0;
+}
+
+function isFinitePositive(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
 export function validateLevelConfig(config: LevelConfig): void {
-  if (config.rankCount <= 0) {
-    throw new Error('rankCount must be positive');
+  if (!isFinitePositiveInteger(config.rankCount)) {
+    throw new Error('rankCount must be a positive finite integer');
   }
-  if (config.stageCount <= 0) {
-    throw new Error('stageCount must be positive');
+  if (!isFinitePositiveInteger(config.stageCount)) {
+    throw new Error('stageCount must be a positive finite integer');
   }
-  if (config.microbatchCount <= 0) {
-    throw new Error('microbatchCount must be positive');
+  if (!isFinitePositiveInteger(config.microbatchCount)) {
+    throw new Error('microbatchCount must be a positive finite integer');
   }
-  if (config.durations.F <= 0) {
-    throw new Error('F duration must be positive');
+  if (!isFinitePositive(config.durations.F)) {
+    throw new Error('F duration must be a positive finite number');
   }
-  if (config.durations.B <= 0) {
-    throw new Error('B duration must be positive');
+  if (!isFinitePositive(config.durations.B)) {
+    throw new Error('B duration must be a positive finite number');
   }
   if (config.stageCount !== config.rankCount) {
     throw new Error('stageCount must equal rankCount');
@@ -24,8 +32,8 @@ export function validateLevelConfig(config: LevelConfig): void {
       throw new Error('memoryCaps length must equal rankCount');
     }
     for (const cap of config.memoryCaps) {
-      if (cap < 1) {
-        throw new Error('memoryCaps values must be positive');
+      if (!isFinitePositiveInteger(cap)) {
+        throw new Error('memoryCaps values must be positive finite integers');
       }
     }
   }
