@@ -172,6 +172,12 @@ describe('URL attempt codec', () => {
     if (!decoded.ok) expectDecodeReason(decoded, 'unexpected-key');
   });
 
+  it('treats attacker-shaped failure JSON as an ordinary invalid payload', () => {
+    const decoded = decodeAttempt(encodeUnknown({ ok: false, reason: 'boom' }), getLevel);
+
+    expect(decoded).toEqual({ ok: false, reason: 'unexpected-key' });
+  });
+
   it('returns historical-level-version with raw canonical payload and does not replay current config', () => {
     const payload: UrlAttemptPayload = {
       schemaVersion: 1,
@@ -362,6 +368,65 @@ describe('stored progress validation and recovery', () => {
     expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
   });
 
+  it('quarantines attacker-shaped failure JSON in stored best slots without throwing', () => {
+    const storage = memoryStorage(
+      JSON.stringify({
+        schemaVersion: 1,
+        unlockedLevelIds: ['dependency-chain'],
+        bestLegalAttempts: { 'dependency-chain': { ok: false, reason: 'boom' } },
+        bestMasteredAttempts: {},
+        historicalAttempts: [],
+      }),
+    );
+
+    expect(() => loadProgress(storage, '', getLevel)).not.toThrow();
+    const result = loadProgress(storage, '', getLevel);
+
+    expect(result.status).toBe('ok');
+    expect(result.recovery).toEqual({
+      kind: 'quarantined-storage',
+      reason: 'invalid-stored-attempt',
+    });
+    expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
+  });
+
+  it('quarantines spoofed historical and replay-blocked stored sentinels without throwing', () => {
+    const spoofedPayloads = [
+      {
+        schemaVersion: 1,
+        unlockedLevelIds: ['dependency-chain'],
+        bestLegalAttempts: {
+          'dependency-chain': { ok: false, reason: 'historical-level-version' },
+        },
+        bestMasteredAttempts: {},
+        historicalAttempts: [],
+      },
+      {
+        schemaVersion: 1,
+        unlockedLevelIds: ['dependency-chain'],
+        bestLegalAttempts: {
+          'dependency-chain': { ok: false, reason: 'replay-blocked' },
+        },
+        bestMasteredAttempts: {},
+        historicalAttempts: [],
+      },
+    ] as const;
+
+    for (const payload of spoofedPayloads) {
+      expect(deserializeProgress(JSON.stringify(payload), getLevel)).toEqual({
+        ok: false,
+        reason: 'invalid-stored-attempt',
+      });
+
+      const storage = memoryStorage(JSON.stringify(payload));
+      expect(() => loadProgress(storage, '', getLevel)).not.toThrow();
+      expect(loadProgress(storage, '', getLevel)).toMatchObject({
+        status: 'ok',
+        recovery: { kind: 'quarantined-storage', reason: 'invalid-stored-attempt' },
+      });
+    }
+  });
+
   it('rejects stored extra keys, duplicate slot entries, invalid actions, and stored action caps', () => {
     const level = getLevel('dependency-chain');
     const validAttempt = {
@@ -453,6 +518,28 @@ describe('stored progress validation and recovery', () => {
       expect(result.progress.bestLegalAttempts['dependency-chain']).toBeUndefined();
       expect(result.progress.historicalAttempts).toEqual([historical]);
     }
+  });
+
+  it('rejects current-version canonical payloads in historicalAttempts instead of dropping them', () => {
+    const payload = {
+      schemaVersion: 1,
+      unlockedLevelIds: ['dependency-chain'],
+      bestLegalAttempts: {},
+      bestMasteredAttempts: {},
+      historicalAttempts: [
+        {
+          schemaVersion: 1,
+          levelId: 'dependency-chain',
+          levelVersion: 1,
+          actions: MASTERED_ACTIONS['dependency-chain'],
+        },
+      ],
+    };
+
+    expect(deserializeProgress(JSON.stringify(payload), getLevel)).toEqual({
+      ok: false,
+      reason: 'invalid-stored-attempt',
+    });
   });
 
   it('loads valid URL for the session without overwriting local best progress', () => {
@@ -575,6 +662,26 @@ describe('stored progress validation and recovery', () => {
     expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
     expect(result.progress.bestLegalAttempts['dependency-chain']).toBeDefined();
     expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(result.progress));
+  });
+
+  it('returns session-only with frozen safe progress for invalid progress input without writing storage', () => {
+    const storage = memoryStorage();
+    const invalidProgress = {
+      unlockedLevelIds: ['not-a-level'],
+      bestLegalAttempts: {},
+      bestMasteredAttempts: {},
+      historicalAttempts: [] as UrlAttemptPayload[],
+    } as unknown as Parameters<typeof saveProgress>[1];
+
+    expect(() => saveProgress(storage, invalidProgress)).not.toThrow();
+    const result = saveProgress(storage, invalidProgress);
+
+    expect(result.status).toBe('session-only');
+    expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
+    expect(result.progress.bestLegalAttempts).toEqual({});
+    expect(Object.isFrozen(result.progress)).toBe(true);
+    expect(Object.isFrozen(result.progress.bestLegalAttempts)).toBe(true);
+    expect(storage.writes).toEqual([]);
   });
 });
 

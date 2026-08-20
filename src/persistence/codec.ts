@@ -78,12 +78,12 @@ export type DecodeAttemptFailure =
 export type DecodeAttemptResult = DecodeAttemptSuccess | DecodeAttemptFailure;
 export type { AttemptRankingTuple } from '../engine/score';
 
+type InternalDecodeResult<T> =
+  | { readonly kind: 'success'; readonly value: T }
+  | { readonly kind: 'failure'; readonly failure: DecodeAttemptFailure };
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isDecodeAttemptFailure(value: unknown): value is DecodeAttemptFailure {
-  return isObjectRecord(value) && value.ok === false && typeof value.reason === 'string';
 }
 
 function isFiniteInteger(value: unknown): value is number {
@@ -165,34 +165,42 @@ function freezeBlockReason(blockReason: BlockReason): BlockReason {
   }
 }
 
-function decodeUriComponent(encoded: string): string | DecodeAttemptFailure {
+function fail<T>(failure: DecodeAttemptFailure): InternalDecodeResult<T> {
+  return Object.freeze({ kind: 'failure', failure });
+}
+
+function succeed<T>(value: T): InternalDecodeResult<T> {
+  return Object.freeze({ kind: 'success', value });
+}
+
+function decodeUriComponent(encoded: string): InternalDecodeResult<string> {
   try {
-    return decodeURIComponent(encoded);
+    return succeed(decodeURIComponent(encoded));
   } catch {
-    return Object.freeze({ ok: false, reason: 'malformed-uri' });
+    return fail(Object.freeze({ ok: false, reason: 'malformed-uri' }));
   }
 }
 
-function parseJson(decoded: string): unknown | DecodeAttemptFailure {
+function parseJson(decoded: string): InternalDecodeResult<unknown> {
   try {
-    return JSON.parse(decoded);
+    return succeed(JSON.parse(decoded));
   } catch {
-    return Object.freeze({ ok: false, reason: 'malformed-json' });
+    return fail(Object.freeze({ ok: false, reason: 'malformed-json' }));
   }
 }
 
 function validateKnownLevel(
   rawLevelId: unknown,
   getLevel: GetLevel,
-): LevelConfig | DecodeAttemptFailure {
+): InternalDecodeResult<LevelConfig> {
   if (typeof rawLevelId !== 'string') {
-    return Object.freeze({ ok: false, reason: 'invalid-level-id' });
+    return fail(Object.freeze({ ok: false, reason: 'invalid-level-id' }));
   }
 
   try {
-    return getLevel(rawLevelId as LevelId);
+    return succeed(getLevel(rawLevelId as LevelId));
   } catch {
-    return Object.freeze({ ok: false, reason: 'unknown-level-id' });
+    return fail(Object.freeze({ ok: false, reason: 'unknown-level-id' }));
   }
 }
 
@@ -200,69 +208,71 @@ function validateAction(
   rawAction: unknown,
   level: LevelConfig,
   validOperationIds: ReadonlySet<OperationId>,
-): Action | DecodeAttemptFailure {
+): InternalDecodeResult<Action> {
   if (!isObjectRecord(rawAction)) {
-    return Object.freeze({ ok: false, reason: 'invalid-action' });
+    return fail(Object.freeze({ ok: false, reason: 'invalid-action' }));
   }
 
   if (!hasExactKeys(rawAction, ['type', rawAction.type === 'place' ? 'operationId' : 'rank'])) {
-    return Object.freeze({ ok: false, reason: 'unexpected-key' });
+    return fail(Object.freeze({ ok: false, reason: 'unexpected-key' }));
   }
 
   if (rawAction.type === 'place') {
     if (typeof rawAction.operationId !== 'string') {
-      return Object.freeze({ ok: false, reason: 'invalid-operation-id' });
+      return fail(Object.freeze({ ok: false, reason: 'invalid-operation-id' }));
     }
 
     if (!validOperationIds.has(rawAction.operationId as OperationId)) {
-      return Object.freeze({ ok: false, reason: 'unknown-operation-id' });
+      return fail(Object.freeze({ ok: false, reason: 'unknown-operation-id' }));
     }
 
-    return Object.freeze({
-      type: 'place',
-      operationId: rawAction.operationId as OperationId,
-    });
+    return succeed(
+      Object.freeze({
+        type: 'place',
+        operationId: rawAction.operationId as OperationId,
+      }),
+    );
   }
 
   if (rawAction.type === 'wait') {
     if (!isNonNegativeInteger(rawAction.rank) || rawAction.rank >= level.rankCount) {
-      return Object.freeze({ ok: false, reason: 'invalid-wait-rank' });
+      return fail(Object.freeze({ ok: false, reason: 'invalid-wait-rank' }));
     }
 
-    return Object.freeze({ type: 'wait', rank: rawAction.rank });
+    return succeed(Object.freeze({ type: 'wait', rank: rawAction.rank }));
   }
 
-  return Object.freeze({ ok: false, reason: 'invalid-action-type' });
+  return fail(Object.freeze({ ok: false, reason: 'invalid-action-type' }));
 }
 
 function validatePayload(
   rawPayload: unknown,
   getLevel: GetLevel,
-): UrlAttemptPayload | DecodeAttemptFailure {
+): InternalDecodeResult<UrlAttemptPayload> {
   if (!isObjectRecord(rawPayload)) {
-    return Object.freeze({ ok: false, reason: 'malformed-json' });
+    return fail(Object.freeze({ ok: false, reason: 'malformed-json' }));
   }
 
   if (!hasExactKeys(rawPayload, ['schemaVersion', 'levelId', 'levelVersion', 'actions'])) {
-    return Object.freeze({ ok: false, reason: 'unexpected-key' });
+    return fail(Object.freeze({ ok: false, reason: 'unexpected-key' }));
   }
 
   if (rawPayload.schemaVersion !== PERSISTENCE_SCHEMA) {
-    return Object.freeze({ ok: false, reason: 'invalid-schema-version' });
+    return fail(Object.freeze({ ok: false, reason: 'invalid-schema-version' }));
   }
 
   const levelResult = validateKnownLevel(rawPayload.levelId, getLevel);
-  if (isDecodeAttemptFailure(levelResult)) {
+  if (levelResult.kind === 'failure') {
     return levelResult;
   }
-  const level = levelResult;
+  const level = levelResult.value;
 
   if (!isNonNegativeInteger(rawPayload.levelVersion)) {
-    return Object.freeze({ ok: false, reason: 'invalid-level-version' });
+    return fail(Object.freeze({ ok: false, reason: 'invalid-level-version' }));
   }
 
   if (!Array.isArray(rawPayload.actions)) {
-    return Object.freeze({ ok: false, reason: 'invalid-actions' });
+    return fail(Object.freeze({ ok: false, reason: 'invalid-actions' }));
   }
 
   const validOperationIds = new Set<OperationId>(
@@ -270,16 +280,16 @@ function validatePayload(
   );
   const actionCap = validOperationIds.size + 1000;
   if (rawPayload.actions.length > actionCap) {
-    return Object.freeze({ ok: false, reason: 'too-many-actions' });
+    return fail(Object.freeze({ ok: false, reason: 'too-many-actions' }));
   }
 
   const actions: Action[] = [];
   for (const rawAction of rawPayload.actions) {
     const actionResult = validateAction(rawAction, level, validOperationIds);
-    if (isDecodeAttemptFailure(actionResult)) {
+    if (actionResult.kind === 'failure') {
       return actionResult;
     }
-    actions.push(actionResult);
+    actions.push(actionResult.value);
   }
 
   const payload: UrlAttemptPayload = Object.freeze({
@@ -290,10 +300,10 @@ function validatePayload(
   });
 
   if (payload.levelVersion !== level.version) {
-    return Object.freeze({ ok: false, reason: 'historical-level-version', payload });
+    return fail(Object.freeze({ ok: false, reason: 'historical-level-version', payload }));
   }
 
-  return payload;
+  return succeed(payload);
 }
 
 export function encodeAttempt(payload: UrlAttemptPayload): string {
@@ -309,22 +319,22 @@ export function encodeAttempt(payload: UrlAttemptPayload): string {
 
 export function decodeAttempt(encoded: string, getLevel: GetLevel): DecodeAttemptResult {
   const decoded = decodeUriComponent(encoded);
-  if (isDecodeAttemptFailure(decoded)) {
-    return decoded;
+  if (decoded.kind === 'failure') {
+    return decoded.failure;
   }
 
-  const parsed = parseJson(decoded);
-  if (isDecodeAttemptFailure(parsed)) {
-    return parsed;
+  const parsed = parseJson(decoded.value);
+  if (parsed.kind === 'failure') {
+    return parsed.failure;
   }
 
-  const payload = validatePayload(parsed, getLevel);
-  if (isDecodeAttemptFailure(payload)) {
-    return payload;
+  const payload = validatePayload(parsed.value, getLevel);
+  if (payload.kind === 'failure') {
+    return payload.failure;
   }
 
-  const level = getLevel(payload.levelId);
-  const replayResult = replay(level, payload.actions);
+  const level = getLevel(payload.value.levelId);
+  const replayResult = replay(level, payload.value.actions);
   if (!replayResult.ok) {
     return Object.freeze({
       ok: false,
@@ -340,6 +350,12 @@ export function decodeAttempt(encoded: string, getLevel: GetLevel): DecodeAttemp
 
   return Object.freeze({
     ok: true,
-    attempt: freezeAttempt(level.id as LevelId, level.version, payload.actions, outcome, tuple),
+    attempt: freezeAttempt(
+      level.id as LevelId,
+      level.version,
+      payload.value.actions,
+      outcome,
+      tuple,
+    ),
   });
 }

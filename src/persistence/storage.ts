@@ -177,6 +177,10 @@ function cloneUrlDecodeFailure(failure: DecodeAttemptFailure): DecodeAttemptFail
   }
 }
 
+function safeEmptyProgress(): Progress {
+  return createEmptyProgress();
+}
+
 function normalizeProgress(progress: Progress): Progress {
   const unlockedLevelIds = validateUnlockedLevelIds(progress.unlockedLevelIds);
   if (typeof unlockedLevelIds === 'string') {
@@ -311,13 +315,25 @@ function decodeStoredPayload(
   payload: unknown,
   getLevel: GetLevel,
 ): StoredAttempt | DeserializeProgressReason | UrlAttemptPayload {
-  const decoded = decodeAttempt(encodeURIComponent(JSON.stringify(payload)), getLevel);
+  let decoded: DecodeAttemptFailure | ReturnType<typeof decodeAttempt>;
+  try {
+    decoded = decodeAttempt(encodeURIComponent(JSON.stringify(payload)), getLevel);
+  } catch {
+    return 'invalid-stored-attempt';
+  }
   if (decoded.ok) {
     return decoded.attempt;
   }
 
   switch (decoded.reason) {
     case 'historical-level-version':
+      if (
+        decoded.payload.levelId === undefined ||
+        decoded.payload.levelVersion === undefined ||
+        decoded.payload.actions === undefined
+      ) {
+        return 'invalid-stored-attempt';
+      }
       return clonePayload(decoded.payload);
     case 'replay-blocked':
     case 'malformed-uri':
@@ -334,6 +350,8 @@ function decodeStoredPayload(
     case 'invalid-operation-id':
     case 'unknown-operation-id':
     case 'too-many-actions':
+      return 'invalid-stored-attempt';
+    default:
       return 'invalid-stored-attempt';
   }
 }
@@ -390,6 +408,7 @@ function validateHistoricalAttempts(
       historicalAttempts.push(decoded);
       continue;
     }
+    return 'invalid-stored-attempt';
   }
 
   return Object.freeze(historicalAttempts.map(clonePayload));
@@ -508,7 +527,17 @@ export function selectBest(
 }
 
 export function saveProgress(storage: Storage, progress: Progress): SaveProgressResult {
-  const normalizedProgress = normalizeProgress(progress);
+  let normalizedProgress: Progress;
+  try {
+    normalizedProgress = normalizeProgress(progress);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return Object.freeze({
+      status: 'session-only',
+      progress: safeEmptyProgress(),
+      reason,
+    });
+  }
   try {
     storage.setItem(STORAGE_KEY, serializeProgress(normalizedProgress));
     return Object.freeze({ status: 'ok', progress: normalizedProgress });
