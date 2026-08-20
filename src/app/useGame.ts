@@ -170,7 +170,11 @@ function coachingReason(
     : `${name} is unavailable on ${levelTitle}.`;
 }
 
-function initialGameState(initialLevelId: LevelId, storage: Storage | null): GameState {
+function initialGameState(
+  initialLevelId: LevelId,
+  storage: Storage | null,
+  initialPersistenceNotice: string | null,
+): GameState {
   if (storage === null) {
     return {
       levelId: initialLevelId,
@@ -180,7 +184,7 @@ function initialGameState(initialLevelId: LevelId, storage: Storage | null): Gam
       selectedOperationId: null,
       overlay: { message: READY_MESSAGE },
       progress: emptyProgress(),
-      persistenceNotice: null,
+      persistenceNotice: initialPersistenceNotice,
       lastRecordedAttemptKey: null,
     };
   }
@@ -452,8 +456,11 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
 export function useGame(
   initialLevelId: LevelId = DEFAULT_LEVEL_ID,
   storage: Storage | null = null,
+  initialPersistenceNotice: string | null = null,
 ): GameViewModel {
-  const [game, setGame] = useState<GameState>(() => initialGameState(initialLevelId, storage));
+  const [game, setGame] = useState<GameState>(() =>
+    initialGameState(initialLevelId, storage, initialPersistenceNotice),
+  );
 
   const level = getLevel(game.levelId);
   const schedule = deriveSchedule(game.levelId, game.actions, game.cursor);

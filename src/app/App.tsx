@@ -11,8 +11,28 @@ interface AppProps {
   readonly storage?: Storage | null;
 }
 
-export function App({ initialLevelId = 'dependency-chain', storage = null }: AppProps) {
-  const game = useGame(initialLevelId, storage);
+function resolveBrowserStorage(): {
+  readonly storage: Storage | null;
+  readonly notice: string | null;
+} {
+  try {
+    return {
+      storage: window.localStorage,
+      notice: null,
+    };
+  } catch {
+    return {
+      storage: null,
+      notice: 'Could not access saved progress. Progress is staying in this tab only.',
+    };
+  }
+}
+
+export function App({ initialLevelId = 'dependency-chain', storage }: AppProps) {
+  const defaultStorage = storage === undefined ? resolveBrowserStorage() : null;
+  const resolvedStorage = defaultStorage?.storage ?? storage ?? null;
+  const initialPersistenceNotice = defaultStorage?.notice ?? null;
+  const game = useGame(initialLevelId, resolvedStorage, initialPersistenceNotice);
 
   return (
     <main className="app-shell">
