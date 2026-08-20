@@ -1,4 +1,5 @@
 import type { LevelConfig, OperationId, PlaceOperationAction } from '../engine/types';
+import type { ReplayResult, ScheduleState } from '../engine/replay';
 
 export function makeConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
   return {
@@ -18,4 +19,11 @@ export function makeConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
 
 export function placeIds(...operationIds: OperationId[]): PlaceOperationAction[] {
   return operationIds.map((operationId) => ({ type: 'place', operationId }));
+}
+
+export function expectState(result: ReplayResult): ScheduleState {
+  if (!result.ok) {
+    throw new Error(`replay failed at action ${result.index}: ${result.reason.kind}`);
+  }
+  return result.state;
 }
