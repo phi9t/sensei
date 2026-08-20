@@ -1,7 +1,9 @@
 # Sensei clean-room and release audit
 
-Checked branch: `feature/pipeline-game`  
-Checked date: 2026-08-19  
+Checked branch: `feature/pipeline-game`
+
+Checked date: 2026-08-19
+
 Browser: Chrome for Testing `147.0.7727.57`, driven by `agent-browser` against the production Vite preview
 
 ## Boundary
