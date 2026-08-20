@@ -141,6 +141,30 @@ function freezeAttempt(
   });
 }
 
+function freezeBlockReason(blockReason: BlockReason): BlockReason {
+  switch (blockReason.kind) {
+    case 'already-placed':
+    case 'dependency-not-finished':
+      return Object.freeze({
+        kind: blockReason.kind,
+        operationId: blockReason.operationId,
+      });
+    case 'memory-cap':
+      return Object.freeze({
+        kind: 'memory-cap',
+        rank: blockReason.rank,
+        resident: blockReason.resident,
+        requested: blockReason.requested,
+        cap: blockReason.cap,
+      });
+    case 'invalid-rank':
+      return Object.freeze({
+        kind: 'invalid-rank',
+        rank: blockReason.rank,
+      });
+  }
+}
+
 function decodeUriComponent(encoded: string): string | DecodeAttemptFailure {
   try {
     return decodeURIComponent(encoded);
@@ -306,7 +330,7 @@ export function decodeAttempt(encoded: string, getLevel: GetLevel): DecodeAttemp
       ok: false,
       reason: 'replay-blocked',
       index: replayResult.index,
-      blockReason: replayResult.reason,
+      blockReason: freezeBlockReason(replayResult.reason),
     });
   }
 

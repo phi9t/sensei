@@ -5,6 +5,7 @@ import {
   encodeAttempt,
   PERSISTENCE_SCHEMA,
   STORAGE_KEY,
+  type DecodeAttemptFailure,
   type GetLevel,
   type StoredAttempt,
   type UrlAttemptPayload,
@@ -55,7 +56,7 @@ export type LoadProgressResult =
         readonly kind: 'quarantined-storage';
         readonly reason: DeserializeProgressReason;
       };
-      readonly urlRecovery?: { readonly kind: 'ignored-url'; readonly reason: string };
+      readonly urlRecovery?: UrlRecovery;
     }
   | {
       readonly status: 'session-only';
@@ -66,7 +67,7 @@ export type LoadProgressResult =
         readonly kind: 'quarantined-storage';
         readonly reason: DeserializeProgressReason;
       };
-      readonly urlRecovery?: { readonly kind: 'ignored-url'; readonly reason: string };
+      readonly urlRecovery?: UrlRecovery;
     };
 
 export type SaveProgressResult =
@@ -76,6 +77,11 @@ export type SaveProgressResult =
 interface SelectBestExpected {
   readonly levelId: LevelId;
   readonly levelVersion: number;
+}
+
+export interface UrlRecovery {
+  readonly kind: 'ignored-url';
+  readonly failure: DecodeAttemptFailure;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -128,6 +134,78 @@ function clonePayload(payload: UrlAttemptPayload): UrlAttemptPayload {
           : Object.freeze({ type: 'wait', rank: action.rank }),
       ),
     ),
+  });
+}
+
+function cloneUrlDecodeFailure(failure: DecodeAttemptFailure): DecodeAttemptFailure {
+  switch (failure.reason) {
+    case 'historical-level-version':
+      return Object.freeze({
+        ok: false,
+        reason: 'historical-level-version',
+        payload: clonePayload(failure.payload),
+      });
+    case 'replay-blocked':
+      return Object.freeze({
+        ok: false,
+        reason: 'replay-blocked',
+        index: failure.index,
+        blockReason:
+          failure.blockReason.kind === 'memory-cap'
+            ? Object.freeze({
+                kind: 'memory-cap',
+                rank: failure.blockReason.rank,
+                resident: failure.blockReason.resident,
+                requested: failure.blockReason.requested,
+                cap: failure.blockReason.cap,
+              })
+            : failure.blockReason.kind === 'invalid-rank'
+              ? Object.freeze({
+                  kind: 'invalid-rank',
+                  rank: failure.blockReason.rank,
+                })
+              : Object.freeze({
+                  kind: failure.blockReason.kind,
+                  operationId: failure.blockReason.operationId,
+                }),
+      });
+    default:
+      return Object.freeze({
+        ok: false,
+        reason: failure.reason,
+      });
+  }
+}
+
+function normalizeProgress(progress: Progress): Progress {
+  const unlockedLevelIds = validateUnlockedLevelIds(progress.unlockedLevelIds);
+  if (typeof unlockedLevelIds === 'string') {
+    throw new Error(`invalid progress unlocked levels: ${unlockedLevelIds}`);
+  }
+
+  const bestLegalAttempts: Partial<Record<LevelId, StoredAttempt>> = {};
+  for (const levelId of LEVEL_IDS) {
+    const attempt = progress.bestLegalAttempts[levelId];
+    if (attempt) {
+      bestLegalAttempts[levelId] = cloneAttempt(attempt);
+    }
+  }
+
+  const bestMasteredAttempts: Partial<Record<LevelId, StoredAttempt>> = {};
+  for (const levelId of LEVEL_IDS) {
+    const attempt = progress.bestMasteredAttempts[levelId];
+    if (attempt) {
+      bestMasteredAttempts[levelId] = cloneAttempt(attempt);
+    }
+  }
+
+  const historicalAttempts = Object.freeze(progress.historicalAttempts.map(clonePayload));
+
+  return Object.freeze({
+    unlockedLevelIds,
+    bestLegalAttempts: freezeAttemptMap(bestLegalAttempts),
+    bestMasteredAttempts: freezeAttemptMap(bestMasteredAttempts),
+    historicalAttempts,
   });
 }
 
@@ -430,12 +508,13 @@ export function selectBest(
 }
 
 export function saveProgress(storage: Storage, progress: Progress): SaveProgressResult {
+  const normalizedProgress = normalizeProgress(progress);
   try {
-    storage.setItem(STORAGE_KEY, serializeProgress(progress));
-    return Object.freeze({ status: 'ok', progress });
+    storage.setItem(STORAGE_KEY, serializeProgress(normalizedProgress));
+    return Object.freeze({ status: 'ok', progress: normalizedProgress });
   } catch (error) {
     const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-    return Object.freeze({ status: 'session-only', progress, reason });
+    return Object.freeze({ status: 'session-only', progress: normalizedProgress, reason });
   }
 }
 
@@ -444,7 +523,7 @@ function readUrlAttempt(
   getLevel: GetLevel,
 ): {
   readonly urlAttempt: StoredAttempt | null;
-  readonly urlRecovery?: { readonly kind: 'ignored-url'; readonly reason: string };
+  readonly urlRecovery?: UrlRecovery;
 } {
   if (hash.length === 0) {
     return { urlAttempt: null };
@@ -461,7 +540,10 @@ function readUrlAttempt(
   if (!decoded.ok) {
     return {
       urlAttempt: null,
-      urlRecovery: Object.freeze({ kind: 'ignored-url', reason: decoded.reason }),
+      urlRecovery: Object.freeze({
+        kind: 'ignored-url',
+        failure: cloneUrlDecodeFailure(decoded),
+      }),
     };
   }
 
@@ -503,7 +585,7 @@ export function loadProgress(
         readonly kind: 'quarantined-storage';
         readonly reason: DeserializeProgressReason;
       };
-      urlRecovery?: { readonly kind: 'ignored-url'; readonly reason: string };
+      urlRecovery?: UrlRecovery;
     } = {
       status: 'session-only',
       progress,
@@ -525,7 +607,7 @@ export function loadProgress(
     progress: Progress;
     urlAttempt: StoredAttempt | null;
     recovery?: { readonly kind: 'quarantined-storage'; readonly reason: DeserializeProgressReason };
-    urlRecovery?: { readonly kind: 'ignored-url'; readonly reason: string };
+    urlRecovery?: UrlRecovery;
   } = {
     status: 'ok',
     progress,

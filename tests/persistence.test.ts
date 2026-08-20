@@ -278,6 +278,26 @@ describe('URL attempt codec', () => {
       blockReason: { kind: 'dependency-not-finished', operationId: 'F:0:0' },
     });
   });
+
+  it('deep-freezes replay-blocked nested reason details', () => {
+    const decoded = decodeAttempt(
+      encodeUnknown({
+        schemaVersion: 1,
+        levelId: 'dependency-chain',
+        levelVersion: 1,
+        actions: [{ type: 'place', operationId: 'F:1:0' }],
+      }),
+      getLevel,
+    );
+
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok && decoded.reason === 'replay-blocked') {
+      expect(Object.isFrozen(decoded.blockReason)).toBe(true);
+      expect(() => {
+        Object.assign(decoded.blockReason, { operationId: 'B:0:0' });
+      }).toThrow(TypeError);
+    }
+  });
 });
 
 describe('stored progress validation and recovery', () => {
@@ -461,7 +481,60 @@ describe('stored progress validation and recovery', () => {
 
     expect(result.status).toBe('ok');
     expect(result.urlAttempt).toBeNull();
-    expect(result.urlRecovery).toEqual({ kind: 'ignored-url', reason: 'malformed-uri' });
+    expect(result.urlRecovery).toEqual({
+      kind: 'ignored-url',
+      failure: { ok: false, reason: 'malformed-uri' },
+    });
+    expect(result.progress.bestMasteredAttempts['dependency-chain']).toBeDefined();
+    expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(local));
+  });
+
+  it('preserves historical URL recovery payload detail without changing local progress', () => {
+    const local = progressContaining(storedMasteredAttempt('dependency-chain'));
+    const storage = memoryStorage(serializeProgress(local));
+    const historical = {
+      schemaVersion: 1,
+      levelId: 'dependency-chain',
+      levelVersion: 0,
+      actions: MASTERED_ACTIONS['dependency-chain'],
+    } satisfies UrlAttemptPayload;
+    const hash = `#attempt=${encodeAttempt(historical)}`;
+
+    const result = loadProgress(storage, hash, getLevel);
+
+    expect(result.status).toBe('ok');
+    expect(result.urlAttempt).toBeNull();
+    expect(result.urlRecovery).toEqual({
+      kind: 'ignored-url',
+      failure: { ok: false, reason: 'historical-level-version', payload: historical },
+    });
+    expect(result.progress.bestMasteredAttempts['dependency-chain']).toBeDefined();
+    expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(local));
+  });
+
+  it('preserves replay-blocked URL recovery index and typed reason without changing local progress', () => {
+    const local = progressContaining(storedMasteredAttempt('dependency-chain'));
+    const storage = memoryStorage(serializeProgress(local));
+    const hash = `#attempt=${encodeAttempt({
+      schemaVersion: 1,
+      levelId: 'dependency-chain',
+      levelVersion: 1,
+      actions: [{ type: 'place', operationId: 'F:1:0' }],
+    })}`;
+
+    const result = loadProgress(storage, hash, getLevel);
+
+    expect(result.status).toBe('ok');
+    expect(result.urlAttempt).toBeNull();
+    expect(result.urlRecovery).toEqual({
+      kind: 'ignored-url',
+      failure: {
+        ok: false,
+        reason: 'replay-blocked',
+        index: 0,
+        blockReason: { kind: 'dependency-not-finished', operationId: 'F:0:0' },
+      },
+    });
     expect(result.progress.bestMasteredAttempts['dependency-chain']).toBeDefined();
     expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(local));
   });
@@ -474,7 +547,34 @@ describe('stored progress validation and recovery', () => {
     const progress = progressContaining(storedMasteredAttempt());
     const saveResult = saveProgress(throwingStorage('set'), progress);
     expect(saveResult.status).toBe('session-only');
-    expect(saveResult.progress).toBe(progress);
+    expect(saveResult.progress).toEqual(progress);
+    expect(saveResult.progress).not.toBe(progress);
+  });
+
+  it('normalizes saveProgress results to canonical frozen copies', () => {
+    const mutableProgress = {
+      unlockedLevelIds: ['dependency-chain'],
+      bestLegalAttempts: { 'dependency-chain': storedMasteredAttempt('dependency-chain') },
+      bestMasteredAttempts: { 'dependency-chain': storedMasteredAttempt('dependency-chain') },
+      historicalAttempts: [] as UrlAttemptPayload[],
+    };
+    const storage = memoryStorage();
+
+    const result = saveProgress(storage, mutableProgress);
+
+    expect(result.status).toBe('ok');
+    expect(result.progress).not.toBe(mutableProgress);
+    expect(result.progress.bestLegalAttempts).not.toBe(mutableProgress.bestLegalAttempts);
+    expect(Object.isFrozen(result.progress)).toBe(true);
+    expect(Object.isFrozen(result.progress.bestLegalAttempts)).toBe(true);
+    expect(Object.isFrozen(result.progress.bestLegalAttempts['dependency-chain'])).toBe(true);
+
+    mutableProgress.unlockedLevelIds.push('memory-wall');
+    delete mutableProgress.bestLegalAttempts['dependency-chain'];
+
+    expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
+    expect(result.progress.bestLegalAttempts['dependency-chain']).toBeDefined();
+    expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(result.progress));
   });
 });
 
