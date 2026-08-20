@@ -5,10 +5,12 @@ import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
 import { useGame } from './useGame';
 import type { LevelId } from '../levels/levels';
+import type { OfflineStatus } from '../offline/register';
 
 interface AppProps {
   readonly initialLevelId?: LevelId;
   readonly storage?: Storage | null;
+  readonly offlineStatus?: OfflineStatus;
 }
 
 function resolveBrowserStorage(): {
@@ -28,11 +30,24 @@ function resolveBrowserStorage(): {
   }
 }
 
-export function App({ initialLevelId = 'dependency-chain', storage }: AppProps) {
+function offlineNoticeFor(status: OfflineStatus | undefined): string | null {
+  switch (status) {
+    case 'unavailable':
+      return 'Offline support is temporarily unavailable. The game still works online.';
+    case 'unsupported':
+      return 'Offline support is not available in this environment.';
+    case 'ready':
+    case undefined:
+      return null;
+  }
+}
+
+export function App({ initialLevelId = 'dependency-chain', storage, offlineStatus }: AppProps) {
   const defaultStorage = storage === undefined ? resolveBrowserStorage() : null;
   const resolvedStorage = defaultStorage?.storage ?? storage ?? null;
   const initialPersistenceNotice = defaultStorage?.notice ?? null;
   const game = useGame(initialLevelId, resolvedStorage, initialPersistenceNotice);
+  const offlineNotice = offlineNoticeFor(offlineStatus);
 
   return (
     <main className="app-shell">
@@ -63,6 +78,16 @@ export function App({ initialLevelId = 'dependency-chain', storage }: AppProps) 
             <p>{game.score.complete ? 'Legal completion' : 'Incomplete'}</p>
             <p>{game.score.mastered ? 'Mastered' : 'Mastery pending'}</p>
           </div>
+          {offlineNotice ? (
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-label="Offline support notice"
+            >
+              {offlineNotice}
+            </p>
+          ) : null}
           {game.persistenceNotice ? (
             <p
               role="status"

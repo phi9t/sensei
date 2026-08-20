@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
+import { registerOfflineSupport, type OfflineStatus } from './offline/register';
 import './styles/app.css';
 
 const container = document.getElementById('root');
@@ -8,8 +9,29 @@ if (!container) {
   throw new Error('Root container #root not found');
 }
 
-createRoot(container).render(
+const root = createRoot(container);
+root.render(
   <StrictMode>
     <App />
   </StrictMode>,
 );
+
+if (import.meta.env.PROD) {
+  const scheduleRegistration =
+    typeof globalThis !== 'undefined' && typeof globalThis.requestAnimationFrame === 'function'
+      ? globalThis.requestAnimationFrame.bind(globalThis)
+      : (callback: FrameRequestCallback) => globalThis.setTimeout(callback, 0);
+
+  scheduleRegistration(async () => {
+    const result = await registerOfflineSupport();
+    if (result.status === 'ready') {
+      return;
+    }
+
+    root.render(
+      <StrictMode>
+        <App offlineStatus={result.status satisfies OfflineStatus} />
+      </StrictMode>,
+    );
+  });
+}
