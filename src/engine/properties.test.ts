@@ -1,8 +1,143 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { applyAction, initialState, replay } from './replay';
+import {
+  applyAction,
+  classifyMoves,
+  initialState,
+  replay,
+  type MoveClassification,
+} from './replay';
 import { score } from './score';
-import { legalReplayArbitrary } from '../test/factories';
+import type { Action, LevelConfig } from './types';
+import { legalReplayArbitrary, makeConfig } from '../test/factories';
+
+const PROPERTY_RUNS = 150;
+const MAX_WAIT_ACTIONS = 12;
+const MAX_COMPLETE_CHOICES = 64;
+
+type LegalMoveClassification = Extract<MoveClassification, { status: 'legal' }>;
+
+const completeConfigArbitrary = fc
+  .record({
+    rankCount: fc.integer({ min: 1, max: 4 }),
+    microbatchCount: fc.integer({ min: 1, max: 4 }),
+    choices: fc.array(fc.nat(), { minLength: 1, maxLength: MAX_COMPLETE_CHOICES }),
+  })
+  .map(({ rankCount, microbatchCount, choices }) => {
+    const config = makeConfig({
+      rankCount,
+      stageCount: rankCount,
+      microbatchCount,
+      memoryCaps: null,
+    });
+    const actions = completeActionsForConfig(config, choices);
+
+    return { config, actions };
+  });
+
+const waitBearingReplayArbitrary = fc
+  .record({
+    rankCount: fc.integer({ min: 1, max: 4 }),
+    microbatchCount: fc.integer({ min: 1, max: 4 }),
+    cap: fc.option(fc.integer({ min: 1, max: 4 }), { nil: null }),
+  })
+  .chain(({ rankCount, microbatchCount, cap }) =>
+    fc.record({
+      rankCount: fc.constant(rankCount),
+      microbatchCount: fc.constant(microbatchCount),
+      cap: fc.constant(cap),
+      waitRank: fc.integer({ min: 0, max: rankCount - 1 }),
+      choices: fc.array(fc.nat(), { maxLength: MAX_WAIT_ACTIONS - 1 }),
+    }),
+  )
+  .map(({ rankCount, microbatchCount, cap, waitRank, choices }) => {
+    const config = makeConfig({
+      rankCount,
+      stageCount: rankCount,
+      microbatchCount,
+      memoryCaps: cap === null ? null : Array(rankCount).fill(cap),
+    });
+    const actions: Action[] = [{ type: 'wait', rank: waitRank }];
+    let state = initialState(config);
+
+    const initialWait = applyAction(state, actions[0]!);
+    if (!initialWait.ok) {
+      throw new Error('wait-bearing arbitrary selected an invalid initial wait');
+    }
+    state = initialWait.state;
+
+    for (const choice of choices) {
+      const legalMoves = classifyWaitBearingActions(state);
+      if (legalMoves.length === 0) {
+        break;
+      }
+
+      const action = legalMoves[choice % legalMoves.length]!;
+      const result = applyAction(state, action);
+      if (!result.ok) {
+        throw new Error('wait-bearing arbitrary selected a rejected action');
+      }
+
+      actions.push(action);
+      state = result.state;
+    }
+
+    return { config, actions };
+  });
+
+function isLegalMove(move: MoveClassification): move is LegalMoveClassification {
+  return move.status === 'legal';
+}
+
+function classifyWaitBearingActions(state: ReturnType<typeof initialState>): readonly Action[] {
+  const placementActions = classifyMoves(state)
+    .filter(isLegalMove)
+    .map((move): Action => ({
+      type: 'place',
+      operationId: move.operation.id,
+    }));
+
+  const waitActions = state.rankFrontiers.map((_, rank): Action => ({ type: 'wait', rank }));
+
+  return Object.freeze([...placementActions, ...waitActions]);
+}
+
+function completeActionsForConfig(
+  config: LevelConfig,
+  choices: readonly number[],
+): readonly Action[] {
+  let state = initialState(config);
+  const actions: Action[] = [];
+  const maxActions = state.operations.length;
+  let step = 0;
+
+  while (step < maxActions) {
+    const legalPlacements = classifyMoves(state).filter(isLegalMove);
+    if (legalPlacements.length === 0) {
+      break;
+    }
+
+    const choice = choices[step] ?? 0;
+    const legalPlacement = legalPlacements[choice % legalPlacements.length]!;
+    const action: Action = {
+      type: 'place',
+      operationId: legalPlacement.operation.id,
+    };
+    const result = applyAction(state, action);
+    if (!result.ok) {
+      throw new Error('deterministic completion builder selected a rejected action');
+    }
+    actions.push(action);
+    state = result.state;
+    step += 1;
+  }
+
+  if (actions.length !== state.operations.length) {
+    throw new Error('deterministic completion builder failed to place every operation');
+  }
+
+  return Object.freeze(actions);
+}
 
 describe('engine properties', () => {
   it('replaying the same legal input twice yields the same result and bounded accounting', () => {
@@ -27,7 +162,7 @@ describe('engine properties', () => {
         expect(result.bubbleRatio).toBeLessThanOrEqual(1);
         expect(result.totalWork).toBeLessThanOrEqual(result.capacity);
       }),
-      { numRuns: 200, verbose: 1 },
+      { numRuns: PROPERTY_RUNS, verbose: 1 },
     );
   });
 
@@ -56,13 +191,13 @@ describe('engine properties', () => {
         const replayedFull = replay(config, actions);
         expect(replayedFull).toEqual({ ok: true, state });
       }),
-      { numRuns: 150, verbose: 1 },
+      { numRuns: PROPERTY_RUNS, verbose: 1 },
     );
   });
 
-  it('completed schedules contain every operation exactly once', () => {
+  it('bounded wait-bearing replays preserve intentional idle accounting and score invariants', () => {
     fc.assert(
-      fc.property(legalReplayArbitrary, ({ config, actions }) => {
+      fc.property(waitBearingReplayArbitrary, ({ config, actions }) => {
         const result = replay(config, actions);
         expect(result.ok).toBe(true);
         if (!result.ok) {
@@ -70,10 +205,41 @@ describe('engine properties', () => {
         }
 
         const scored = score(result.state);
-        if (!scored.complete) {
+        const expectedIntentionalIdle = actions.reduce((total, action) => {
+          return action.type === 'wait' ? total + 1 : total;
+        }, 0);
+
+        expect(actions.some((action) => action.type === 'wait')).toBe(true);
+        expect(actions.length).toBeLessThanOrEqual(MAX_WAIT_ACTIONS);
+        expect(scored.intentionalIdle).toBe(expectedIntentionalIdle);
+        expect(
+          result.state.gaps
+            .filter((gap) => gap.kind === 'intentional')
+            .reduce((total, gap) => {
+              return total + (gap.end - gap.start);
+            }, 0),
+        ).toBe(expectedIntentionalIdle);
+        expect(result.state.actions).toEqual(actions);
+        expect(scored.bubbleRatio).toBeGreaterThanOrEqual(0);
+        expect(scored.bubbleRatio).toBeLessThanOrEqual(1);
+        expect(scored.totalWork).toBeLessThanOrEqual(scored.capacity);
+      }),
+      { numRuns: PROPERTY_RUNS, verbose: 1 },
+    );
+  });
+
+  it('deterministically constructed complete schedules contain every operation exactly once', () => {
+    fc.assert(
+      fc.property(completeConfigArbitrary, ({ config, actions }) => {
+        const result = replay(config, actions);
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
           return;
         }
 
+        const scored = score(result.state);
+        expect(scored.complete).toBe(true);
+        expect(actions).toHaveLength(result.state.operations.length);
         expect(result.state.placements).toHaveLength(result.state.operations.length);
         expect(
           new Set(result.state.placements.map((placement) => placement.operationId)).size,
@@ -82,7 +248,7 @@ describe('engine properties', () => {
           result.state.operations.map((operation) => operation.id).sort(),
         );
       }),
-      { numRuns: 150, verbose: 1 },
+      { numRuns: PROPERTY_RUNS, verbose: 1 },
     );
   });
 });

@@ -74,10 +74,13 @@ function satisfiesTarget(scoreResult: ScoreResult, target: MasteryTarget): boole
   const actual = masteryMetricValue(scoreResult, target);
   switch (target.op) {
     case '<=':
+      // bubbleRatio mastery uses exact JS <= semantics. Level authors should use the
+      // intended representable value directly, or leave an explicit margin.
       return actual <= target.value;
   }
 }
 
+/** score trusts a validated replay-produced ScheduleState. */
 export function score(state: ScheduleState): ScoreResult {
   const makespan = state.rankFrontiers.reduce((max, frontier) => Math.max(max, frontier), 0);
   const totalWork = totalPlacedWork(state);
@@ -109,20 +112,20 @@ export function score(state: ScheduleState): ScoreResult {
       satisfiesTarget(scoreResultWithoutMastery, target),
     );
 
-  return {
+  return Object.freeze({
     ...scoreResultWithoutMastery,
     mastered,
-  };
+  });
 }
 
 export function attemptRankingTuple(state: ScheduleState): AttemptRankingTuple {
   const result = score(state);
-  return {
+  return Object.freeze({
     makespan: result.makespan,
     peakActivationMemory: result.peakActivationMemory,
     intentionalIdle: result.intentionalIdle,
     actionCount: state.actions.length,
-  };
+  });
 }
 
 export function compareAttempts(left: AttemptRankingTuple, right: AttemptRankingTuple): number {

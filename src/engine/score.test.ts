@@ -147,8 +147,28 @@ describe('score', () => {
     const result = score(state);
 
     expect(structuredClone(state)).toEqual(before);
+    expect(Object.isFrozen(result)).toBe(true);
     expect(result.peakActivationMemoryByRank).toEqual([1, 1]);
+    expect(Object.isFrozen(result.peakActivationMemoryByRank)).toBe(true);
     expect(result.peakActivationMemoryByRank).not.toBe(state.peakMemory);
+  });
+
+  it('returns a frozen top-level result that rejects mutation attempts', () => {
+    const state = expectState(replay(makeConfig(), placeIds('F:0:0', 'F:1:0')));
+    const result = score(state);
+
+    expect(() => {
+      (
+        result as {
+          makespan: number;
+        }
+      ).makespan = 999;
+    }).toThrow();
+    expect(() => {
+      (result.peakActivationMemoryByRank as number[])[0] = 999;
+    }).toThrow();
+    expect(result.makespan).toBe(2);
+    expect(result.peakActivationMemoryByRank).toEqual([1, 1]);
   });
 
   it('marks corrupt duplicate placements as incomplete', () => {
@@ -176,6 +196,21 @@ describe('attemptRankingTuple', () => {
       intentionalIdle: 0,
       actionCount: 4,
     });
+  });
+
+  it('returns a frozen tuple that rejects mutation attempts', () => {
+    const state = expectState(replay(makeConfig(), placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0')));
+    const tuple = attemptRankingTuple(state);
+
+    expect(Object.isFrozen(tuple)).toBe(true);
+    expect(() => {
+      (
+        tuple as {
+          actionCount: number;
+        }
+      ).actionCount = 999;
+    }).toThrow();
+    expect(tuple.actionCount).toBe(4);
   });
 });
 
@@ -226,5 +261,14 @@ describe('compareAttempts', () => {
     };
 
     expect(compareAttempts(tuple, tuple)).toBe(0);
+  });
+
+  it('returns positive when the left tuple loses lexicographically', () => {
+    expect(
+      compareAttempts(
+        { makespan: 20, peakActivationMemory: 1, intentionalIdle: 0, actionCount: 10 },
+        { makespan: 19, peakActivationMemory: 9, intentionalIdle: 9, actionCount: 99 },
+      ),
+    ).toBeGreaterThan(0);
   });
 });
