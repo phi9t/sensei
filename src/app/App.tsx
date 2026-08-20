@@ -63,7 +63,16 @@ export function App({ initialLevelId = 'dependency-chain', storage }: AppProps) 
             <p>{game.score.complete ? 'Legal completion' : 'Incomplete'}</p>
             <p>{game.score.mastered ? 'Mastered' : 'Mastery pending'}</p>
           </div>
-          {game.persistenceNotice ? <p>{game.persistenceNotice}</p> : null}
+          {game.persistenceNotice ? (
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-label="Saved progress notice"
+            >
+              {game.persistenceNotice}
+            </p>
+          ) : null}
           <ul aria-label="Level access status">
             {game.levelOptions
               .filter((option) => !option.unlocked && option.reason !== null)

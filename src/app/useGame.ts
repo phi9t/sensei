@@ -442,13 +442,19 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   }
 
   const saved = saveProgress(storage, nextProgress);
+  const shouldClearPersistenceNotice =
+    current.persistenceNotice ===
+      'Could not save progress. Progress is staying in this tab only.' ||
+    current.persistenceNotice === 'Progress restored.';
   return {
     ...current,
     progress: saved.progress,
     persistenceNotice:
       saved.status === 'session-only'
         ? 'Could not save progress. Progress is staying in this tab only.'
-        : current.persistenceNotice,
+        : shouldClearPersistenceNotice
+          ? null
+          : current.persistenceNotice,
     lastRecordedAttemptKey: fingerprint,
   };
 }

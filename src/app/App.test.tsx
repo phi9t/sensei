@@ -3,6 +3,31 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
+function createMemoryStorage(seed: Record<string, string> = {}): Storage {
+  const data = new Map(Object.entries(seed));
+
+  return {
+    get length() {
+      return data.size;
+    },
+    clear() {
+      data.clear();
+    },
+    getItem(key) {
+      return data.get(key) ?? null;
+    },
+    key(index) {
+      return [...data.keys()][index] ?? null;
+    },
+    removeItem(key) {
+      data.delete(key);
+    },
+    setItem(key, value) {
+      data.set(key, value);
+    },
+  };
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -53,14 +78,98 @@ describe('App', () => {
 
   it('shows a polite session-only notice when browser storage is unavailable in the default app path', () => {
     const localStorageGetter = vi.spyOn(window, 'localStorage', 'get');
-    localStorageGetter.mockImplementation(() => {
-      throw new Error('denied');
-    });
+    try {
+      localStorageGetter.mockImplementation(() => {
+        throw new Error('denied');
+      });
 
-    render(<App />);
+      render(<App />);
+
+      expect(
+        screen.getByText(
+          /Could not access saved progress\. Progress is staying in this tab only\./i,
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      localStorageGetter.mockRestore();
+    }
+  });
+
+  it('gives ready set, hint, and automation controls their explanatory descriptions', () => {
+    render(<App initialLevelId="memory-wall" />);
 
     expect(
-      screen.getByText(/Could not access saved progress\. Progress is staying in this tab only\./i),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: /show ready operations/i }),
+    ).toHaveAccessibleDescription(/Ready set is available on Memory Wall\./i);
+    expect(screen.getByRole('button', { name: /show local hint/i })).toHaveAccessibleDescription(
+      /Local hint is available on Memory Wall\./i,
+    );
+    expect(
+      screen.getByRole('button', { name: /run until interesting boundary/i }),
+    ).toHaveAccessibleDescription(/Automation is available on Memory Wall\./i);
+  });
+
+  it('announces persistence notices through a polite status region', async () => {
+    const user = userEvent.setup();
+    const storage = createMemoryStorage();
+    const setItem = vi.spyOn(storage, 'setItem').mockImplementation(() => {
+      throw new Error('disk full');
+    });
+
+    render(<App storage={storage} />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 0 microbatch 0/i }));
+
+    const status = screen.getByRole('status', {
+      name: /saved progress notice/i,
+    });
+    expect(status).toHaveTextContent(
+      /Could not save progress\. Progress is staying in this tab only\./i,
+    );
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getAllByRole('status')).toHaveLength(2);
+
+    setItem.mockRestore();
+  });
+
+  it('clears a stale persistence notice after a later successful save', async () => {
+    const user = userEvent.setup();
+    const storage = createMemoryStorage();
+    const setItem = vi.spyOn(storage, 'setItem');
+    setItem.mockImplementationOnce(() => {
+      throw new Error('disk full');
+    });
+
+    render(<App storage={storage} />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 0 microbatch 0/i }));
+
+    expect(screen.getByRole('status', { name: /saved progress notice/i })).toHaveTextContent(
+      /Could not save progress\. Progress is staying in this tab only\./i,
+    );
+
+    await user.click(screen.getByRole('button', { name: /reset current attempt/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 0 microbatch 0/i }));
+
+    expect(
+      screen.queryByRole('status', { name: /saved progress notice/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Could not save progress\. Progress is staying in this tab only\./i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('can access localStorage normally after the denied-storage test', () => {
+    window.localStorage.setItem('sensei-smoke', 'ok');
+    expect(window.localStorage.getItem('sensei-smoke')).toBe('ok');
   });
 });

@@ -58,10 +58,20 @@ export function GameControls({
         >
           Show ready operations
         </button>
-        <button type="button" onClick={onHint} disabled={!level.coaching.suggest}>
+        <button
+          type="button"
+          onClick={onHint}
+          disabled={!level.coaching.suggest}
+          aria-describedby="hint-reason"
+        >
           Show local hint
         </button>
-        <button type="button" onClick={onAutomate} disabled={!level.coaching.auto}>
+        <button
+          type="button"
+          onClick={onAutomate}
+          disabled={!level.coaching.auto}
+          aria-describedby="automation-reason"
+        >
           Run until interesting boundary
         </button>
         <button type="button" onClick={onReset}>
