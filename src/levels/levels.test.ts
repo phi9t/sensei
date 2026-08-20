@@ -1,28 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { LEGAL_ACTIONS, MASTERED_ACTIONS } from './fixtures';
+import { getLevel, LEVEL_IDS, type LevelId } from './levels';
 import { initialState, replay } from '../engine/replay';
 import { score } from '../engine/score';
 import type { Action, LevelConfig, OperationId } from '../engine/types';
-
-type LevelsModule = {
-  LEVEL_IDS: readonly string[];
-  getLevel(id: string): LevelConfig;
-};
-
-type FixturesModule = {
-  MASTERED_ACTIONS: Record<string, readonly Action[]>;
-  LEGAL_ACTIONS: Record<string, readonly Action[]>;
-};
-
-const LEVELS_MODULE_PATH = './levels';
-const FIXTURES_MODULE_PATH = './fixtures';
-
-async function loadLevelsModule(): Promise<LevelsModule> {
-  return (await import(LEVELS_MODULE_PATH)) as LevelsModule;
-}
-
-async function loadFixturesModule(): Promise<FixturesModule> {
-  return (await import(FIXTURES_MODULE_PATH)) as FixturesModule;
-}
 
 const EXPECTED_LEVEL_IDS = [
   'dependency-chain',
@@ -93,7 +74,7 @@ const EXPECTED_CONFIGS = {
       { metric: 'peakActivationMemory', op: '<=', value: 3 },
     ],
   },
-} satisfies Record<string, LevelConfig>;
+} satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_IDS = {
   'dependency-chain': ['F:0:0', 'F:1:0', 'B:1:0', 'B:0:0'],
@@ -157,7 +138,7 @@ const EXPECTED_MASTERED_IDS = {
     'B:1:3',
     'B:0:3',
   ],
-} satisfies Record<string, readonly OperationId[]>;
+} satisfies Record<LevelId, readonly OperationId[]>;
 
 const EXPECTED_GOLDEN_ROWS = {
   'dependency-chain': {
@@ -184,12 +165,18 @@ const EXPECTED_GOLDEN_ROWS = {
     peakActivationMemoryByRank: [3, 2, 1],
     peakActivationMemory: 3,
   },
-} as const;
+} satisfies Record<
+  LevelId,
+  {
+    makespan: number;
+    bubbleRatio: number;
+    peakActivationMemoryByRank: readonly number[];
+    peakActivationMemory: number;
+  }
+>;
 
 describe('levels public API', () => {
-  it('exports LEVEL_IDS in the approved order and getLevel lookups', async () => {
-    const { LEVEL_IDS, getLevel } = await loadLevelsModule();
-
+  it('exports LEVEL_IDS in the approved order and getLevel lookups', () => {
     expect(LEVEL_IDS).toEqual(EXPECTED_LEVEL_IDS);
 
     for (const id of EXPECTED_LEVEL_IDS) {
@@ -197,14 +184,11 @@ describe('levels public API', () => {
     }
   });
 
-  it('throws a clear error for runtime misuse with an unknown id', async () => {
-    const { getLevel } = await loadLevelsModule();
-
-    expect(() => getLevel('unknown-level')).toThrow(/unknown level/i);
+  it('throws a clear error for runtime misuse with an unknown id', () => {
+    expect(() => getLevel('unknown-level' as LevelId)).toThrow(/unknown level/i);
   });
 
-  it('returns frozen canonical configs and nested structures', async () => {
-    const { getLevel } = await loadLevelsModule();
+  it('returns frozen canonical configs and nested structures', () => {
     const level = getLevel('memory-wall');
 
     expect(Object.isFrozen(level)).toBe(true);
@@ -237,9 +221,7 @@ describe('levels public API', () => {
 });
 
 describe('golden fixtures', () => {
-  it('exports exact mastered and legal action logs', async () => {
-    const { MASTERED_ACTIONS, LEGAL_ACTIONS } = await loadFixturesModule();
-
+  it('exports exact mastered and legal action logs', () => {
     expect(Object.keys(MASTERED_ACTIONS)).toEqual(EXPECTED_LEVEL_IDS);
     expect(Object.keys(LEGAL_ACTIONS)).toEqual(EXPECTED_LEVEL_IDS);
 
@@ -254,9 +236,7 @@ describe('golden fixtures', () => {
     }
   });
 
-  it('freezes fixture records, arrays, and contained actions', async () => {
-    const { MASTERED_ACTIONS, LEGAL_ACTIONS } = await loadFixturesModule();
-
+  it('freezes fixture records, arrays, and contained actions', () => {
     expect(Object.isFrozen(MASTERED_ACTIONS)).toBe(true);
     expect(Object.isFrozen(LEGAL_ACTIONS)).toBe(true);
 
@@ -280,10 +260,7 @@ describe('golden fixtures', () => {
 });
 
 describe('golden replay outcomes', () => {
-  it('replays every mastered fixture to the exact golden row and mastery result', async () => {
-    const { getLevel } = await loadLevelsModule();
-    const { MASTERED_ACTIONS } = await loadFixturesModule();
-
+  it('replays every mastered fixture to the exact golden row and mastery result', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const replayResult = replay(getLevel(id), MASTERED_ACTIONS[id]!);
       expect(replayResult.ok).toBe(true);
@@ -304,10 +281,7 @@ describe('golden replay outcomes', () => {
     }
   });
 
-  it('ensures each mastered fixture covers the exact operation inventory once', async () => {
-    const { getLevel } = await loadLevelsModule();
-    const { MASTERED_ACTIONS } = await loadFixturesModule();
-
+  it('ensures each mastered fixture covers the exact operation inventory once', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const config = getLevel(id);
       const actions = MASTERED_ACTIONS[id]!;
@@ -327,10 +301,7 @@ describe('golden replay outcomes', () => {
     }
   });
 
-  it('replays every legal fixture as complete and legal but not mastered', async () => {
-    const { getLevel } = await loadLevelsModule();
-    const { LEGAL_ACTIONS } = await loadFixturesModule();
-
+  it('replays every legal fixture as complete and legal but not mastered', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const config = getLevel(id);
       const replayResult = replay(config, LEGAL_ACTIONS[id]!);
