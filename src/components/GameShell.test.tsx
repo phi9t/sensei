@@ -29,6 +29,20 @@ async function tabUntil(
   );
 }
 
+function metricRowIn(container: HTMLElement, name: RegExp): HTMLElement {
+  const term = within(container)
+    .getAllByText(name)
+    .find((candidate) => candidate.tagName === 'DT');
+  if (!term) {
+    throw new Error(`Metric term not found for ${name.toString()}`);
+  }
+  const row = term.closest('div');
+  if (!row) {
+    throw new Error(`Metric row not found for ${name.toString()}`);
+  }
+  return row;
+}
+
 describe('Game shell', () => {
   it('keeps blocked operations focusable and explains every blocker', async () => {
     const user = userEvent.setup();
@@ -103,6 +117,7 @@ describe('Game shell', () => {
     const dependencyBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
     const dependencyInventory = screen.getByTestId('tile-F:0:0');
     const dependencyFirstRankMemory = screen.getByTestId('memory-segment-rank-0-0');
+    const dependencyInventoryExtent = screen.getByTestId('inventory-extent');
     const dependencyViewBoxWidth = Number(
       dependencyBoard.getAttribute('viewBox')?.split(/\s+/).at(2),
     );
@@ -115,8 +130,8 @@ describe('Game shell', () => {
         Number(dependencyInventory.getAttribute('height')),
     ).toBeLessThanOrEqual(Number(dependencyFirstRankMemory.getAttribute('y')));
     expect(dependencyViewBoxWidth).toBeGreaterThanOrEqual(
-      Number(dependencyInventory.getAttribute('x')) +
-        Number(dependencyInventory.getAttribute('width')) +
+      Number(dependencyInventoryExtent.getAttribute('x')) +
+        Number(dependencyInventoryExtent.getAttribute('width')) +
         24,
     );
 
@@ -124,12 +139,12 @@ describe('Game shell', () => {
     render(<App initialLevelId="memory-wall" />);
 
     const memoryBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
-    const lastInventoryTile = screen.getByTestId('tile-B:2:3');
+    const memoryInventoryExtent = screen.getByTestId('inventory-extent');
     const memoryViewBoxWidth = Number(memoryBoard.getAttribute('viewBox')?.split(/\s+/).at(2));
 
     expect(memoryViewBoxWidth).toBeGreaterThanOrEqual(
-      Number(lastInventoryTile.getAttribute('x')) +
-        Number(lastInventoryTile.getAttribute('width')) +
+      Number(memoryInventoryExtent.getAttribute('x')) +
+        Number(memoryInventoryExtent.getAttribute('width')) +
         24,
     );
   });
@@ -223,10 +238,14 @@ describe('Game shell', () => {
     expect(within(pointerBoard).getByText(/F:0:0/)).toBeInTheDocument();
     expect(within(keyboardBoard).getByText(/F:0:0/)).toBeInTheDocument();
     expect(
-      within(pointerMetrics).getByText(/Current attempt tuple: 1 -> 1 -> 0 -> 1/i),
+      within(metricRowIn(pointerMetrics, /current attempt tuple/i)).getByText(
+        /^1 -> 1 -> 0 -> 1$/i,
+      ),
     ).toBeInTheDocument();
     expect(
-      within(keyboardMetrics).getByText(/Current attempt tuple: 1 -> 1 -> 0 -> 1/i),
+      within(metricRowIn(keyboardMetrics, /current attempt tuple/i)).getByText(
+        /^1 -> 1 -> 0 -> 1$/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -262,24 +281,24 @@ describe('Game shell', () => {
 
     await user.click(within(controls).getByRole('button', { name: /undo last action/i }));
     expect(
-      within(metrics).getByText(/Current attempt tuple: 1 -> 1 -> 0 -> 1/i),
+      within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^1 -> 1 -> 0 -> 1$/i),
     ).toBeInTheDocument();
 
     await user.click(within(controls).getByRole('button', { name: /redo next action/i }));
     expect(
-      within(metrics).getByText(/Current attempt tuple: 2 -> 2 -> 0 -> 2/i),
+      within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^2 -> 2 -> 0 -> 2$/i),
     ).toBeInTheDocument();
 
     await user.click(within(controls).getByRole('button', { name: /undo last action/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
     expect(
-      within(metrics).getByText(/Current attempt tuple: 2 -> 1 -> 0 -> 2/i),
+      within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^2 -> 1 -> 0 -> 2$/i),
     ).toBeInTheDocument();
     expect(within(controls).getByRole('button', { name: /redo next action/i })).toBeDisabled();
 
     await user.click(within(controls).getByRole('button', { name: /reset current attempt/i }));
     expect(
-      within(metrics).getByText(/Current attempt tuple: 0 -> 0 -> 0 -> 0/i),
+      within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^0 -> 0 -> 0 -> 0$/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Select an operation to inspect its constraints/i)).toBeInTheDocument();
   });
@@ -298,7 +317,7 @@ describe('Game shell', () => {
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
     const board = screen.getByRole('region', { name: /schedule board/i });
 
-    expect(within(metrics).getByText(/Intentional idle: 1/i)).toBeInTheDocument();
+    expect(within(metricRowIn(metrics, /intentional idle/i)).getByText(/^1$/)).toBeInTheDocument();
     expect(within(board).getByText(/intentional gap on rank 0 from 0 to 1/i)).toBeInTheDocument();
   });
 

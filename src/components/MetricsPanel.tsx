@@ -54,7 +54,7 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
         </div>
         <div>
           <dt>Intentional idle</dt>
-          <dd>Intentional idle: {score.intentionalIdle}</dd>
+          <dd>{score.intentionalIdle}</dd>
         </div>
         <div>
           <dt>Current activation memory</dt>
@@ -70,7 +70,7 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
         </div>
         <div>
           <dt>Current attempt tuple</dt>
-          <dd>Current attempt tuple: {formatTuple(attemptTuple)}</dd>
+          <dd>{formatTuple(attemptTuple)}</dd>
         </div>
       </dl>
     </section>

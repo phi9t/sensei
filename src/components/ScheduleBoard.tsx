@@ -125,9 +125,10 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
 }
 
 export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardProps) {
-  const svgWidth = Math.max(timelineExtent(schedule), inventoryExtent(inventoryGeometry(schedule)));
-  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 64;
   const inventoryTiles = inventoryGeometry(schedule);
+  const inventoryWidth = inventoryExtent(inventoryTiles);
+  const svgWidth = Math.max(timelineExtent(schedule), inventoryWidth);
+  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 64;
   const timelineEnd = maxEndTime(schedule);
 
   return (
@@ -172,6 +173,16 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
             <text x="0" y={INVENTORY_LABEL_Y} className="board-caption">
               Inventory geometry
             </text>
+            <rect
+              data-testid="inventory-extent"
+              x="0"
+              y={INVENTORY_TOP}
+              width={inventoryWidth - LEFT_PADDING}
+              height={INVENTORY_HEIGHT}
+              fill="transparent"
+              pointerEvents="none"
+              aria-hidden="true"
+            />
 
             {inventoryTiles.map(({ operation, x, width }) => (
               <g key={`inventory-${operation.id}`} aria-hidden="true">
