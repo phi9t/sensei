@@ -16,7 +16,7 @@ tested vertical increments and finishes with original golden level fixtures,
 keyboard accessibility, native service-worker generation, and a clean-room
 audit.
 
-**Tech Stack:** Node 24, npm 11, TypeScript 7, Vite 8, React 19, SVG/HTML,
+**Tech Stack:** Node 24, npm 11, TypeScript 6, Vite 8, React 19, SVG/HTML,
 Vitest 4, Testing Library, fast-check, axe-core, ESLint 10, Prettier 3.
 
 **Design contract:**
@@ -36,6 +36,7 @@ tsconfig.app.json                    browser application compiler config
 tsconfig.node.json                   tool-script compiler config
 eslint.config.js                     TypeScript/React lint rules
 .prettierrc.json                     formatting contract
+.prettierignore                      formatting exclusion list
 src/main.tsx                         browser bootstrap
 src/app/App.tsx                      top-level game shell
 src/app/useGame.ts                   reducer-like replay orchestration
@@ -124,6 +125,7 @@ Create `package.json` with this exact public surface:
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@testing-library/dom": "10.4.0",
     "@testing-library/react": "16.3.2",
     "@testing-library/jest-dom": "7.0.1",
@@ -147,7 +149,7 @@ Create `package.json` with this exact public surface:
 }
 ```
 
-Run `npm install`. Commit the generated `package-lock.json`; do not hand-edit it.
+Run `npm install`. Use `npm install --legacy-peer-deps` for the initial install because typescript-eslint 8.67 pins `typescript >=4.8.4 <6.1.0` while Vite 8 and React 19 pull TypeScript 7 types transitively; the explicit `typescript: 6.0.3` pin is the newest version compatible with typescript-eslint 8.67.0. Add `@testing-library/dom: 10.4.0` explicitly because `@testing-library/jest-dom` requires it as a peer and `--legacy-peer-deps` will not satisfy the peer constraint automatically. Commit the generated `package-lock.json`; do not hand-edit it.
 Configure `vite.config.ts` with React, `jsdom`, `src/test/setup.ts`, and test
 includes `src/**/*.test.{ts,tsx}` plus `tests/**/*.{test,spec}.{ts,tsx,mjs}`. In
 `src/test/setup.ts`, import `@testing-library/jest-dom/vitest`. Set all
@@ -205,7 +207,7 @@ Expected: all commands PASS.
 
 ```bash
 git add package.json package-lock.json index.html vite.config.ts tsconfig*.json \
-  eslint.config.js .prettierrc.json src/main.tsx src/app src/test
+  eslint.config.js .prettierrc.json .prettierignore src/main.tsx src/app src/test
 git commit -m "build: bootstrap sensei web app"
 ```
 
