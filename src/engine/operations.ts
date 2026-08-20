@@ -2,24 +2,19 @@ import type { LevelConfig, Operation, OperationId } from './types';
 
 export function deriveOperations(config: LevelConfig): readonly Operation[] {
   const ops: Operation[] = [];
+  const kinds = ['F', 'B'] as const;
   for (let stage = 0; stage < config.stageCount; stage++) {
-    for (let microbatch = 0; microbatch < config.microbatchCount; microbatch++) {
-      ops.push({
-        id: `F:${stage}:${microbatch}`,
-        kind: 'F',
-        stage,
-        rank: stage,
-        microbatch,
-        duration: config.durations.F,
-      });
-      ops.push({
-        id: `B:${stage}:${microbatch}`,
-        kind: 'B',
-        stage,
-        rank: stage,
-        microbatch,
-        duration: config.durations.B,
-      });
+    for (const kind of kinds) {
+      for (let microbatch = 0; microbatch < config.microbatchCount; microbatch++) {
+        ops.push({
+          id: `${kind}:${stage}:${microbatch}`,
+          kind,
+          stage,
+          rank: stage,
+          microbatch,
+          duration: config.durations[kind],
+        });
+      }
     }
   }
   return ops;

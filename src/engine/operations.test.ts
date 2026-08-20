@@ -11,6 +11,13 @@ describe('deriveOperations', () => {
     expect(ids).toEqual(['F:0:0', 'B:0:0', 'F:1:0', 'B:1:0']);
   });
 
+  it('orders within a stage by kind then microbatch', () => {
+    const config = makeConfig({ microbatchCount: 2 });
+    const operations = deriveOperations(config);
+    const ids = operations.map((op) => op.id);
+    expect(ids).toEqual(['F:0:0', 'F:0:1', 'B:0:0', 'B:0:1', 'F:1:0', 'F:1:1', 'B:1:0', 'B:1:1']);
+  });
+
   it('uses rank equal to stage in V1', () => {
     const config = makeConfig();
     const operations = deriveOperations(config);
@@ -21,13 +28,6 @@ describe('deriveOperations', () => {
     const config = makeConfig();
     const operations = deriveOperations(config);
     expect(operations.map((op) => op.duration)).toEqual([1, 2, 1, 2]);
-  });
-
-  it('handles multi-microbatch ordering', () => {
-    const config = makeConfig({ microbatchCount: 2 });
-    const operations = deriveOperations(config);
-    const ids = operations.map((op) => op.id);
-    expect(ids).toEqual(['F:0:0', 'B:0:0', 'F:0:1', 'B:0:1', 'F:1:0', 'B:1:0', 'F:1:1', 'B:1:1']);
   });
 
   it('handles multi-rank ordering', () => {
