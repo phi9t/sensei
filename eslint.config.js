@@ -7,9 +7,9 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     languageOptions: {
-      globals: { ...globals.browser, ...globals.node },
+      globals: { ...globals.browser },
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
@@ -21,6 +21,16 @@ export default [
     },
     rules: {
       ...pluginReactHooks.configs.recommended.rules,
+    },
+  },
+  {
+    files: ['vite.config.ts', 'scripts/**/*.{js,mjs,ts}'],
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
     },
   },
   {

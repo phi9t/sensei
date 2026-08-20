@@ -5,6 +5,8 @@ import { App } from './App';
 describe('App', () => {
   it('announces Sensei as a pipeline scheduling game', () => {
     render(<App />);
-    expect(screen.getByRole('heading', { name: /sensei pipeline scheduling/i })).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: /sensei pipeline scheduling/i }),
+    ).toBeInTheDocument();
   });
 });
