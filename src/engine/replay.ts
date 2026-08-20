@@ -77,6 +77,8 @@ function computePeakMemory(
     }
   }
 
+  // Sort by time, then rank, then delta. Same-time events order acquire (+1)
+  // before release (-1) so peak reflects conservative concurrent activation.
   events.sort((a, b) => a.time - b.time || a.rank - b.rank || b.delta - a.delta);
 
   for (const event of events) {

@@ -530,7 +530,7 @@ describe('immutability at caller boundaries', () => {
 });
 
 describe('unknown OperationId handling', () => {
-  it('classifyOperation throws on unknown OperationId outside runtime domain', () => {
+  it('valid inventory operation passes classifyOperation without throw', () => {
     const state = initialState(makeConfig());
     expect(() => classifyOperation(state, 'F:0:0')).not.toThrow();
   });
@@ -540,7 +540,7 @@ describe('unknown OperationId handling', () => {
     expect(() => classifyOperation(state, 'INVALID' as OperationId)).toThrow();
   });
 
-  it('applyAction throws on unknown OperationId outside runtime domain', () => {
+  it('valid inventory operation passes applyAction without throw', () => {
     const state = initialState(makeConfig());
     expect(() => applyAction(state, { type: 'place', operationId: 'F:0:0' })).not.toThrow();
   });
@@ -555,6 +555,36 @@ describe('unknown OperationId handling', () => {
   it('unknown OperationId does not fabricate zero-duration operation', () => {
     const state = initialState(makeConfig());
     expect(() => classifyOperation(state, 'Z:0:0' as OperationId)).toThrow();
+  });
+
+  it('classifyOperation throws on syntactically valid but out-of-inventory OperationId', () => {
+    const state = initialState(makeConfig());
+    expect(() => classifyOperation(state, 'F:9:9' as OperationId)).toThrow(/not in inventory/);
+  });
+
+  it('applyAction throws on syntactically valid but out-of-inventory OperationId', () => {
+    const state = initialState(makeConfig());
+    expect(() =>
+      applyAction(state, { type: 'place', operationId: 'F:9:9' as OperationId }),
+    ).toThrow(/not in inventory/);
+  });
+
+  it('out-of-inventory OperationId does not mutate state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    try {
+      classifyOperation(state, 'F:9:9' as OperationId);
+    } catch {
+      // expected
+    }
+    try {
+      applyAction(state, { type: 'place', operationId: 'F:9:9' as OperationId });
+    } catch {
+      // expected
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
   });
 });
 
