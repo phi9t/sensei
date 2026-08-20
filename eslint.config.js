@@ -21,10 +21,37 @@ export default [
     },
     rules: {
       ...pluginReactHooks.configs.recommended.rules,
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'process',
+          message: 'process is a Node global and is unavailable in browser code',
+        },
+        {
+          name: 'Buffer',
+          message: 'Buffer is a Node global and is unavailable in browser code',
+        },
+        {
+          name: '__dirname',
+          message: '__dirname is a Node global and is unavailable in browser code',
+        },
+        {
+          name: '__filename',
+          message: '__filename is a Node global and is unavailable in browser code',
+        },
+        {
+          name: 'require',
+          message: 'require is a Node global and is unavailable in browser code',
+        },
+        {
+          name: 'module',
+          message: 'module is a Node global and is unavailable in browser code',
+        },
+      ],
     },
   },
   {
-    files: ['vite.config.ts', 'scripts/**/*.{js,mjs,ts}'],
+    files: ['vite.config.ts', 'scripts/**/*.{js,mjs,ts}', 'tests/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
       parserOptions: {

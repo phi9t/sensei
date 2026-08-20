@@ -149,7 +149,7 @@ Create `package.json` with this exact public surface:
 }
 ```
 
-Run `npm install`. Use `npm install --legacy-peer-deps` for the initial install because typescript-eslint 8.67 pins `typescript >=4.8.4 <6.1.0` while Vite 8 and React 19 pull TypeScript 7 types transitively; the explicit `typescript: 6.0.3` pin is the newest version compatible with typescript-eslint 8.67.0. Add `@testing-library/dom: 10.4.0` explicitly because `@testing-library/jest-dom` requires it as a peer and `--legacy-peer-deps` will not satisfy the peer constraint automatically. Commit the generated `package-lock.json`; do not hand-edit it. jsdom 29.0.1 pins Node >=24.13, which matches the project baseline; jsdom 30 requires Node >=24.15 and is intentionally avoided.
+Run `npm install`. Use `npm install --legacy-peer-deps` for the initial install because typescript-eslint 8.67 pins `typescript >=4.8.4 <6.1.0` while Vite 8 and React 19 pull TypeScript 7 types transitively; the explicit `typescript: 6.0.3` pin is the newest version compatible with typescript-eslint 8.67.0. Add `@testing-library/dom: 10.4.0` explicitly because `@testing-library/jest-dom` requires it as a peer and `--legacy-peer-deps` will not satisfy the peer constraint automatically. Commit the generated `package-lock.json`; do not hand-edit it. jsdom 29.0.1 supports Node >=24.0 and therefore the 24.13 project baseline; jsdom 30 requires Node >=24.15 and is intentionally avoided.
 Configure `vite.config.ts` with React, `jsdom`, `src/test/setup.ts`, and test
 includes `src/**/*.test.{ts,tsx}` plus `tests/**/*.{test,spec}.{ts,tsx,mjs}`. In
 `src/test/setup.ts`, import `@testing-library/jest-dom/vitest`. Set all
