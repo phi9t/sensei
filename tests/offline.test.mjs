@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/app/App';
 import { generateServiceWorker } from '../scripts/generate-service-worker.mjs';
-import { registerOfflineSupport } from '../src/offline/register';
+import { scheduleOfflineRegistration, registerOfflineSupport } from '../src/offline/register';
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -361,6 +361,44 @@ describe('offline support', () => {
         },
       }),
     ).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('defers registration until window load when the document is not complete, but runs immediately after render when already loaded', async () => {
+    const beforeLoad = [];
+    const addEventListener = vi.fn((type, listener, options) => {
+      beforeLoad.push({ type, listener, options });
+    });
+    const removeEventListener = vi.fn();
+    const registerBeforeLoad = vi.fn().mockResolvedValue({ status: 'ready' });
+
+    scheduleOfflineRegistration({
+      document: { readyState: 'interactive' },
+      window: { addEventListener, removeEventListener },
+      register: registerBeforeLoad,
+    });
+
+    expect(registerBeforeLoad).not.toHaveBeenCalled();
+    expect(addEventListener).toHaveBeenCalledWith('load', expect.any(Function), { once: true });
+    expect(beforeLoad).toHaveLength(1);
+
+    await beforeLoad[0].listener();
+
+    expect(registerBeforeLoad).toHaveBeenCalledTimes(1);
+    expect(removeEventListener).toHaveBeenCalledWith('load', beforeLoad[0].listener);
+
+    const registerLoaded = vi.fn().mockResolvedValue({ status: 'ready' });
+    const loadedAddEventListener = vi.fn();
+
+    scheduleOfflineRegistration({
+      document: { readyState: 'complete' },
+      window: { addEventListener: loadedAddEventListener, removeEventListener: vi.fn() },
+      register: registerLoaded,
+    });
+
+    await Promise.resolve();
+
+    expect(registerLoaded).toHaveBeenCalledTimes(1);
+    expect(loadedAddEventListener).not.toHaveBeenCalled();
   });
 
   it('renders polite offline notices only for unavailable and unsupported states', () => {

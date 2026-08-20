@@ -1,7 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
-import { registerOfflineSupport, type OfflineStatus } from './offline/register';
+import {
+  registerOfflineSupport,
+  scheduleOfflineRegistration,
+  type OfflineStatus,
+} from './offline/register';
 import './styles/app.css';
 
 const container = document.getElementById('root');
@@ -17,21 +21,19 @@ root.render(
 );
 
 if (import.meta.env.PROD) {
-  const scheduleRegistration =
-    typeof globalThis !== 'undefined' && typeof globalThis.requestAnimationFrame === 'function'
-      ? globalThis.requestAnimationFrame.bind(globalThis)
-      : (callback: FrameRequestCallback) => globalThis.setTimeout(callback, 0);
+  scheduleOfflineRegistration({
+    register: async () => {
+      const result = await registerOfflineSupport();
+      if (result.status === 'ready') {
+        return result;
+      }
 
-  scheduleRegistration(async () => {
-    const result = await registerOfflineSupport();
-    if (result.status === 'ready') {
-      return;
-    }
-
-    root.render(
-      <StrictMode>
-        <App offlineStatus={result.status satisfies OfflineStatus} />
-      </StrictMode>,
-    );
+      root.render(
+        <StrictMode>
+          <App offlineStatus={result.status satisfies OfflineStatus} />
+        </StrictMode>,
+      );
+      return result;
+    },
   });
 }
