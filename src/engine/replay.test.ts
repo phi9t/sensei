@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { OperationId } from './types';
 import { initialState, classifyOperation, classifyMoves, applyAction, replay } from './replay';
 import { makeConfig, placeIds, expectState } from '../test/factories';
 
@@ -65,6 +66,16 @@ describe('classifyOperation / classifyMoves', () => {
     if (cls.status === 'legal') {
       expect(cls.earliestStart).toBe(0);
       expect(cls.projectedMemory).toBe(1);
+    }
+  });
+
+  it('B projectedMemory reflects post-completion release: current 1 -> projected 0', () => {
+    const config = makeConfig();
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0')));
+    const cls = classifyOperation(state, 'B:1:0');
+    expect(cls.status).toBe('legal');
+    if (cls.status === 'legal') {
+      expect(cls.projectedMemory).toBe(0);
     }
   });
 
@@ -140,6 +151,71 @@ describe('applyAction', () => {
     if (!result.ok) {
       expect(result.reason).toEqual({ kind: 'invalid-rank', rank: 99 });
     }
+  });
+
+  it('wait rejects NaN rank as invalid-rank without mutating state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const result = applyAction(state, { type: 'wait', rank: NaN });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({ kind: 'invalid-rank', rank: NaN });
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
+  });
+
+  it('wait rejects Infinity rank as invalid-rank without mutating state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const result = applyAction(state, { type: 'wait', rank: Infinity });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({ kind: 'invalid-rank', rank: Infinity });
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
+  });
+
+  it('wait rejects fractional rank as invalid-rank without mutating state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const result = applyAction(state, { type: 'wait', rank: 1.5 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({ kind: 'invalid-rank', rank: 1.5 });
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
+  });
+
+  it('wait rejects negative rank as invalid-rank without mutating state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const result = applyAction(state, { type: 'wait', rank: -1 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({ kind: 'invalid-rank', rank: -1 });
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
+  });
+
+  it('wait rejects rank >= rankCount as invalid-rank without mutating state', () => {
+    const state = initialState(makeConfig());
+    const snapshot = JSON.parse(JSON.stringify(state));
+    const result = applyAction(state, { type: 'wait', rank: 2 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({ kind: 'invalid-rank', rank: 2 });
+    }
+    expect(state.placements.length).toBe(0);
+    expect(state.actions.length).toBe(0);
+    expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
   });
 
   it('rejected actions never mutate or append', () => {
@@ -340,6 +416,114 @@ describe('immutability after accepted/rejected actions', () => {
       expect(Object.isFrozen(s.actions)).toBe(true);
       expect(Object.isFrozen(s.rankFrontiers)).toBe(true);
       expect(Object.isFrozen(s.placementById)).toBe(true);
+    }
+  });
+});
+
+describe('immutability at caller boundaries', () => {
+  it('initialState does not retain caller-mutable config (memoryCaps array)', () => {
+    const caps = [3, 3];
+    const config = makeConfig({ memoryCaps: caps });
+    const state = initialState(config);
+    caps[0] = 999;
+    expect(state.config.memoryCaps).toEqual([3, 3]);
+    expect(state.config.memoryCaps).not.toBe(caps);
+  });
+
+  it('initialState does not retain caller-mutable config (durations object)', () => {
+    const durations = { F: 1, B: 2 };
+    const config = makeConfig({ durations });
+    const state = initialState(config);
+    durations.F = 999;
+    expect(state.config.durations.F).toBe(1);
+  });
+
+  it('recorded accepted actions are frozen copies, not caller references', () => {
+    const config = makeConfig();
+    const action = { type: 'place' as const, operationId: 'F:0:0' as const };
+    const result = applyAction(initialState(config), action);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      (action as { operationId: string }).operationId = 'F:1:0';
+      expect(result.state.actions[0]).toEqual({ type: 'place', operationId: 'F:0:0' });
+    }
+  });
+
+  it('recorded accepted wait actions are frozen copies', () => {
+    const config = makeConfig();
+    const action = { type: 'wait' as const, rank: 0 };
+    const result = applyAction(initialState(config), action);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      action.rank = 999;
+      expect(result.state.actions[0]).toEqual({ type: 'wait', rank: 0 });
+    }
+  });
+
+  it('config passed to initialState is deep-frozen in returned state', () => {
+    const config = makeConfig();
+    const state = initialState(config);
+    expect(Object.isFrozen(state.config)).toBe(true);
+    if (state.config.memoryCaps) {
+      expect(Object.isFrozen(state.config.memoryCaps)).toBe(true);
+    }
+  });
+});
+
+describe('unknown OperationId handling', () => {
+  it('classifyOperation throws on unknown OperationId outside runtime domain', () => {
+    const state = initialState(makeConfig());
+    expect(() => classifyOperation(state, 'F:0:0')).not.toThrow();
+  });
+
+  it('classifyOperation throws on invalid format OperationId', () => {
+    const state = initialState(makeConfig());
+    expect(() => classifyOperation(state, 'INVALID' as OperationId)).toThrow();
+  });
+
+  it('applyAction throws on unknown OperationId outside runtime domain', () => {
+    const state = initialState(makeConfig());
+    expect(() => applyAction(state, { type: 'place', operationId: 'F:0:0' })).not.toThrow();
+  });
+
+  it('applyAction throws on invalid format OperationId', () => {
+    const state = initialState(makeConfig());
+    expect(() =>
+      applyAction(state, { type: 'place', operationId: 'INVALID' as OperationId }),
+    ).toThrow();
+  });
+
+  it('unknown OperationId does not fabricate zero-duration operation', () => {
+    const state = initialState(makeConfig());
+    expect(() => classifyOperation(state, 'Z:0:0' as OperationId)).toThrow();
+  });
+});
+
+describe('memory-cap only for dependency-ready forward placements', () => {
+  it('forward that would exceed cap but is dependency-blocked shows no memory-cap reason', () => {
+    const capped = makeConfig({ microbatchCount: 3, memoryCaps: [1, 1] });
+    const state = expectState(replay(capped, [{ type: 'place', operationId: 'F:0:0' }]));
+    const cls = classifyOperation(state, 'B:0:0');
+    expect(cls.status).toBe('blocked');
+    if (cls.status === 'blocked') {
+      const reasons = cls.reasons.map((r) => r.kind);
+      expect(reasons).not.toContain('memory-cap');
+      expect(reasons).toContain('dependency-not-finished');
+    }
+  });
+
+  it('memory-cap reason only appears when forward is dependency-ready', () => {
+    const capped = makeConfig({ microbatchCount: 3, memoryCaps: [2, 2] });
+    const state = expectState(
+      replay(capped, [
+        { type: 'place', operationId: 'F:0:0' },
+        { type: 'place', operationId: 'F:0:1' },
+      ]),
+    );
+    const cls = classifyOperation(state, 'F:0:2');
+    expect(cls.status).toBe('blocked');
+    if (cls.status === 'blocked') {
+      expect(cls.reasons.map((r) => r.kind)).toContain('memory-cap');
     }
   });
 });

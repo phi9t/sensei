@@ -96,12 +96,10 @@ function computeCurrentMemory(
   const rankCount = config.rankCount;
   const current = new Array<number>(rankCount).fill(0);
   const releasedF = new Set<OperationId>();
-  const completedB = new Set<OperationId>();
 
   for (const placement of placements) {
     const parsed = parseOperationId(placement.operationId);
     if (parsed.kind === 'B') {
-      completedB.add(placement.operationId);
       const matchingF: OperationId = `F:${parsed.stage}:${parsed.microbatch}`;
       releasedF.add(matchingF);
     }
@@ -117,13 +115,50 @@ function computeCurrentMemory(
   return Object.freeze(current);
 }
 
+function cloneConfig(config: LevelConfig): LevelConfig {
+  const cloned: LevelConfig = {
+    ...config,
+    durations: { ...config.durations },
+    masteryTargets: config.masteryTargets ? config.masteryTargets.map((t) => ({ ...t })) : [],
+    coaching: { ...config.coaching },
+  };
+  if (config.memoryCaps) {
+    cloned.memoryCaps = Object.freeze([...config.memoryCaps]);
+  }
+  return Object.freeze(cloned);
+}
+
+function validateOperationIdInInventory(id: OperationId, operations: readonly Operation[]): void {
+  const parsed = parseOperationId(id);
+  if (parsed.kind !== 'F' && parsed.kind !== 'B') {
+    throw new Error(`Unknown operation id: ${id}`);
+  }
+  const found = operations.find((op) => op.id === id);
+  if (!found) {
+    throw new Error(
+      `Operation ${id} not in inventory. Valid operations have matching stage/microbatch for this config.`,
+    );
+  }
+}
+
+function validateWaitRank(rank: number, rankCount: number): BlockReason | null {
+  if (!Number.isFinite(rank) || !Number.isInteger(rank)) {
+    return { kind: 'invalid-rank', rank };
+  }
+  if (rank < 0 || rank >= rankCount) {
+    return { kind: 'invalid-rank', rank };
+  }
+  return null;
+}
+
 export function initialState(config: LevelConfig): ScheduleState {
   validateLevelConfig(config);
-  const operations = deriveOperations(config);
-  const rankCount = config.rankCount;
+  const frozenConfig = cloneConfig(config);
+  const operations = deriveOperations(frozenConfig);
+  const rankCount = frozenConfig.rankCount;
 
   const state: ScheduleState = {
-    config,
+    config: frozenConfig,
     operations,
     placements: Object.freeze([]),
     placementById: Object.freeze({}),
@@ -138,21 +173,9 @@ export function initialState(config: LevelConfig): ScheduleState {
 }
 
 export function classifyOperation(state: ScheduleState, id: OperationId): MoveClassification {
-  const operation = state.operations.find((op) => op.id === id);
-  if (!operation) {
-    return {
-      status: 'blocked',
-      operation: {
-        id,
-        kind: id.startsWith('F') ? 'F' : 'B',
-        stage: Number.parseInt(id.split(':')[1] ?? '0', 10),
-        rank: Number.parseInt(id.split(':')[1] ?? '0', 10),
-        microbatch: Number.parseInt(id.split(':')[2] ?? '0', 10),
-        duration: 0,
-      },
-      reasons: [{ kind: 'dependency-not-finished', operationId: id }],
-    };
-  }
+  validateOperationIdInInventory(id, state.operations);
+
+  const operation = state.operations.find((op) => op.id === id)!;
 
   const existing = state.placementById[id];
   if (existing) {
@@ -168,9 +191,9 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
     }
   }
 
-  const start = computeEarliestStart(state, operation);
+  const dependenciesReady = reasons.length === 0;
 
-  if (operation.kind === 'F' && state.config.memoryCaps !== null) {
+  if (dependenciesReady && operation.kind === 'F' && state.config.memoryCaps !== null) {
     const cap = state.config.memoryCaps[operation.rank];
     if (cap !== undefined) {
       const resident = state.currentMemory[operation.rank] ?? 0;
@@ -190,15 +213,14 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
     return { status: 'blocked', operation, reasons: Object.freeze(reasons) };
   }
 
-  const projectedMemory = state.currentMemory[operation.rank] ?? 0;
+  let projectedMemory = state.currentMemory[operation.rank] ?? 0;
   if (operation.kind === 'F') {
-    return {
-      status: 'legal',
-      operation,
-      earliestStart: start,
-      projectedMemory: projectedMemory + 1,
-    };
+    projectedMemory = projectedMemory + 1;
+  } else {
+    projectedMemory = projectedMemory - 1;
   }
+
+  const start = computeEarliestStart(state, operation);
   return { status: 'legal', operation, earliestStart: start, projectedMemory };
 }
 
@@ -222,20 +244,19 @@ function freezePlacement(placement: Placement): Readonly<Placement> {
   return Object.freeze({ ...placement });
 }
 
+function freezeAction(action: Action): Readonly<Action> {
+  return Object.freeze({ ...action });
+}
+
 export function applyAction(state: ScheduleState, action: Action): ApplyResult {
   if (action.type === 'wait') {
     return applyWait(state, action.rank);
   }
 
   const operationId = action.operationId;
-  const operation = state.operations.find((op) => op.id === operationId);
-  if (!operation) {
-    return {
-      ok: false,
-      action,
-      reason: { kind: 'dependency-not-finished', operationId },
-    };
-  }
+  validateOperationIdInInventory(operationId, state.operations);
+
+  const operation = state.operations.find((op) => op.id === operationId)!;
 
   if (state.placementById[operationId]) {
     return {
@@ -255,8 +276,6 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
       };
     }
   }
-
-  const start = computeEarliestStart(state, operation);
 
   if (operation.kind === 'F' && state.config.memoryCaps !== null) {
     const cap = state.config.memoryCaps[operation.rank];
@@ -278,6 +297,7 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
     }
   }
 
+  const start = computeEarliestStart(state, operation);
   const end = start + operation.duration;
   const newPlacement: Placement = freezePlacement({
     operationId,
@@ -303,7 +323,7 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
     );
   }
 
-  const newActions: readonly Action[] = Object.freeze([...state.actions, action]);
+  const newActions: readonly Action[] = Object.freeze([...state.actions, freezeAction(action)]);
 
   const newCurrentMemory = computeCurrentMemory(state.config, newPlacements);
   const newPeakMemory = computePeakMemory(state.config, state.operations, newPlacements);
@@ -326,8 +346,9 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
 }
 
 function applyWait(state: ScheduleState, rank: number): ApplyResult {
-  if (rank < 0 || rank >= state.config.rankCount) {
-    return { ok: false, action: { type: 'wait', rank }, reason: { kind: 'invalid-rank', rank } };
+  const invalidReason = validateWaitRank(rank, state.config.rankCount);
+  if (invalidReason) {
+    return { ok: false, action: Object.freeze({ type: 'wait', rank }), reason: invalidReason };
   }
 
   const frontier = state.rankFrontiers[rank] ?? 0;
@@ -344,7 +365,10 @@ function applyWait(state: ScheduleState, rank: number): ApplyResult {
     }),
   );
 
-  const newActions = Object.freeze([...state.actions, { type: 'wait', rank } as Action]);
+  const newActions = Object.freeze([
+    ...state.actions,
+    Object.freeze({ type: 'wait', rank } as Action),
+  ]);
 
   const newState: ScheduleState = Object.freeze({
     config: state.config,
