@@ -4,9 +4,14 @@ interface GameControlsProps {
   readonly level: LevelConfig;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  readonly canReadySet: boolean;
+  readonly readySetReason: string;
+  readonly hintReason: string;
+  readonly automationReason: string;
   readonly onWait: (rank: number) => void;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
+  readonly onReadySet: () => void;
   readonly onHint: () => void;
   readonly onAutomate: () => void;
   readonly onReset: () => void;
@@ -16,9 +21,14 @@ export function GameControls({
   level,
   canUndo,
   canRedo,
+  canReadySet,
+  readySetReason,
+  hintReason,
+  automationReason,
   onWait,
   onUndo,
   onRedo,
+  onReadySet,
   onHint,
   onAutomate,
   onReset,
@@ -40,6 +50,14 @@ export function GameControls({
         <button type="button" onClick={onRedo} disabled={!canRedo}>
           Redo next action
         </button>
+        <button
+          type="button"
+          onClick={onReadySet}
+          disabled={!canReadySet}
+          aria-describedby="ready-set-reason"
+        >
+          Show ready operations
+        </button>
         <button type="button" onClick={onHint} disabled={!level.coaching.suggest}>
           Show local hint
         </button>
@@ -50,6 +68,9 @@ export function GameControls({
           Reset current attempt
         </button>
       </div>
+      <p id="ready-set-reason">{readySetReason}</p>
+      <p id="hint-reason">{hintReason}</p>
+      <p id="automation-reason">{automationReason}</p>
     </section>
   );
 }

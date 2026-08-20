@@ -348,7 +348,7 @@ describe('Game shell', () => {
       }),
     );
 
-    expect(status).toHaveTextContent(/Automation stopped at memory boundary/i);
+    expect(status).toHaveTextContent(/Automation stopped at a memory boundary/i);
     expect(status).toHaveTextContent(/F:0:3/i);
 
     const board = screen.getByRole('region', { name: /schedule board/i });

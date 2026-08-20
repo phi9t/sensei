@@ -4,14 +4,15 @@ import { MoveInspector } from '../components/MoveInspector';
 import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
 import { useGame } from './useGame';
-import { getLevel, LEVEL_IDS, type LevelId } from '../levels/levels';
+import type { LevelId } from '../levels/levels';
 
 interface AppProps {
   readonly initialLevelId?: LevelId;
+  readonly storage?: Storage | null;
 }
 
-export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
-  const game = useGame(initialLevelId);
+export function App({ initialLevelId = 'dependency-chain', storage = null }: AppProps) {
+  const game = useGame(initialLevelId, storage);
 
   return (
     <main className="app-shell">
@@ -27,9 +28,9 @@ export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
               value={game.levelId}
               onChange={(event) => game.changeLevel(event.target.value as LevelId)}
             >
-              {LEVEL_IDS.map((levelId) => (
-                <option key={levelId} value={levelId}>
-                  {getLevel(levelId).title}
+              {game.levelOptions.map((option) => (
+                <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
+                  {option.title}
                 </option>
               ))}
             </select>
@@ -42,6 +43,14 @@ export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
             <p>{game.score.complete ? 'Legal completion' : 'Incomplete'}</p>
             <p>{game.score.mastered ? 'Mastered' : 'Mastery pending'}</p>
           </div>
+          {game.persistenceNotice ? <p>{game.persistenceNotice}</p> : null}
+          <ul aria-label="Level access status">
+            {game.levelOptions
+              .filter((option) => !option.unlocked && option.reason !== null)
+              .map((option) => (
+                <li key={option.levelId}>{option.reason}</li>
+              ))}
+          </ul>
         </section>
       </section>
 
@@ -70,9 +79,14 @@ export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
           level={game.level}
           canUndo={game.cursor > 0}
           canRedo={game.cursor < game.actions.length}
+          canReadySet={game.canReadySet}
+          readySetReason={game.readySetReason}
+          hintReason={game.hintReason}
+          automationReason={game.automationReason}
           onWait={game.waitOneTick}
           onUndo={game.undo}
           onRedo={game.redo}
+          onReadySet={game.showReadySet}
           onHint={game.showHint}
           onAutomate={game.automate}
           onReset={game.reset}

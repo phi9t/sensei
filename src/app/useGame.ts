@@ -18,18 +18,36 @@ import {
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, Operation, OperationId } from '../engine/types';
-import { getLevel, type LevelId } from '../levels/levels';
+import { LEVEL_IDS, getLevel, type LevelId } from '../levels/levels';
+import {
+  loadProgress,
+  saveProgress,
+  selectBest,
+  type Progress,
+  type StoredAttempt,
+} from '../persistence/storage';
 
 interface OverlayState {
   readonly message: string;
+}
+
+export interface LevelOptionState {
+  readonly levelId: LevelId;
+  readonly title: string;
+  readonly unlocked: boolean;
+  readonly reason: string | null;
 }
 
 interface GameState {
   readonly levelId: LevelId;
   readonly actions: readonly Action[];
   readonly cursor: number;
+  readonly batchEnds: readonly number[];
   readonly selectedOperationId: OperationId | null;
   readonly overlay: OverlayState;
+  readonly progress: Progress;
+  readonly persistenceNotice: string | null;
+  readonly lastRecordedAttemptKey: string | null;
 }
 
 export interface GameViewModel {
@@ -46,6 +64,12 @@ export interface GameViewModel {
   readonly selectedExplanation: ExplanationResult | null;
   readonly suggestion: Suggestion | null;
   readonly readySet: ReturnType<typeof revealReadySet>;
+  readonly persistenceNotice: string | null;
+  readonly levelOptions: readonly LevelOptionState[];
+  readonly canReadySet: boolean;
+  readonly readySetReason: string;
+  readonly hintReason: string;
+  readonly automationReason: string;
   readonly activateOperation: (operationId: OperationId) => void;
   readonly selectOperation: (operationId: OperationId) => void;
   readonly waitOneTick: (rank: number) => void;
@@ -53,19 +77,145 @@ export interface GameViewModel {
   readonly redo: () => void;
   readonly reset: () => void;
   readonly changeLevel: (levelId: LevelId) => void;
+  readonly showReadySet: () => void;
   readonly showHint: () => void;
   readonly automate: () => void;
 }
 
 const DEFAULT_LEVEL_ID: LevelId = 'dependency-chain';
+const READY_MESSAGE = 'Ready to place operations.';
 
-function initialGameState(levelId: LevelId): GameState {
+function emptyProgress(): Progress {
+  return Object.freeze({
+    unlockedLevelIds: Object.freeze(['dependency-chain'] as const),
+    bestLegalAttempts: Object.freeze({}),
+    bestMasteredAttempts: Object.freeze({}),
+    historicalAttempts: Object.freeze([]),
+  });
+}
+
+function cloneAction(action: Action): Action {
+  switch (action.type) {
+    case 'place':
+      return Object.freeze({ type: 'place', operationId: action.operationId });
+    case 'wait':
+      return Object.freeze({ type: 'wait', rank: action.rank });
+  }
+}
+
+function freezeActions(actions: readonly Action[]): readonly Action[] {
+  return Object.freeze(actions.map(cloneAction));
+}
+
+function hasSavedProgress(progress: Progress): boolean {
+  return (
+    progress.unlockedLevelIds.length > 1 ||
+    LEVEL_IDS.some(
+      (levelId) =>
+        progress.bestLegalAttempts[levelId] !== undefined ||
+        progress.bestMasteredAttempts[levelId] !== undefined,
+    ) ||
+    progress.historicalAttempts.length > 0
+  );
+}
+
+function nextLevelId(levelId: LevelId): LevelId | null {
+  const index = LEVEL_IDS.indexOf(levelId);
+  return index >= 0 && index + 1 < LEVEL_IDS.length ? LEVEL_IDS[index + 1]! : null;
+}
+
+function unlockedForUi(progress: Progress, currentLevelId: LevelId): ReadonlySet<LevelId> {
+  return new Set<LevelId>([...progress.unlockedLevelIds, currentLevelId]);
+}
+
+function levelUnlockReason(levelId: LevelId): string | null {
+  if (levelId === 'dependency-chain') {
+    return null;
+  }
+  const index = LEVEL_IDS.indexOf(levelId);
+  const prerequisite = LEVEL_IDS[index - 1];
+  return prerequisite
+    ? `Complete ${getLevel(prerequisite).title} to unlock ${getLevel(levelId).title}.`
+    : null;
+}
+
+function levelOptions(progress: Progress, currentLevelId: LevelId): readonly LevelOptionState[] {
+  const unlocked = unlockedForUi(progress, currentLevelId);
+  return Object.freeze(
+    LEVEL_IDS.map((levelId) =>
+      Object.freeze({
+        levelId,
+        title: getLevel(levelId).title,
+        unlocked: unlocked.has(levelId),
+        reason: unlocked.has(levelId) ? null : levelUnlockReason(levelId),
+      }),
+    ),
+  );
+}
+
+function coachingReason(
+  capability: 'readySet' | 'suggest' | 'auto',
+  levelId: LevelId,
+  enabled: boolean,
+): string {
+  const levelTitle = getLevel(levelId).title;
+  const name =
+    capability === 'readySet'
+      ? 'Ready set'
+      : capability === 'suggest'
+        ? 'Local hint'
+        : 'Automation';
+  return enabled
+    ? `${name} is available on ${levelTitle}.`
+    : `${name} is unavailable on ${levelTitle}.`;
+}
+
+function initialGameState(initialLevelId: LevelId, storage: Storage | null): GameState {
+  if (storage === null) {
+    return {
+      levelId: initialLevelId,
+      actions: Object.freeze([]),
+      cursor: 0,
+      batchEnds: Object.freeze([]),
+      selectedOperationId: null,
+      overlay: { message: READY_MESSAGE },
+      progress: emptyProgress(),
+      persistenceNotice: null,
+      lastRecordedAttemptKey: null,
+    };
+  }
+
+  const loaded = loadProgress(storage, window.location.hash, getLevel);
+  const loadedLevelId = loaded.urlAttempt?.levelId ?? initialLevelId;
+  const loadedActions = freezeActions(loaded.urlAttempt?.actions ?? []);
+  const loadedBatchEnds = Object.freeze(loadedActions.map((_, index) => index + 1));
+  let persistenceNotice: string | null = null;
+
+  if (loaded.status === 'session-only') {
+    persistenceNotice = 'Could not access saved progress. Progress is staying in this tab only.';
+  } else if (hasSavedProgress(loaded.progress)) {
+    persistenceNotice = 'Progress restored.';
+  }
+
+  if (loaded.recovery) {
+    persistenceNotice = 'Saved progress could not be read. Starting from the last safe state.';
+  }
+
   return {
-    levelId,
-    actions: [],
-    cursor: 0,
+    levelId: loadedLevelId,
+    actions: loadedActions,
+    cursor: loadedActions.length,
+    batchEnds: loadedBatchEnds,
     selectedOperationId: null,
-    overlay: { message: 'Ready to place operations.' },
+    overlay: {
+      message:
+        loaded.urlAttempt === null
+          ? READY_MESSAGE
+          : `Loaded ${getLevel(loadedLevelId).title} from a shared attempt.`,
+    },
+    progress: loaded.progress,
+    persistenceNotice,
+    lastRecordedAttemptKey: null,
   };
 }
 
@@ -117,21 +267,21 @@ function formatBlockedSummary(operationId: OperationId, count: number): string {
   return `${formatOperationName(operationId)} is blocked by ${count} ${reasonLabel}.`;
 }
 
-function stopReasonMessage(stop: StopReason): string {
+export function formatStopReason(stop: StopReason): string {
   switch (stop.kind) {
     case 'choice':
       return `Automation stopped at a learner choice between ${stop.operationIds
         .map(formatOperationCode)
         .join(', ')}.`;
     case 'dependency-gap':
-      return `Automation stopped before a dependency-forced gap for ${formatOperationCode(stop.operationId)}.`;
+      return `Automation stopped at a dependency gap before ${formatOperationCode(stop.operationId)} can start at ${stop.start} while rank frontier ${stop.rankFrontier} is still behind.`;
     case 'memory-boundary':
-      return `Automation stopped at memory boundary: ${stop.operationIds
+      return `Automation stopped at a memory boundary before ${stop.operationIds
         .map(formatOperationCode)
         .join(', ')}.`;
     case 'would-complete':
       return stop.operationId
-        ? `Automation stopped before the final placement ${formatOperationCode(stop.operationId)}.`
+        ? `Automation stopped because ${formatOperationCode(stop.operationId)} would complete the attempt.`
         : 'Automation stopped because the attempt is already complete.';
     case 'memory-deadlock':
       return 'Automation detected a memory deadlock. Undo or reset to recover.';
@@ -140,8 +290,170 @@ function stopReasonMessage(stop: StopReason): string {
   }
 }
 
-export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewModel {
-  const [game, setGame] = useState<GameState>(() => initialGameState(initialLevelId));
+function freezeProgress(progress: Progress): Progress {
+  return Object.freeze({
+    unlockedLevelIds: Object.freeze([...progress.unlockedLevelIds]),
+    bestLegalAttempts: Object.freeze({ ...progress.bestLegalAttempts }),
+    bestMasteredAttempts: Object.freeze({ ...progress.bestMasteredAttempts }),
+    historicalAttempts: Object.freeze([...progress.historicalAttempts]),
+  });
+}
+
+function truncateBatchEnds(batchEnds: readonly number[], cursor: number): readonly number[] {
+  return Object.freeze(batchEnds.filter((end) => end <= cursor));
+}
+
+function previousBoundary(batchEnds: readonly number[], cursor: number): number {
+  let previous = 0;
+  for (const end of batchEnds) {
+    if (end >= cursor) {
+      break;
+    }
+    previous = end;
+  }
+  return previous;
+}
+
+function buildAttempt(levelId: LevelId, actions: readonly Action[]): StoredAttempt | null {
+  const level = getLevel(levelId);
+  const replayed = replay(level, actions);
+  if (!replayed.ok) {
+    throw new Error(`Completed attempt became invalid at action ${replayed.index}.`);
+  }
+
+  const scoreResult = score(replayed.state);
+  if (!scoreResult.complete) {
+    return null;
+  }
+
+  return Object.freeze({
+    levelId,
+    levelVersion: level.version,
+    actions: freezeActions(actions),
+    outcome: scoreResult.mastered ? 'mastered' : 'legal',
+    tuple: attemptRankingTuple(replayed.state),
+  });
+}
+
+function mergeProgress(progress: Progress, attempt: StoredAttempt): Progress {
+  const nextUnlocked = new Set<LevelId>(progress.unlockedLevelIds);
+  nextUnlocked.add(attempt.levelId);
+  const unlockedNextLevelId = nextLevelId(attempt.levelId);
+  if (unlockedNextLevelId) {
+    nextUnlocked.add(unlockedNextLevelId);
+  }
+
+  const bestLegalAttempts: Partial<Record<LevelId, StoredAttempt>> = {
+    ...progress.bestLegalAttempts,
+  };
+  const legalCandidates = [progress.bestLegalAttempts[attempt.levelId], attempt].filter(
+    (candidate): candidate is StoredAttempt => candidate !== undefined,
+  );
+  const bestLegalAttempt = selectBest(legalCandidates, {
+    levelId: attempt.levelId,
+    levelVersion: attempt.levelVersion,
+  });
+  if (bestLegalAttempt) {
+    bestLegalAttempts[attempt.levelId] = bestLegalAttempt;
+  }
+
+  const bestMasteredAttempts: Partial<Record<LevelId, StoredAttempt>> = {
+    ...progress.bestMasteredAttempts,
+  };
+  if (attempt.outcome === 'mastered') {
+    const masteredCandidates = [progress.bestMasteredAttempts[attempt.levelId], attempt].filter(
+      (candidate): candidate is StoredAttempt => candidate !== undefined,
+    );
+    const bestMasteredAttempt = selectBest(masteredCandidates, {
+      levelId: attempt.levelId,
+      levelVersion: attempt.levelVersion,
+    });
+    if (bestMasteredAttempt) {
+      bestMasteredAttempts[attempt.levelId] = bestMasteredAttempt;
+    }
+  }
+
+  return freezeProgress({
+    unlockedLevelIds: Object.freeze(LEVEL_IDS.filter((levelId) => nextUnlocked.has(levelId))),
+    bestLegalAttempts: Object.freeze(bestLegalAttempts),
+    bestMasteredAttempts: Object.freeze(bestMasteredAttempts),
+    historicalAttempts: progress.historicalAttempts,
+  });
+}
+
+function appendBatch(
+  current: GameState,
+  appendedActions: readonly Action[],
+  selectedOperationId: OperationId | null,
+  message: string,
+): GameState {
+  if (appendedActions.length === 0) {
+    return {
+      ...current,
+      selectedOperationId,
+      overlay: { message },
+    };
+  }
+
+  const prefix = activeActions(current.actions, current.cursor);
+  const nextActions = freezeActions([...prefix, ...appendedActions]);
+  const nextBatchEnds = Object.freeze([
+    ...truncateBatchEnds(current.batchEnds, current.cursor),
+    nextActions.length,
+  ]);
+
+  return {
+    ...current,
+    actions: nextActions,
+    cursor: nextActions.length,
+    batchEnds: nextBatchEnds,
+    selectedOperationId,
+    overlay: { message },
+  };
+}
+
+function persistIfComplete(current: GameState, storage: Storage | null): GameState {
+  const completedAttempt = buildAttempt(
+    current.levelId,
+    activeActions(current.actions, current.cursor),
+  );
+  if (completedAttempt === null) {
+    return current;
+  }
+
+  const fingerprint = `${completedAttempt.levelId}:${completedAttempt.levelVersion}:${JSON.stringify(
+    completedAttempt.actions,
+  )}`;
+  if (current.lastRecordedAttemptKey === fingerprint) {
+    return current;
+  }
+
+  const nextProgress = mergeProgress(current.progress, completedAttempt);
+  if (storage === null) {
+    return {
+      ...current,
+      progress: nextProgress,
+      lastRecordedAttemptKey: fingerprint,
+    };
+  }
+
+  const saved = saveProgress(storage, nextProgress);
+  return {
+    ...current,
+    progress: saved.progress,
+    persistenceNotice:
+      saved.status === 'session-only'
+        ? 'Could not save progress. Progress is staying in this tab only.'
+        : current.persistenceNotice,
+    lastRecordedAttemptKey: fingerprint,
+  };
+}
+
+export function useGame(
+  initialLevelId: LevelId = DEFAULT_LEVEL_ID,
+  storage: Storage | null = null,
+): GameViewModel {
+  const [game, setGame] = useState<GameState>(() => initialGameState(initialLevelId, storage));
 
   const level = getLevel(game.levelId);
   const schedule = deriveSchedule(game.levelId, game.actions, game.cursor);
@@ -153,12 +465,20 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
     selectedOperationId === null ? null : explainBlockedMove(schedule, selectedOperationId);
   const suggestion = level.coaching.suggest ? suggestMove(schedule) : null;
   const readySet = level.coaching.readySet ? revealReadySet(schedule) : [];
+  const optionStates = levelOptions(game.progress, game.levelId);
+  const canReadySet = level.coaching.readySet;
+  const readySetReason = coachingReason('readySet', game.levelId, canReadySet);
+  const hintReason = coachingReason('suggest', game.levelId, level.coaching.suggest);
+  const automationReason = coachingReason('auto', game.levelId, level.coaching.auto);
 
   function updateWithCurrentSchedule(
     updater: (current: GameState, currentSchedule: ScheduleState) => GameState,
   ): void {
     setGame((current) =>
-      updater(current, deriveSchedule(current.levelId, current.actions, current.cursor)),
+      persistIfComplete(
+        updater(current, deriveSchedule(current.levelId, current.actions, current.cursor)),
+        storage,
+      ),
     );
   }
 
@@ -191,7 +511,6 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
         };
       }
 
-      const prefix = activeActions(current.actions, current.cursor);
       const action: Action = { type: 'place', operationId };
       const applied = applyAction(currentSchedule, action);
       if (!applied.ok) {
@@ -200,16 +519,12 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
         );
       }
 
-      const nextActions = [...prefix, action];
-      return {
-        ...current,
-        actions: nextActions,
-        cursor: nextActions.length,
-        selectedOperationId: operationId,
-        overlay: {
-          message: `Placed ${formatOperationName(operationId)} on rank ${classification.operation.rank}.`,
-        },
-      };
+      return appendBatch(
+        current,
+        [action],
+        operationId,
+        `Placed ${formatOperationName(operationId)} on rank ${classification.operation.rank}.`,
+      );
     });
   }
 
@@ -223,7 +538,6 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
 
   function waitOneTick(rank: number): void {
     updateWithCurrentSchedule((current, currentSchedule) => {
-      const prefix = activeActions(current.actions, current.cursor);
       const action: Action = { type: 'wait', rank };
       const applied = applyAction(currentSchedule, action);
       if (!applied.ok) {
@@ -233,13 +547,12 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
         };
       }
 
-      const nextActions = [...prefix, action];
-      return {
-        ...current,
-        actions: nextActions,
-        cursor: nextActions.length,
-        overlay: { message: `Inserted one intentional idle tick on rank ${rank}.` },
-      };
+      return appendBatch(
+        current,
+        [action],
+        current.selectedOperationId,
+        `Inserted one intentional idle tick on rank ${rank}.`,
+      );
     });
   }
 
@@ -248,49 +561,126 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
       if (current.cursor === 0) {
         return current;
       }
-      return {
-        ...current,
-        cursor: current.cursor - 1,
-        overlay: { message: 'Undid the last action.' },
-      };
+      const nextCursor = previousBoundary(current.batchEnds, current.cursor);
+      const undoneCount = current.cursor - nextCursor;
+      return persistIfComplete(
+        {
+          ...current,
+          cursor: nextCursor,
+          overlay: {
+            message:
+              undoneCount === 1
+                ? 'Undid 1 action.'
+                : `Undid 1 batch containing ${undoneCount} actions.`,
+          },
+        },
+        storage,
+      );
     });
   }
 
   function redo(): void {
     setGame((current) => {
-      if (current.cursor >= current.actions.length) {
+      const nextCursor = current.batchEnds.find((end) => end > current.cursor);
+      if (nextCursor === undefined) {
         return current;
       }
-      return {
-        ...current,
-        cursor: current.cursor + 1,
-        overlay: { message: 'Redid the next action.' },
-      };
+      const redoneCount = nextCursor - current.cursor;
+      return persistIfComplete(
+        {
+          ...current,
+          cursor: nextCursor,
+          overlay: {
+            message:
+              redoneCount === 1
+                ? 'Redid 1 action.'
+                : `Redid 1 batch containing ${redoneCount} actions.`,
+          },
+        },
+        storage,
+      );
     });
   }
 
   function reset(): void {
-    setGame((current) => ({
-      ...current,
-      actions: [],
-      cursor: 0,
-      selectedOperationId: null,
-      overlay: { message: 'Reset the current attempt.' },
-    }));
+    setGame((current) =>
+      persistIfComplete(
+        {
+          ...current,
+          actions: Object.freeze([]),
+          cursor: 0,
+          batchEnds: Object.freeze([]),
+          selectedOperationId: null,
+          overlay: { message: 'Reset the current attempt.' },
+          lastRecordedAttemptKey: null,
+        },
+        storage,
+      ),
+    );
   }
 
   function changeLevel(levelId: LevelId): void {
-    setGame({
-      levelId,
-      actions: [],
-      cursor: 0,
-      selectedOperationId: null,
-      overlay: { message: `Loaded ${getLevel(levelId).title}.` },
+    setGame((current) => {
+      const selectable = levelOptions(current.progress, current.levelId).find(
+        (entry) => entry.levelId === levelId,
+      );
+      if (selectable && !selectable.unlocked) {
+        return persistIfComplete(
+          {
+            ...current,
+            overlay: { message: selectable.reason ?? `${selectable.title} is locked.` },
+          },
+          storage,
+        );
+      }
+
+      return persistIfComplete(
+        {
+          ...current,
+          levelId,
+          actions: Object.freeze([]),
+          cursor: 0,
+          batchEnds: Object.freeze([]),
+          selectedOperationId: null,
+          overlay: { message: `Loaded ${getLevel(levelId).title}.` },
+          lastRecordedAttemptKey: null,
+        },
+        storage,
+      );
+    });
+  }
+
+  function showReadySet(): void {
+    updateWithCurrentSchedule((current, currentSchedule) => {
+      if (!getLevel(current.levelId).coaching.readySet) {
+        return {
+          ...current,
+          overlay: { message: coachingReason('readySet', current.levelId, false) },
+        };
+      }
+
+      const nextReadySet = revealReadySet(currentSchedule);
+      return {
+        ...current,
+        overlay: {
+          message:
+            nextReadySet.length === 0
+              ? 'Ready set: no operations are legal yet.'
+              : `Ready set: ${nextReadySet.map((entry) => entry.operationId).join(', ')}.`,
+        },
+      };
     });
   }
 
   function showHint(): void {
     updateWithCurrentSchedule((current, currentSchedule) => {
+      if (!getLevel(current.levelId).coaching.suggest) {
+        return {
+          ...current,
+          overlay: { message: coachingReason('suggest', current.levelId, false) },
+        };
+      }
+
       const nextSuggestion = suggestMove(currentSchedule);
       if (!nextSuggestion) {
         return {
@@ -311,9 +701,14 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
 
   function automate(): void {
     updateWithCurrentSchedule((current, currentSchedule) => {
+      if (!getLevel(current.levelId).coaching.auto) {
+        return {
+          ...current,
+          overlay: { message: coachingReason('auto', current.levelId, false) },
+        };
+      }
+
       const result = runUntilInteresting(currentSchedule);
-      const prefix = activeActions(current.actions, current.cursor);
-      const nextActions = [...prefix, ...result.applied];
 
       let nextSelection: OperationId | null = current.selectedOperationId;
       switch (result.stop.kind) {
@@ -330,21 +725,7 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
           break;
       }
 
-      if (result.applied.length === 0) {
-        return {
-          ...current,
-          selectedOperationId: nextSelection,
-          overlay: { message: stopReasonMessage(result.stop) },
-        };
-      }
-
-      return {
-        ...current,
-        actions: nextActions,
-        cursor: nextActions.length,
-        selectedOperationId: nextSelection,
-        overlay: { message: stopReasonMessage(result.stop) },
-      };
+      return appendBatch(current, result.applied, nextSelection, formatStopReason(result.stop));
     });
   }
 
@@ -362,6 +743,12 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
     selectedExplanation,
     suggestion,
     readySet,
+    persistenceNotice: game.persistenceNotice,
+    levelOptions: optionStates,
+    canReadySet,
+    readySetReason,
+    hintReason,
+    automationReason,
     activateOperation,
     selectOperation,
     waitOneTick,
@@ -369,6 +756,7 @@ export function useGame(initialLevelId: LevelId = DEFAULT_LEVEL_ID): GameViewMod
     redo,
     reset,
     changeLevel,
+    showReadySet,
     showHint,
     automate,
   };
