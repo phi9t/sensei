@@ -12,6 +12,10 @@ function formatTuple(tuple: AttemptRankingTuple): string {
   return `${tuple.makespan} -> ${tuple.peakActivationMemory} -> ${tuple.intentionalIdle} -> ${tuple.actionCount}`;
 }
 
+function formatBubbleRatio(value: number): string {
+  return `${value.toFixed(3)} (${(value * 100).toFixed(1)}%)`;
+}
+
 export function MetricsPanel({ level, score, currentMemory, attemptTuple }: MetricsPanelProps) {
   const masteryTargets =
     level.masteryTargets.length === 0
@@ -23,10 +27,6 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
   return (
     <section className="panel metrics-panel" aria-labelledby="metrics-panel-heading">
       <h2 id="metrics-panel-heading">Metrics panel</h2>
-      <div className="metrics-summary">
-        <p>Intentional idle: {score.intentionalIdle}</p>
-        <p>Current attempt tuple: {formatTuple(attemptTuple)}</p>
-      </div>
       <dl className="metrics-grid">
         <div>
           <dt>Completion</dt>
@@ -50,11 +50,11 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
         </div>
         <div>
           <dt>Bubble</dt>
-          <dd>1 - work/capacity = {score.bubbleRatio}</dd>
+          <dd>1 - work/capacity = {formatBubbleRatio(score.bubbleRatio)}</dd>
         </div>
         <div>
           <dt>Intentional idle</dt>
-          <dd>{score.intentionalIdle}</dd>
+          <dd>Intentional idle: {score.intentionalIdle}</dd>
         </div>
         <div>
           <dt>Current activation memory</dt>
@@ -70,7 +70,7 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
         </div>
         <div>
           <dt>Current attempt tuple</dt>
-          <dd>{formatTuple(attemptTuple)}</dd>
+          <dd>Current attempt tuple: {formatTuple(attemptTuple)}</dd>
         </div>
       </dl>
     </section>

@@ -1,22 +1,41 @@
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
+import type { Operation, OperationId } from '../engine/types';
 
 export const CELL_WIDTH = 48;
+const RIGHT_PADDING = 24;
+const INVENTORY_TOP = 24;
+const INVENTORY_HEIGHT = 18;
+const INVENTORY_LABEL_Y = INVENTORY_TOP - 6;
+const INVENTORY_GAP = 12;
+const MEMORY_STRIP_HEIGHT = 12;
+const MEMORY_STRIP_GAP = 8;
 const ROW_HEIGHT = 44;
-const TOP_PADDING = 24;
+const TOP_PADDING = 72;
 const LEFT_PADDING = 88;
-const INVENTORY_ROW_Y = 18;
 
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
-  readonly selectedOperationId: string | null;
+  readonly selectedOperationId: OperationId | null;
 }
 
 function kindPatternId(kind: 'F' | 'B'): string {
   return kind === 'F' ? 'pattern-forward' : 'pattern-backward';
 }
 
-function operationById(state: ScheduleState, operationId: string) {
+interface InventoryTile {
+  readonly operation: Operation;
+  readonly x: number;
+  readonly width: number;
+}
+
+interface MemorySegment {
+  readonly start: number;
+  readonly end: number;
+  readonly value: number;
+}
+
+function operationById(state: ScheduleState, operationId: OperationId) {
   const operation = state.operations.find((candidate) => candidate.id === operationId);
   if (!operation) {
     throw new Error(`Operation ${operationId} not found on board`);
@@ -39,22 +58,77 @@ function placementSummary(state: ScheduleState, placement: Placement): string {
   return `Rank ${placement.rank}, start ${placement.start}, end ${placement.end}, duration ${operation.duration}`;
 }
 
-function inventoryGeometry(state: ScheduleState) {
+function inventoryGeometry(state: ScheduleState): readonly InventoryTile[] {
   const placedIds = new Set(state.placements.map((placement) => placement.operationId));
   return state.operations
     .filter((operation) => !placedIds.has(operation.id))
     .map((operation, index) => ({
       operation,
-      x: index * (CELL_WIDTH * 2 + 12),
+      x: index * (CELL_WIDTH * 2 + INVENTORY_GAP),
       width: operation.duration * CELL_WIDTH,
     }));
 }
 
+function inventoryExtent(inventoryTiles: readonly InventoryTile[]): number {
+  const rightmost = inventoryTiles.reduce((max, tile) => Math.max(max, tile.x + tile.width), 0);
+  return LEFT_PADDING + rightmost + RIGHT_PADDING;
+}
+
+function timelineExtent(state: ScheduleState): number {
+  return LEFT_PADDING + maxEndTime(state) * CELL_WIDTH + RIGHT_PADDING;
+}
+
+function rankRowTop(rank: number): number {
+  return TOP_PADDING + rank * ROW_HEIGHT;
+}
+
+function memorySegmentsForRank(state: ScheduleState, rank: number): readonly MemorySegment[] {
+  const horizon = maxEndTime(state);
+  const events = state.placements
+    .filter((placement) => placement.rank === rank)
+    .map((placement) => {
+      const operation = operationById(state, placement.operationId);
+      return {
+        time: placement.end,
+        delta: operation.kind === 'F' ? 1 : -1,
+      };
+    })
+    .sort((left, right) => left.time - right.time || right.delta - left.delta);
+
+  const segments: MemorySegment[] = [];
+  let cursor = 0;
+  let value = 0;
+
+  for (const event of events) {
+    if (event.time > cursor) {
+      segments.push({ start: cursor, end: event.time, value });
+      cursor = event.time;
+    }
+    value += event.delta;
+  }
+
+  if (cursor < horizon) {
+    segments.push({ start: cursor, end: horizon, value });
+  }
+
+  if (segments.length === 0) {
+    segments.push({ start: 0, end: horizon, value: 0 });
+  }
+
+  return Object.freeze(segments);
+}
+
+function memoryTimelineText(segments: readonly MemorySegment[], rank: number): string {
+  return `Rank ${rank} memory timeline: ${segments
+    .map((segment) => `${segment.start}-${segment.end} => ${segment.value} units`)
+    .join('; ')}`;
+}
+
 export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardProps) {
-  const timelineEnd = maxEndTime(schedule);
-  const svgWidth = LEFT_PADDING + timelineEnd * CELL_WIDTH + 96;
-  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 48;
+  const svgWidth = Math.max(timelineExtent(schedule), inventoryExtent(inventoryGeometry(schedule)));
+  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 64;
   const inventoryTiles = inventoryGeometry(schedule);
+  const timelineEnd = maxEndTime(schedule);
 
   return (
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
@@ -71,10 +145,12 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
           className="schedule-board-svg"
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           aria-labelledby="schedule-svg-title schedule-svg-desc"
+          role="img"
         >
           <title id="schedule-svg-title">Pipeline schedule board</title>
           <desc id="schedule-svg-desc">
-            Rank timelines, truthful duration tiles, and gaps for the current replayed attempt.
+            Rank timelines, truthful duration tiles, gaps, and activation memory strips for the
+            current replayed attempt.
           </desc>
           <defs>
             <pattern
@@ -93,7 +169,7 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
           </defs>
 
           <g transform={`translate(${LEFT_PADDING} 0)`}>
-            <text x="0" y={INVENTORY_ROW_Y} className="board-caption">
+            <text x="0" y={INVENTORY_LABEL_Y} className="board-caption">
               Inventory geometry
             </text>
 
@@ -102,16 +178,16 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                 <rect
                   data-testid={`tile-${operation.id}`}
                   x={x}
-                  y={INVENTORY_ROW_Y + 8}
+                  y={INVENTORY_TOP}
                   width={width}
-                  height="16"
+                  height={INVENTORY_HEIGHT}
                   rx="2"
                   className="inventory-rect"
                   data-kind={operation.kind}
                   data-duration={operation.duration}
                   fill={`url(#${kindPatternId(operation.kind)})`}
                 />
-                <text x={x + 4} y={INVENTORY_ROW_Y + 20} className="inventory-label">
+                <text x={x + 4} y={INVENTORY_TOP + 12} className="inventory-label">
                   {formatOperationCode(operation)}
                 </text>
               </g>
@@ -119,17 +195,45 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
           </g>
 
           {schedule.rankFrontiers.map((_, rank) => {
-            const y = TOP_PADDING + rank * ROW_HEIGHT;
+            const y = rankRowTop(rank);
+            const stripY = y;
+            const lineY = y + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 12;
             return (
               <g key={`rank-${rank}`}>
-                <text x="12" y={y + 24} className="rank-label">
+                <text x="12" y={lineY + 4} className="rank-label">
                   Rank {rank}
                 </text>
+                <g
+                  className="memory-strip"
+                  data-testid={`memory-strip-rank-${rank}`}
+                  transform={`translate(${LEFT_PADDING} 0)`}
+                >
+                  {memorySegmentsForRank(schedule, rank).map((segment, index) => (
+                    <g key={`memory-${rank}-${segment.start}-${segment.end}-${segment.value}`}>
+                      <rect
+                        data-testid={`memory-segment-rank-${rank}-${index}`}
+                        x={segment.start * CELL_WIDTH}
+                        y={stripY}
+                        width={(segment.end - segment.start) * CELL_WIDTH}
+                        height={MEMORY_STRIP_HEIGHT}
+                        className="memory-strip__segment"
+                        data-memory={segment.value}
+                      />
+                      <text
+                        x={segment.start * CELL_WIDTH + 4}
+                        y={stripY + 9}
+                        className="memory-strip__label"
+                      >
+                        M{segment.value}
+                      </text>
+                    </g>
+                  ))}
+                </g>
                 <line
                   x1={LEFT_PADDING}
                   x2={LEFT_PADDING + timelineEnd * CELL_WIDTH}
-                  y1={y + 20}
-                  y2={y + 20}
+                  y1={lineY}
+                  y2={lineY}
                   className="rank-line"
                 />
               </g>
@@ -156,7 +260,7 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
             })}
 
             {schedule.gaps.map((gap) => {
-              const y = TOP_PADDING + gap.rank * ROW_HEIGHT + 8;
+              const y = rankRowTop(gap.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP;
               const x = gap.start * CELL_WIDTH;
               const width = (gap.end - gap.start) * CELL_WIDTH;
               return (
@@ -180,14 +284,14 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
               const operation = operationById(schedule, placement.operationId);
               const width = operation.duration * CELL_WIDTH;
               const x = placement.start * CELL_WIDTH;
-              const y = TOP_PADDING + placement.rank * ROW_HEIGHT + 8;
+              const y = rankRowTop(placement.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP;
               const isSelected = selectedOperationId === placement.operationId;
 
               return (
                 <g key={placement.operationId}>
                   <title>{`${formatOperationName(operation)} on rank ${placement.rank} from ${placement.start} to ${placement.end}`}</title>
                   <rect
-                    data-testid={`tile-${operation.id}`}
+                    data-testid={`rank-tile-${operation.id}`}
                     x={x}
                     y={y}
                     width={width}
@@ -252,6 +356,21 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                 );
               })
             )}
+          </dl>
+        </div>
+
+        <div>
+          <h3 className="board-subheading">Activation memory</h3>
+          <dl className="board-list">
+            {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
+              const segments = memorySegmentsForRank(schedule, rank);
+              return (
+                <div key={`memory-detail-${rank}`}>
+                  <dt>Rank {rank}</dt>
+                  <dd>{memoryTimelineText(segments, rank)}</dd>
+                </div>
+              );
+            })}
           </dl>
         </div>
       </div>

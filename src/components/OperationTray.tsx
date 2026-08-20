@@ -20,6 +20,12 @@ function visibleStateLabel(classification: MoveClassification): string {
   }
 }
 
+function accessibleOperationLabel(classification: MoveClassification): string {
+  const { operation } = classification;
+  const tickLabel = operation.duration === 1 ? '1 tick' : `${operation.duration} ticks`;
+  return `Place ${formatOperationName(operation)}, ${tickLabel}, ${visibleStateLabel(classification)}`;
+}
+
 export function OperationTray({
   classifications,
   selectedOperationId,
@@ -46,9 +52,9 @@ export function OperationTray({
               data-kind={operation.kind}
               data-state={classification.status}
               data-selected={isSelected ? 'true' : 'false'}
-              aria-label={`Place ${formatOperationName(operation)}`}
+              aria-label={accessibleOperationLabel(classification)}
               aria-disabled={isBlocked ? 'true' : undefined}
-              aria-pressed={isSelected}
+              aria-current={isSelected ? 'true' : undefined}
               onClick={() => onActivate(operation.id)}
               style={
                 {

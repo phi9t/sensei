@@ -49,6 +49,7 @@ describe('Game shell', () => {
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/F:0:0/)).toBeInTheDocument();
     expect(within(inspector).getByText(/B:1:0/)).toBeInTheDocument();
+    expect(blocked).toHaveAccessibleName(/place B stage 0 microbatch 0, 2 ticks, blocked/i);
   });
 
   it('surfaces legal-then-rejected engine inconsistencies instead of overlaying them', async () => {
@@ -94,6 +95,75 @@ describe('Game shell', () => {
     expect(backward).toHaveAttribute('data-duration', '2');
     expect(Number(forward.getAttribute('width'))).toBeGreaterThan(0);
     expect(Number(backward.getAttribute('width'))).toBe(Number(forward.getAttribute('width')) * 2);
+  });
+
+  it('gives inventory its own vertical band and sizes the board to contain the full inventory extent', () => {
+    render(<App initialLevelId="dependency-chain" />);
+
+    const dependencyBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
+    const dependencyInventory = screen.getByTestId('tile-F:0:0');
+    const dependencyFirstRankMemory = screen.getByTestId('memory-segment-rank-0-0');
+    const dependencyViewBoxWidth = Number(
+      dependencyBoard.getAttribute('viewBox')?.split(/\s+/).at(2),
+    );
+
+    expect(Number(dependencyInventory.getAttribute('y'))).toBeLessThan(
+      Number(dependencyFirstRankMemory.getAttribute('y')),
+    );
+    expect(
+      Number(dependencyInventory.getAttribute('y')) +
+        Number(dependencyInventory.getAttribute('height')),
+    ).toBeLessThanOrEqual(Number(dependencyFirstRankMemory.getAttribute('y')));
+    expect(dependencyViewBoxWidth).toBeGreaterThanOrEqual(
+      Number(dependencyInventory.getAttribute('x')) +
+        Number(dependencyInventory.getAttribute('width')) +
+        24,
+    );
+
+    cleanup();
+    render(<App initialLevelId="memory-wall" />);
+
+    const memoryBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
+    const lastInventoryTile = screen.getByTestId('tile-B:2:3');
+    const memoryViewBoxWidth = Number(memoryBoard.getAttribute('viewBox')?.split(/\s+/).at(2));
+
+    expect(memoryViewBoxWidth).toBeGreaterThanOrEqual(
+      Number(lastInventoryTile.getAttribute('x')) +
+        Number(lastInventoryTile.getAttribute('width')) +
+        24,
+    );
+  });
+
+  it('renders per-rank activation-memory strips aligned to time and updates on forward acquire and backward release', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    expect(screen.getByTestId('memory-strip-rank-0')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-strip-rank-1')).toBeInTheDocument();
+    expect(screen.getByText(/Rank 0 memory timeline: 0-2 => 0 units/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+
+    expect(
+      screen.getByText(/Rank 0 memory timeline: 0-1 => 0 units; 1-2 => 1 units/i),
+    ).toBeInTheDocument();
+    const afterForwardSegments = within(screen.getByTestId('memory-strip-rank-0')).getAllByTestId(
+      /memory-segment-rank-0-/,
+    );
+    expect(afterForwardSegments).toHaveLength(2);
+    expect(afterForwardSegments[1]).toHaveAttribute('data-memory', '1');
+
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 0 microbatch 0/i }));
+
+    expect(
+      screen.getByText(/Rank 1 memory timeline: 0-2 => 0 units; 2-4 => 1 units; 4-6 => 0 units/i),
+    ).toBeInTheDocument();
+    const releasedSegments = within(screen.getByTestId('memory-strip-rank-1')).getAllByTestId(
+      /memory-segment-rank-1-/,
+    );
+    expect(releasedSegments.at(-1)).toHaveAttribute('data-memory', '0');
   });
 
   it('completes and masters level one using keyboard only', async () => {
@@ -167,7 +237,7 @@ describe('Game shell', () => {
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
 
-    const tile = screen.getByTestId('tile-F:1:0');
+    const tile = screen.getByTestId('rank-tile-F:1:0');
     expect(tile).toHaveAttribute('data-duration', '1');
     expect(tile).toHaveAttribute('x', '48');
     expect(tile).toHaveAttribute('width', '48');
@@ -278,9 +348,13 @@ describe('Game shell', () => {
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     const board = screen.getByRole('region', { name: /schedule board/i });
+    const completed = screen.getByRole('button', {
+      name: /place F stage 0 microbatch 0, 1 tick, completed/i,
+    });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
     expect(within(board).getAllByText(/F:0:0/)).toHaveLength(1);
+    expect(completed).toHaveAttribute('aria-current', 'true');
   });
 
   it('exposes named regions and truthful controls while using aria-disabled for blocked moves', () => {

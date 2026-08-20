@@ -4,17 +4,10 @@ import { MoveInspector } from '../components/MoveInspector';
 import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
 import { useGame } from './useGame';
-import { LEVEL_IDS, type LevelId } from '../levels/levels';
+import { getLevel, LEVEL_IDS, type LevelId } from '../levels/levels';
 
 interface AppProps {
   readonly initialLevelId?: LevelId;
-}
-
-function levelLabel(levelId: LevelId): string {
-  return levelId
-    .split('-')
-    .map((part) => part[0]!.toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
@@ -29,7 +22,6 @@ export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
             <p>Correct first. Efficient next.</p>
           </div>
           <label>
-            <span className="sr-only">Choose level</span>
             <select
               aria-label="Choose level"
               value={game.levelId}
@@ -37,7 +29,7 @@ export function App({ initialLevelId = 'dependency-chain' }: AppProps) {
             >
               {LEVEL_IDS.map((levelId) => (
                 <option key={levelId} value={levelId}>
-                  {levelLabel(levelId)}
+                  {getLevel(levelId).title}
                 </option>
               ))}
             </select>
