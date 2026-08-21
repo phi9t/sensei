@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
-import type { OperationId } from '../engine/types';
+import type { Operation, OperationId } from '../engine/types';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 export const CELL_WIDTH = 44;
@@ -104,6 +104,48 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
   return `Rank ${rank} memory timeline: ${segments
     .map((segment) => `${segment.start}-${segment.end} => ${segment.value} units`)
     .join('; ')}`;
+}
+
+function splitOperationCode(operation: Operation): readonly [string, string] {
+  const [pass, stage, batch] = formatOperationCode(operation).split(':') as [
+    string,
+    string,
+    string,
+  ];
+  return [pass, `${stage}:${batch}`];
+}
+
+function ScheduleOperationLabel({
+  operation,
+  x,
+  y,
+  className,
+  testId,
+}: {
+  readonly operation: Operation;
+  readonly x: number;
+  readonly y: number;
+  readonly className: string;
+  readonly testId: string;
+}) {
+  const code = formatOperationCode(operation);
+  const [passCode, coordinateCode] = splitOperationCode(operation);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      className={className}
+      data-testid={testId}
+      aria-label={code}
+    >
+      <tspan x={x}>{passCode}</tspan>
+      <tspan x={x} dy="0.95em">
+        {coordinateCode}
+      </tspan>
+    </text>
+  );
 }
 
 export function ScheduleBoard({ schedule, selectedOperationId, preview }: ScheduleBoardProps) {
@@ -274,9 +316,13 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     fill={`url(#${kindPatternId(operation.kind)})`}
                     style={operationVisualVars(operation) as CSSProperties}
                   />
-                  <text x={x + 8} y={y + 20} className="schedule-label">
-                    {formatOperationCode(operation)}
-                  </text>
+                  <ScheduleOperationLabel
+                    operation={operation}
+                    x={x + width / 2}
+                    y={y + 10}
+                    className="schedule-label"
+                    testId={`rank-label-${operation.id}`}
+                  />
                 </g>
               );
             })}
@@ -299,15 +345,18 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                   data-duration={previewOperation.duration}
                   style={operationVisualVars(previewOperation) as CSSProperties}
                 />
-                <text
-                  x={preview.earliestStart * CELL_WIDTH + 8}
+                <ScheduleOperationLabel
+                  operation={previewOperation}
+                  x={
+                    preview.earliestStart * CELL_WIDTH +
+                    (previewOperation.duration * CELL_WIDTH) / 2
+                  }
                   y={
-                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 20
+                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 10
                   }
                   className="schedule-preview-label"
-                >
-                  {formatOperationCode(previewOperation)}
-                </text>
+                  testId={`preview-label-${previewOperation.id}`}
+                />
               </g>
             ) : null}
           </g>

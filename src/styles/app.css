@@ -611,14 +611,18 @@ summary:focus-visible {
 .schedule-preview-label {
   fill: var(--ink);
   font-family: var(--font-mono);
-  font-size: 0.64rem;
+  font-size: 0.46rem;
   font-weight: 850;
+  letter-spacing: 0;
+  pointer-events: none;
 }
 
 .schedule-label {
   fill: var(--ink);
-  font-size: 0.64rem;
+  font-size: 0.46rem;
   font-weight: 850;
+  letter-spacing: 0;
+  pointer-events: none;
 }
 
 .gap-rect {

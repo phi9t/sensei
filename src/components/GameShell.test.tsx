@@ -43,6 +43,10 @@ function metricRowIn(container: HTMLElement, name: RegExp): HTMLElement {
   return row;
 }
 
+function scheduleLabelIn(container: HTMLElement, operationId: string): HTMLElement {
+  return within(container).getByTestId(`rank-label-${operationId}`);
+}
+
 describe('Game shell', () => {
   it('centers the play surface on blocks and the timeline', () => {
     render(<App initialLevelId="backward-is-heavier" />);
@@ -115,8 +119,8 @@ describe('Game shell', () => {
       /Placed F stage 0 microbatch 0 on rank 0/i,
     );
     expect(
-      within(screen.getByRole('region', { name: /schedule board/i })).getByText(/^F0:S0:B0$/),
-    ).toBeInTheDocument();
+      scheduleLabelIn(screen.getByRole('region', { name: /schedule board/i }), 'F:0:0'),
+    ).toHaveAccessibleName('F0:S0:B0');
     expect(screen.queryByTestId('preview-tile-F:0:0')).not.toBeInTheDocument();
   });
 
@@ -133,6 +137,7 @@ describe('Game shell', () => {
     const preview = screen.getByTestId('preview-tile-F:1:0');
     expect(preview).toHaveAttribute('x', '44');
     expect(preview).toHaveAttribute('data-duration', '1');
+    expect(screen.getByTestId('preview-label-F:1:0')).toHaveAccessibleName('F1:S1:B0');
   });
 
   it('can clear the selected operation without changing the attempt', async () => {
@@ -359,8 +364,8 @@ describe('Game shell', () => {
       name: /metrics panel/i,
     });
 
-    expect(within(pointerBoard).getByText(/F0:S0:B0/)).toBeInTheDocument();
-    expect(within(keyboardBoard).getByText(/F0:S0:B0/)).toBeInTheDocument();
+    expect(scheduleLabelIn(pointerBoard, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
+    expect(scheduleLabelIn(keyboardBoard, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
     expect(
       within(metricRowIn(pointerMetrics, /current attempt tuple/i)).getByText(
         /^1 -> 1 -> 0 -> 1$/i,
@@ -389,7 +394,7 @@ describe('Game shell', () => {
     expect(
       within(board).getByText(/dependency-forced gap on rank 1 from 0 to 1/i),
     ).toBeInTheDocument();
-    expect(within(board).getByText(/F1:S1:B0/)).toBeInTheDocument();
+    expect(scheduleLabelIn(board, 'F:1:0')).toHaveAccessibleName('F1:S1:B0');
     expect(within(board).getByText(/Rank 1, start 1, end 2, duration 1/i)).toBeInTheDocument();
   });
 
@@ -479,9 +484,9 @@ describe('Game shell', () => {
     expect(status).toHaveTextContent(/F0:S0:B3/i);
 
     const board = screen.getByRole('region', { name: /schedule board/i });
-    expect(within(board).getByText(/^F0:S0:B0$/)).toBeInTheDocument();
-    expect(within(board).getByText(/^F0:S0:B1$/)).toBeInTheDocument();
-    expect(within(board).getByText(/^F0:S0:B2$/)).toBeInTheDocument();
+    expect(scheduleLabelIn(board, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
+    expect(scheduleLabelIn(board, 'F:0:1')).toHaveAccessibleName('F0:S0:B1');
+    expect(scheduleLabelIn(board, 'F:0:2')).toHaveAccessibleName('F0:S0:B2');
     expect(within(board).queryByText(/wait/i)).not.toBeInTheDocument();
   });
 
@@ -499,7 +504,7 @@ describe('Game shell', () => {
     });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
-    expect(within(board).getAllByText(/F0:S0:B0/)).toHaveLength(1);
+    expect(scheduleLabelIn(board, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
     expect(completed).toHaveAttribute('aria-current', 'true');
   });
 

@@ -110,7 +110,9 @@ describe('responsive play surface CSS contract', () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const boardSvgBlock = extractBlock(css, '.schedule-board-svg');
     const scheduleRectBlock = extractBlock(css, '.schedule-rect');
+    const scheduleLabelBlock = extractBlock(css, '\n.schedule-label {');
     const previewBlock = extractBlock(css, '.schedule-preview-rect');
+    const previewLabelBlock = extractBlock(css, '.schedule-preview-label');
     const memorySegmentBlock = extractBlock(css, '.memory-strip__segment');
     const memoryActiveBlock = extractBlock(css, '.memory-strip__segment--active');
     const memoryLabelBlock = extractBlock(css, '.memory-strip__label');
@@ -128,6 +130,11 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
+    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/);
+    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bpointer-events:\s*none\s*;/);
+    expect(previewLabelBlock).toMatch(
+      /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/,
+    );
 
     expect(memorySegmentBlock).toMatch(
       /\.memory-strip__segment\s*\{[^}]*\bfill:\s*rgba\(101,\s*113,\s*123,\s*0\.08\)\s*;/,
