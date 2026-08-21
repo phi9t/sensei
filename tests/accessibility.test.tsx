@@ -63,6 +63,16 @@ function createUnlockedStorage(): Storage {
 }
 
 describe('accessibility', () => {
+  it('keeps the cockpit banner as a top-level landmark outside main content', () => {
+    render(<App storage={createUnlockedStorage()} />);
+
+    const banner = screen.getByRole('banner', { name: /sensei cockpit/i });
+    const main = screen.getByRole('main');
+
+    expect(banner).toBeInTheDocument();
+    expect(main.contains(banner)).toBe(false);
+  });
+
   it('has no serious or critical axe violations on memory wall and supports a keyboard-only journey across all levels', async () => {
     const user = userEvent.setup();
     const { container } = render(

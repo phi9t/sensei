@@ -47,13 +47,13 @@ describe('responsive play surface CSS contract', () => {
     expect(cockpitGridBlock).toMatch(/\.cockpit-grid\s*\{[^}]*\bdisplay:\s*grid\s*;/);
     expect(cockpitGridBlock).toMatch(/\.cockpit-grid\s*\{[^}]*\bmin-width:\s*0\s*;/);
     expect(cockpitGridBlock).toMatch(
-      /\.cockpit-grid\s*\{[^}]*\bmin-height:\s*calc\(100vh - 1\.3rem\)\s*;/,
+      /\.cockpit-grid\s*\{[^}]*\bmin-height:\s*calc\(100vh - 5\.25rem\)\s*;/,
     );
     expect(cockpitGridBlock).toMatch(
       /grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(16rem,\s*19rem\)\s*;/,
     );
     expect(cockpitGridBlock).toMatch(
-      /'toprail toprail'\s*'guide score'\s*'tray score'\s*'commands score'\s*'board score'/,
+      /'guide score'\s*'tray score'\s*'commands score'\s*'feedback score'\s*'board score'/,
     );
 
     expect(cockpitChildrenBlock).toMatch(/\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/);
@@ -65,16 +65,17 @@ describe('responsive play surface CSS contract', () => {
       /@media\s*\(max-width:\s*58rem\)[\s\S]*?\.cockpit-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/,
     );
     expect(css).toMatch(
-      /@media\s*\(max-width:\s*58rem\)[\s\S]*?\.cockpit-grid\s*\{[\s\S]*?'toprail'\s*'guide'\s*'tray'\s*'commands'\s*'board'\s*'score'/,
+      /@media\s*\(max-width:\s*58rem\)[\s\S]*?\.cockpit-grid\s*\{[\s\S]*?'guide'\s*'tray'\s*'commands'\s*'feedback'\s*'board'\s*'score'/,
     );
   });
 
-  it('uses comfortable controls and a compact two-row block dock on mobile', async () => {
+  it('uses comfortable controls, visible feedback, and a compact two-row block dock on mobile', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const commandRailBlock = extractBlock(css, '.schedule-command-rail');
     const commandRailPrimaryBlock = extractBlock(css, '.schedule-command-rail__primary');
     const commandRailSecondaryBlock = extractBlock(css, '.schedule-command-rail__secondary');
     const commandButtonBlock = extractBlock(css, '.command-button');
+    const commandFeedbackBlock = extractBlock(css, '.command-feedback');
     const trayPanelBlock = extractBlock(css, '.tray-panel');
     const operationTrayGridBlock = extractBlock(css, '.operation-tray-grid');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
@@ -100,6 +101,12 @@ describe('responsive play surface CSS contract', () => {
       /\.command-button\s*\{[^}]*\bpadding:\s*0\.42rem 0\.58rem\s*;/,
     );
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bfont-size:\s*0\.72rem\s*;/);
+    expect(commandFeedbackBlock).toMatch(/\.command-feedback\s*\{[^}]*\bgrid-area:\s*feedback\s*;/);
+    expect(commandFeedbackBlock).toMatch(/\.command-feedback\s*\{[^}]*\bmin-height:\s*1\.8rem\s*;/);
+    expect(commandFeedbackBlock).not.toMatch(/\bposition:\s*absolute\s*;/);
+    expect(commandFeedbackBlock).not.toMatch(/\bwidth:\s*1px\s*;/);
+    expect(commandFeedbackBlock).not.toMatch(/\boverflow:\s*hidden\s*;/);
+    expect(commandFeedbackBlock).not.toMatch(/\bclip:\s*rect\(0,\s*0,\s*0,\s*0\)\s*;/);
     expect(trayPanelBlock).toMatch(/\.tray-panel\s*\{[^}]*\boverflow:\s*hidden\s*;/);
     expect(operationTrayGridBlock).toMatch(
       /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-flow:\s*column\s*;/,
@@ -139,6 +146,15 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(css).toMatch(
       /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.batch-lane\s*\{[\s\S]*?scroll-snap-align:\s*start\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.top-rail\s*\{[\s\S]*?gap:\s*0\.45rem\s*;[\s\S]*?padding:\s*0\.55rem 0\.65rem\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.top-rail__brand h1\s*\{[\s\S]*?font-size:\s*1\.2rem\s*;/,
+    );
+    expect(css).not.toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.top-rail__brand h1\s*\{[\s\S]*?font-size:\s*2rem\s*;/,
     );
   });
 
