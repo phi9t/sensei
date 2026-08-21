@@ -101,9 +101,7 @@ expect(cockpitGridBlock).toMatch(
   /'toprail toprail'\s*'guide score'\s*'tray score'\s*'commands score'\s*'board score'/,
 );
 
-expect(cockpitChildrenBlock).toMatch(
-  /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
-);
+expect(cockpitChildrenBlock).toMatch(/\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/);
 expect(withoutDeclaration(cockpitChildrenBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
   /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
 );
@@ -754,13 +752,13 @@ Keep existing disabled, primary, danger, rank, and hover styles.
 In `src/components/GameShell.test.tsx`, remove each line that opens `More controls`. Change control-region lookups from:
 
 ```tsx
-screen.getByRole('region', { name: /game controls/i })
+screen.getByRole('region', { name: /game controls/i });
 ```
 
 to:
 
 ```tsx
-screen.getByRole('region', { name: /schedule command rail/i })
+screen.getByRole('region', { name: /schedule command rail/i });
 ```
 
 For tests that click reset, wait, hint, automation, or clear, keep the button accessible names unchanged.
@@ -828,12 +826,8 @@ expect(operationTrayGridBlock).toMatch(
 expect(operationTrayGridBlock).toMatch(
   /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-columns:\s*minmax\(12rem,\s*15rem\)\s*;/,
 );
-expect(operationTrayGridBlock).toMatch(
-  /\.operation-tray-grid\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
-);
-expect(operationButtonBlock).toMatch(
-  /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/,
-);
+expect(operationTrayGridBlock).toMatch(/\.operation-tray-grid\s*\{[^}]*\boverflow-x:\s*auto\s*;/);
+expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/);
 expect(operationButtonBlock).toMatch(
   /\.operation-button\s*\{[^}]*\bpadding:\s*0\.3rem 0\.38rem 0\.38rem\s*;/,
 );
@@ -979,9 +973,7 @@ Update label font-size assertions:
 
 ```js
 expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/);
-expect(previewLabelBlock).toMatch(
-  /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/,
-);
+expect(previewLabelBlock).toMatch(/\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/);
 ```
 
 - [ ] **Step 3: Run geometry tests and verify failure**

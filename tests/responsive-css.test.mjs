@@ -56,9 +56,7 @@ describe('responsive play surface CSS contract', () => {
       /'toprail toprail'\s*'guide score'\s*'tray score'\s*'commands score'\s*'board score'/,
     );
 
-    expect(cockpitChildrenBlock).toMatch(
-      /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
-    );
+    expect(cockpitChildrenBlock).toMatch(/\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/);
     expect(withoutDeclaration(cockpitChildrenBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
       /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
     );
@@ -88,12 +86,8 @@ describe('responsive play surface CSS contract', () => {
     expect(commandRailBlock).toMatch(
       /\.schedule-command-rail\s*\{[^}]*\bgrid-area:\s*commands\s*;/,
     );
-    expect(commandRailBlock).toMatch(
-      /\.schedule-command-rail\s*\{[^}]*\bdisplay:\s*flex\s*;/,
-    );
-    expect(commandRailBlock).toMatch(
-      /\.schedule-command-rail\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/,
-    );
+    expect(commandRailBlock).toMatch(/\.schedule-command-rail\s*\{[^}]*\bdisplay:\s*flex\s*;/);
+    expect(commandRailBlock).toMatch(/\.schedule-command-rail\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/);
     expect(commandRailPrimaryBlock).toMatch(
       /\.schedule-command-rail__primary,\s*\.schedule-command-rail__secondary\s*\{[^}]*\bdisplay:\s*flex\s*;/,
     );
