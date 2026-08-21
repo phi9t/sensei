@@ -3,6 +3,7 @@ import { ScheduleBoard } from '../components/ScheduleBoard';
 import { MoveInspector } from '../components/MoveInspector';
 import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
+import { LevelGuide } from '../components/LevelGuide';
 import { useGame } from './useGame';
 import type { LevelId } from '../levels/levels';
 import type { OfflineStatus } from '../offline/register';
@@ -61,81 +62,71 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
   return (
     <main className="app-shell">
       <a className="skip-link" href="#play-surface">
-        Skip to blocks
+        Skip to play surface
       </a>
 
-      <header className="hero-panel">
-        <div className="brand-lockup">
-          <h1 id="sensei-heading">
-            <span>Sensei</span> <span>Pipeline scheduling</span>
-          </h1>
-          <p>Place the next legal block.</p>
-        </div>
+      <div className="cockpit-grid" id="play-surface">
+        <header className="top-rail" role="banner" aria-label="Sensei cockpit">
+          <div className="top-rail__brand">
+            <h1 id="sensei-heading">Sensei</h1>
+            <p>Pipeline scheduling</p>
+          </div>
 
-        <div className="level-picker">
-          <label>
-            <span>Level</span>
-            <select
-              aria-label="Choose level"
-              value={game.levelId}
-              onChange={(event) => game.changeLevel(event.target.value as LevelId)}
-            >
-              {game.levelOptions.map((option) => (
-                <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
-                  {option.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="level-picker">
+            <label>
+              <span>Level</span>
+              <select
+                aria-label="Choose level"
+                value={game.levelId}
+                onChange={(event) => game.changeLevel(event.target.value as LevelId)}
+              >
+                {game.levelOptions.map((option) => (
+                  <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
+                    {option.title}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <p className="hero-panel__count">
-            {placedBlockCount}/{totalBlockCount} blocks
-          </p>
-
-          <ul className="sr-only" aria-label="Level access status">
-            {game.levelOptions
-              .filter((option) => !option.unlocked && option.reason !== null)
-              .map((option) => (
-                <li key={option.levelId}>{option.reason}</li>
-              ))}
-          </ul>
-
-          {offlineNotice ? (
-            <p
-              className="header-notice"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              aria-label="Offline support notice"
-            >
-              {offlineNotice}
+            <p className="top-rail__count">
+              {placedBlockCount}/{totalBlockCount} blocks
             </p>
-          ) : null}
-          {game.persistenceNotice ? (
-            <p
-              className="header-notice"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              aria-label="Saved progress notice"
-            >
-              {game.persistenceNotice}
-            </p>
-          ) : null}
-        </div>
-      </header>
 
-      <div
-        className="live-region"
-        role="status"
-        aria-label="Interaction feedback"
-        aria-live="polite"
-      >
-        <span className="live-region__pulse" aria-hidden="true" />
-        {game.overlay.message}
-      </div>
+            <ul className="sr-only" aria-label="Level access status">
+              {game.levelOptions
+                .filter((option) => !option.unlocked && option.reason !== null)
+                .map((option) => (
+                  <li key={option.levelId}>{option.reason}</li>
+                ))}
+            </ul>
 
-      <div className="content-grid" id="play-surface">
+            {offlineNotice ? (
+              <p
+                className="header-notice"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                aria-label="Offline support notice"
+              >
+                {offlineNotice}
+              </p>
+            ) : null}
+            {game.persistenceNotice ? (
+              <p
+                className="header-notice"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                aria-label="Saved progress notice"
+              >
+                {game.persistenceNotice}
+              </p>
+            ) : null}
+          </div>
+        </header>
+
+        <LevelGuide level={game.level} score={game.score} />
+
         <OperationTray
           classifications={game.moveClassifications}
           selectedOperationId={game.selectedOperationId}
@@ -143,43 +134,56 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           onInspect={game.selectOperation}
         />
 
+        <div
+          className="live-region command-feedback"
+          role="status"
+          aria-label="Interaction feedback"
+          aria-live="polite"
+        >
+          <span className="live-region__pulse" aria-hidden="true" />
+          {game.overlay.message}
+        </div>
+
+        <section className="schedule-command-rail" aria-label="Schedule command rail">
+          <GameControls
+            level={game.level}
+            canUndo={game.cursor > 0}
+            canRedo={game.cursor < game.actions.length}
+            canReadySet={game.canReadySet}
+            readySetReason={game.readySetReason}
+            hintReason={game.hintReason}
+            automationReason={game.automationReason}
+            onWait={game.waitOneTick}
+            onPlaceSelected={game.placeSelectedOperation}
+            onClearSelection={game.clearSelection}
+            onShare={game.shareAttempt}
+            onUndo={game.undo}
+            onRedo={game.redo}
+            onReadySet={game.showReadySet}
+            onHint={game.showHint}
+            onAutomate={game.automate}
+            onReset={game.reset}
+          />
+        </section>
+
         <ScheduleBoard
           schedule={game.schedule}
           selectedOperationId={game.selectedOperationId}
           preview={preview}
         />
 
-        <MoveInspector
-          operationId={game.selectedOperationId}
-          explanation={game.selectedExplanation}
-        />
-
-        <GameControls
-          level={game.level}
-          canUndo={game.cursor > 0}
-          canRedo={game.cursor < game.actions.length}
-          canReadySet={game.canReadySet}
-          readySetReason={game.readySetReason}
-          hintReason={game.hintReason}
-          automationReason={game.automationReason}
-          onWait={game.waitOneTick}
-          onPlaceSelected={game.placeSelectedOperation}
-          onClearSelection={game.clearSelection}
-          onShare={game.shareAttempt}
-          onUndo={game.undo}
-          onRedo={game.redo}
-          onReadySet={game.showReadySet}
-          onHint={game.showHint}
-          onAutomate={game.automate}
-          onReset={game.reset}
-        />
-
-        <MetricsPanel
-          level={game.level}
-          score={game.score}
-          currentMemory={game.schedule.currentMemory}
-          attemptTuple={game.attemptTuple}
-        />
+        <aside className="score-rail" aria-label="Score rail">
+          <MoveInspector
+            operationId={game.selectedOperationId}
+            explanation={game.selectedExplanation}
+          />
+          <MetricsPanel
+            level={game.level}
+            score={game.score}
+            currentMemory={game.schedule.currentMemory}
+            attemptTuple={game.attemptTuple}
+          />
+        </aside>
       </div>
     </main>
   );

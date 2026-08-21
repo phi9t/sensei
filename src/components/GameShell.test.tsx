@@ -48,14 +48,17 @@ function scheduleLabelIn(container: HTMLElement, operationId: string): HTMLEleme
 }
 
 describe('Game shell', () => {
-  it('centers the play surface on blocks and the timeline', () => {
+  it('lays out the cockpit around guide, queue, command rail, schedule, and score rail', () => {
     render(<App initialLevelId="backward-is-heavier" />);
 
-    expect(screen.getByRole('region', { name: /^blocks$/i })).toBeInTheDocument();
-    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    expect(screen.getByRole('banner', { name: /sensei cockpit/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /level guide/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /^ready queue$/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /schedule command rail/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: /score rail/i })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/inventory geometry/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
   });
 
   it('keeps secondary actions behind one disclosure', async () => {
@@ -212,7 +215,7 @@ describe('Game shell', () => {
   it('groups compact block tokens by microbatch and pass stack', () => {
     render(<App initialLevelId="backward-is-heavier" />);
 
-    const blocks = screen.getByRole('region', { name: /^blocks$/i });
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
     const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
     const forwardStack = within(batchZero).getByRole('group', {
       name: /batch 0 forward blocks/i,
@@ -511,7 +514,7 @@ describe('Game shell', () => {
   it('exposes named regions and truthful controls while keeping blocked moves inspectable', () => {
     render(<App initialLevelId="dependency-chain" />);
 
-    expect(screen.getByRole('region', { name: /^blocks$/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /^ready queue$/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /move inspector/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /metrics panel/i })).toBeInTheDocument();

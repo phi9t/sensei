@@ -80,7 +80,7 @@ export function OperationTray({
   const operationKinds: readonly OperationKind[] = ['F', 'B'];
 
   return (
-    <section className="panel tray-panel" aria-labelledby="operation-tray-heading">
+    <section className="panel tray-panel" aria-label="Ready queue">
       <div className="panel-heading-row">
         <div>
           <p className="panel-kicker">Ready queue</p>

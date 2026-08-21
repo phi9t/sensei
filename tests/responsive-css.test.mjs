@@ -36,32 +36,38 @@ describe('responsive play surface CSS contract', () => {
   it('keeps the timeline dominant and stacks the play surface on narrow screens', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const appShellBlock = extractBlock(css, '.app-shell');
-    const contentGridBlock = extractBlock(css, '.content-grid');
-    const contentGridChildrenBlock = extractBlock(css, '.content-grid > *');
+    const cockpitGridBlock = extractBlock(css, '.cockpit-grid');
+    const cockpitChildrenBlock = extractBlock(css, '.cockpit-grid > *');
 
     expect(appShellBlock).toMatch(/\.app-shell\s*\{[^}]*\bmin-width:\s*0\s*;/);
     expect(withoutDeclaration(appShellBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
       /\.app-shell\s*\{[^}]*\bmin-width:\s*0\s*;/,
     );
 
-    expect(contentGridBlock).toMatch(/\.content-grid\s*\{[^}]*\bmin-width:\s*0\s*;/);
-    expect(withoutDeclaration(contentGridBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
-      /\.content-grid\s*\{[^}]*\bmin-width:\s*0\s*;/,
+    expect(cockpitGridBlock).toMatch(/\.cockpit-grid\s*\{[^}]*\bdisplay:\s*grid\s*;/);
+    expect(cockpitGridBlock).toMatch(/\.cockpit-grid\s*\{[^}]*\bmin-width:\s*0\s*;/);
+    expect(cockpitGridBlock).toMatch(
+      /\.cockpit-grid\s*\{[^}]*\bmin-height:\s*calc\(100vh - 1\.3rem\)\s*;/,
+    );
+    expect(cockpitGridBlock).toMatch(
+      /grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(16rem,\s*19rem\)\s*;/,
+    );
+    expect(cockpitGridBlock).toMatch(
+      /'toprail toprail'\s*'guide score'\s*'tray score'\s*'commands score'\s*'board score'/,
     );
 
-    expect(contentGridChildrenBlock).toMatch(
-      /\.content-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
+    expect(cockpitChildrenBlock).toMatch(
+      /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
     );
-    expect(withoutDeclaration(contentGridChildrenBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
-      /\.content-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
+    expect(withoutDeclaration(cockpitChildrenBlock, /\s*min-width:\s*0\s*;\n?/)).not.toMatch(
+      /\.cockpit-grid\s*>\s*\*\s*\{[^}]*\bmin-width:\s*0\s*;/,
     );
 
-    expect(contentGridBlock).toMatch(
-      /grid-template-columns:\s*minmax\(0,\s*1fr\) minmax\(17rem,\s*21rem\)\s*;/,
-    );
-    expect(contentGridBlock).toMatch(/'tray tray'\s*'board inspector'\s*'controls metrics'/);
     expect(css).toMatch(
-      /@media\s*\(max-width:\s*52rem\)[\s\S]*?\.content-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/,
+      /@media\s*\(max-width:\s*58rem\)[\s\S]*?\.cockpit-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*58rem\)[\s\S]*?\.cockpit-grid\s*\{[\s\S]*?'toprail'\s*'guide'\s*'tray'\s*'commands'\s*'board'\s*'score'/,
     );
   });
 
@@ -104,6 +110,16 @@ describe('responsive play surface CSS contract', () => {
     expect(css).toMatch(
       /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.batch-lane\s*\{[\s\S]*?scroll-snap-align:\s*start\s*;/,
     );
+  });
+
+  it('stacks score rail children without stale nested grid placement', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const scoreRailBlock = extractBlock(css, '.score-rail');
+
+    expect(scoreRailBlock).toMatch(/\.score-rail\s*\{[^}]*\bdisplay:\s*grid\s*;/);
+    expect(scoreRailBlock).toMatch(/\.score-rail\s*\{[^}]*\bgap:\s*0\.65rem\s*;/);
+    expect(css).not.toMatch(/\.inspector-panel\s*\{[^}]*\bgrid-area\s*:/);
+    expect(css).not.toMatch(/\.metrics-panel\s*\{[^}]*\bgrid-area\s*:/);
   });
 
   it('keeps schedule SVG geometry intrinsic and gives memory strips explicit non-default paint', async () => {

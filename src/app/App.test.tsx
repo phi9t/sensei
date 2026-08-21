@@ -39,9 +39,8 @@ afterEach(() => {
 describe('App', () => {
   it('announces Sensei as a pipeline scheduling game', () => {
     render(<App />);
-    expect(
-      screen.getByRole('heading', { name: /sensei pipeline scheduling/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^sensei$/i })).toBeInTheDocument();
+    expect(screen.getByText(/pipeline scheduling/i)).toBeInTheDocument();
   });
 
   it('uses canonical level titles in the level selector options', () => {
