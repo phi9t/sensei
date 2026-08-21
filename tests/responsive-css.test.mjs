@@ -73,7 +73,9 @@ describe('responsive play surface CSS contract', () => {
 
   it('uses comfortable controls and a compact two-row block dock on mobile', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
-    const controlsBlock = extractBlock(css, '.controls-panel');
+    const commandRailBlock = extractBlock(css, '.schedule-command-rail');
+    const commandRailPrimaryBlock = extractBlock(css, '.schedule-command-rail__primary');
+    const commandRailSecondaryBlock = extractBlock(css, '.schedule-command-rail__secondary');
     const commandButtonBlock = extractBlock(css, '.command-button');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
     const batchStacksBlock = extractBlock(css, '.batch-lane__stacks');
@@ -81,8 +83,27 @@ describe('responsive play surface CSS contract', () => {
     const batchStackTokensBlock = extractBlock(css, '.batch-stack__tokens');
     const readyCountBlock = extractBlock(css, '.ready-count');
 
-    expect(controlsBlock).toMatch(/\.controls-panel\s*\{[^}]*\bdisplay:\s*grid\s*;/);
-    expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/);
+    expect(commandRailBlock).toMatch(
+      /\.schedule-command-rail\s*\{[^}]*\bgrid-area:\s*commands\s*;/,
+    );
+    expect(commandRailBlock).toMatch(
+      /\.schedule-command-rail\s*\{[^}]*\bdisplay:\s*flex\s*;/,
+    );
+    expect(commandRailBlock).toMatch(
+      /\.schedule-command-rail\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/,
+    );
+    expect(commandRailPrimaryBlock).toMatch(
+      /\.schedule-command-rail__primary,\s*\.schedule-command-rail__secondary\s*\{[^}]*\bdisplay:\s*flex\s*;/,
+    );
+    expect(commandRailSecondaryBlock).toMatch(
+      /\.schedule-command-rail__secondary\s*\{[^}]*\bmin-width:\s*0\s*;/,
+    );
+    expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/);
+    expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bborder-radius:\s*6px\s*;/);
+    expect(commandButtonBlock).toMatch(
+      /\.command-button\s*\{[^}]*\bpadding:\s*0\.42rem 0\.58rem\s*;/,
+    );
+    expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bfont-size:\s*0\.72rem\s*;/);
     expect(operationButtonBlock).toMatch(
       /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/,
     );
