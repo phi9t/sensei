@@ -128,16 +128,16 @@ describe('App', () => {
 
   it('gives ready set, hint, and automation controls their explanatory descriptions', () => {
     render(<App initialLevelId="memory-wall" />);
-    screen.getByText(/more controls/i).click();
 
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
     expect(
-      screen.getByRole('button', { name: /show ready operations/i }),
+      within(controls).getByRole('button', { name: /show ready operations/i }),
     ).toHaveAccessibleDescription(/Ready set is available on Memory Wall\./i);
-    expect(screen.getByRole('button', { name: /show local hint/i })).toHaveAccessibleDescription(
-      /Local hint is available on Memory Wall\./i,
-    );
     expect(
-      screen.getByRole('button', { name: /run until interesting boundary/i }),
+      within(controls).getByRole('button', { name: /show local hint/i }),
+    ).toHaveAccessibleDescription(/Local hint is available on Memory Wall\./i);
+    expect(
+      within(controls).getByRole('button', { name: /run until interesting boundary/i }),
     ).toHaveAccessibleDescription(/Automation is available on Memory Wall\./i);
   });
 
@@ -186,8 +186,8 @@ describe('App', () => {
       /Could not save progress\. Progress is staying in this tab only\./i,
     );
 
-    await user.click(screen.getByText(/more controls/i));
-    await user.click(screen.getByRole('button', { name: /reset current attempt/i }));
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
+    await user.click(within(controls).getByRole('button', { name: /reset current attempt/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
