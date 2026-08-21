@@ -516,7 +516,7 @@ summary:focus-visible {
   opacity: 1;
 }
 
-.operation-button__stage {
+.operation-button__code {
   min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);

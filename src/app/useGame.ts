@@ -243,10 +243,8 @@ export function formatOperationName(value: OperationId | Operation): string {
 }
 
 export function formatOperationCode(value: OperationId | Operation): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  return value.id;
+  const parsed = typeof value === 'string' ? parseOperationId(value) : value;
+  return `${parsed.kind}${parsed.stage}:S${parsed.stage}:B${parsed.microbatch}`;
 }
 
 function coherentSelection(

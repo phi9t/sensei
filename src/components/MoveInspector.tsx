@@ -72,11 +72,11 @@ function humanBlockedMessage(reason: BlockReason): string {
 function typedReasonLabel(reason: BlockReason): string {
   switch (reason.kind) {
     case 'dependency-not-finished':
-      return reason.operationId;
+      return formatOperationCode(reason.operationId);
     case 'memory-cap':
       return `memory-cap rank=${reason.rank} resident=${reason.resident} cap=${reason.cap}`;
     case 'already-placed':
-      return reason.operationId;
+      return formatOperationCode(reason.operationId);
     case 'invalid-rank':
       return `invalid-rank ${reason.rank}`;
     case 'unknown-operation-id':

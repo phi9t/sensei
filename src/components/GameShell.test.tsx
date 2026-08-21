@@ -84,8 +84,8 @@ describe('Game shell', () => {
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/F:0:0/)).toBeInTheDocument();
-    expect(within(inspector).getByText(/B:1:0/)).toBeInTheDocument();
+    expect(within(inspector).getByText(/F0:S0:B0/)).toBeInTheDocument();
+    expect(within(inspector).getByText(/B1:S1:B0/)).toBeInTheDocument();
     expect(blocked).toHaveAccessibleName(/inspect B stage 0 microbatch 0, 2 ticks, blocked/i);
   });
 
@@ -115,7 +115,7 @@ describe('Game shell', () => {
       /Placed F stage 0 microbatch 0 on rank 0/i,
     );
     expect(
-      within(screen.getByRole('region', { name: /schedule board/i })).getByText(/^F:0:0$/),
+      within(screen.getByRole('region', { name: /schedule board/i })).getByText(/^F0:S0:B0$/),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('preview-tile-F:0:0')).not.toBeInTheDocument();
   });
@@ -219,8 +219,12 @@ describe('Game shell', () => {
     expect(within(batchZero).getByText(/^Batch 0$/i)).toBeInTheDocument();
     expect(within(forwardStack).getByText(/^FWD$/i)).toBeInTheDocument();
     expect(within(backwardStack).getByText(/^BWD$/i)).toBeInTheDocument();
-    expect(within(forwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
-    expect(within(backwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
+    expect(within(forwardStack).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(forwardStack).getByText(/^F1:S1:B0$/i)).toBeInTheDocument();
+    expect(within(forwardStack).getByText(/^F2:S2:B0$/i)).toBeInTheDocument();
+    expect(within(backwardStack).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(backwardStack).getByText(/^B1:S1:B0$/i)).toBeInTheDocument();
+    expect(within(backwardStack).getByText(/^B2:S2:B0$/i)).toBeInTheDocument();
     expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
     expect(
       within(forwardStack).getByRole('button', {
@@ -355,8 +359,8 @@ describe('Game shell', () => {
       name: /metrics panel/i,
     });
 
-    expect(within(pointerBoard).getByText(/F:0:0/)).toBeInTheDocument();
-    expect(within(keyboardBoard).getByText(/F:0:0/)).toBeInTheDocument();
+    expect(within(pointerBoard).getByText(/F0:S0:B0/)).toBeInTheDocument();
+    expect(within(keyboardBoard).getByText(/F0:S0:B0/)).toBeInTheDocument();
     expect(
       within(metricRowIn(pointerMetrics, /current attempt tuple/i)).getByText(
         /^1 -> 1 -> 0 -> 1$/i,
@@ -385,7 +389,7 @@ describe('Game shell', () => {
     expect(
       within(board).getByText(/dependency-forced gap on rank 1 from 0 to 1/i),
     ).toBeInTheDocument();
-    expect(within(board).getByText(/F:1:0/)).toBeInTheDocument();
+    expect(within(board).getByText(/F1:S1:B0/)).toBeInTheDocument();
     expect(within(board).getByText(/Rank 1, start 1, end 2, duration 1/i)).toBeInTheDocument();
   });
 
@@ -472,12 +476,12 @@ describe('Game shell', () => {
     );
 
     expect(status).toHaveTextContent(/Automation stopped at a memory boundary/i);
-    expect(status).toHaveTextContent(/F:0:3/i);
+    expect(status).toHaveTextContent(/F0:S0:B3/i);
 
     const board = screen.getByRole('region', { name: /schedule board/i });
-    expect(within(board).getByText(/^F:0:0$/)).toBeInTheDocument();
-    expect(within(board).getByText(/^F:0:1$/)).toBeInTheDocument();
-    expect(within(board).getByText(/^F:0:2$/)).toBeInTheDocument();
+    expect(within(board).getByText(/^F0:S0:B0$/)).toBeInTheDocument();
+    expect(within(board).getByText(/^F0:S0:B1$/)).toBeInTheDocument();
+    expect(within(board).getByText(/^F0:S0:B2$/)).toBeInTheDocument();
     expect(within(board).queryByText(/wait/i)).not.toBeInTheDocument();
   });
 
@@ -495,7 +499,7 @@ describe('Game shell', () => {
     });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
-    expect(within(board).getAllByText(/F:0:0/)).toHaveLength(1);
+    expect(within(board).getAllByText(/F0:S0:B0/)).toHaveLength(1);
     expect(completed).toHaveAttribute('aria-current', 'true');
   });
 

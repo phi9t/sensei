@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { MoveClassification } from '../engine/replay';
 import type { OperationId, OperationKind } from '../engine/types';
-import { formatOperationName } from '../app/useGame';
+import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 interface OperationTrayProps {
@@ -148,7 +148,9 @@ export function OperationTray({
                               } as CSSProperties
                             }
                           >
-                            <span className="operation-button__stage">S{operation.stage}</span>
+                            <span className="operation-button__code">
+                              {formatOperationCode(operation)}
+                            </span>
                             <span className="operation-button__meta">
                               R{operation.rank} - {operation.duration}t
                             </span>

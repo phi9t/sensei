@@ -115,8 +115,12 @@ it('groups compact block tokens by microbatch and pass stack', () => {
   expect(within(batchZero).getByText(/^Batch 0$/i)).toBeInTheDocument();
   expect(within(forwardStack).getByText(/^FWD$/i)).toBeInTheDocument();
   expect(within(backwardStack).getByText(/^BWD$/i)).toBeInTheDocument();
-  expect(within(forwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
-  expect(within(backwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
+  expect(within(forwardStack).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+  expect(within(forwardStack).getByText(/^F1:S1:B0$/i)).toBeInTheDocument();
+  expect(within(forwardStack).getByText(/^F2:S2:B0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B1:S1:B0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B2:S2:B0$/i)).toBeInTheDocument();
   expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
   expect(
     within(forwardStack).getByRole('button', {
@@ -249,7 +253,9 @@ Render each batch lane like this:
                         } as CSSProperties
                       }
                     >
-                      <span className="operation-button__stage">S{operation.stage}</span>
+                      <span className="operation-button__code">
+                        {formatOperationCode(operation)}
+                      </span>
                       <span className="operation-button__meta">
                         R{operation.rank} - {operation.duration}t
                       </span>
@@ -408,7 +414,7 @@ In `src/styles/app.css`, replace the previous flat `.operation-tray-grid` and bu
 }
 ```
 
-Keep the existing ready, blocked, completed, selected, hover, active, and reduced-motion rules. Update text selectors to `.operation-button__stage`, `.operation-button__meta`, and `.operation-button__state`.
+Keep the existing ready, blocked, completed, selected, hover, active, and reduced-motion rules. Update text selectors to `.operation-button__code`, `.operation-button__meta`, and `.operation-button__state`.
 
 - [ ] **Step 4: Implement mobile lane scroll CSS**
 

@@ -19,7 +19,7 @@ The first phase keeps the game centered on placing blocks. The second phase prev
 
 The current app has a pure scheduling engine, React UI, SVG board, and four original levels. Recent commits simplified the interface into a block-first workbench and added legal-move board previews.
 
-There is an uncommitted selector prototype that groups blocks by microbatch and replaces visible tuple codes with compact `Fwd/Bwd + S#` labels. That prototype is useful evidence, but this spec is the durable contract for the next implementation.
+There is an uncommitted selector prototype that groups blocks by microbatch and replaces visible tuple codes with compact operation labels. That prototype is useful evidence, but this spec is the durable contract for the next implementation.
 
 The previous release spec deliberately deferred virtual pipeline stages, interleaving, split backward work, and zero-bubble variants. The new curriculum request reopens those as a separate architecture concern.
 
@@ -52,13 +52,13 @@ Each microbatch renders as one lane:
 Batch 0
 +-------------+-------------+
 | FWD         | BWD         |
-| S0 R0 1t    | S0 R0 2t    |
-| S1 R1 1t    | S1 R1 2t    |
-| S2 R2 1t    | S2 R2 2t    |
+| F0:S0:B0    | B0:S0:B0    |
+| F1:S1:B0    | B1:S1:B0    |
+| F2:S2:B0    | B2:S2:B0    |
 +-------------+-------------+
 ```
 
-The lane header owns the microbatch identity. The stack headers own pass identity. Each token therefore only needs stage, rank, duration, and state.
+The lane header owns the microbatch identity. The stack headers own pass identity. Each token still repeats a compact operation code so the same block name is recognizable on the schedule board.
 
 This replaces the current interleaved ordering:
 
@@ -91,7 +91,7 @@ R2 - 1t
 Ready
 ```
 
-The full tuple remains available through the single notation key and through existing inspector/board details.
+Use the display form `F0:S0:B1`, where the first segment is pass plus stage index, `S#` is stage, and `B#` is microbatch. The full tuple meaning remains available through the single notation key and explicit accessible labels.
 
 ### Color Identity
 
