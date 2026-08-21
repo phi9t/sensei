@@ -77,6 +77,8 @@ describe('responsive play surface CSS contract', () => {
     const commandRailPrimaryBlock = extractBlock(css, '.schedule-command-rail__primary');
     const commandRailSecondaryBlock = extractBlock(css, '.schedule-command-rail__secondary');
     const commandButtonBlock = extractBlock(css, '.command-button');
+    const trayPanelBlock = extractBlock(css, '.tray-panel');
+    const operationTrayGridBlock = extractBlock(css, '.operation-tray-grid');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
     const batchStacksBlock = extractBlock(css, '.batch-lane__stacks');
     const batchStackBlock = extractBlock(css, '.batch-stack');
@@ -104,8 +106,21 @@ describe('responsive play surface CSS contract', () => {
       /\.command-button\s*\{[^}]*\bpadding:\s*0\.42rem 0\.58rem\s*;/,
     );
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bfont-size:\s*0\.72rem\s*;/);
+    expect(trayPanelBlock).toMatch(/\.tray-panel\s*\{[^}]*\boverflow:\s*hidden\s*;/);
+    expect(operationTrayGridBlock).toMatch(
+      /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-flow:\s*column\s*;/,
+    );
+    expect(operationTrayGridBlock).toMatch(
+      /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-columns:\s*minmax\(12rem,\s*15rem\)\s*;/,
+    );
+    expect(operationTrayGridBlock).toMatch(
+      /\.operation-tray-grid\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
+    );
     expect(operationButtonBlock).toMatch(
-      /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/,
+      /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/,
+    );
+    expect(operationButtonBlock).toMatch(
+      /\.operation-button\s*\{[^}]*\bpadding:\s*0\.3rem 0\.38rem 0\.38rem\s*;/,
     );
     expect(batchStacksBlock).toMatch(
       /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
