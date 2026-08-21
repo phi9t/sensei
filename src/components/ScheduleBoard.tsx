@@ -4,15 +4,15 @@ import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { Operation, OperationId } from '../engine/types';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
-export const CELL_WIDTH = 44;
+export const CELL_WIDTH = 56;
 const RIGHT_PADDING = 32;
 const MEMORY_STRIP_HEIGHT = 8;
 const MEMORY_STRIP_GAP = 8;
-const WORK_BLOCK_HEIGHT = 30;
-const ROW_HEIGHT = 60;
+const WORK_BLOCK_HEIGHT = 38;
+const ROW_HEIGHT = 74;
 const TOP_PADDING = 48;
 const LEFT_PADDING = 78;
-const MIN_BOARD_WIDTH = 760;
+const MIN_BOARD_WIDTH = 860;
 
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
@@ -319,7 +319,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                   <ScheduleOperationLabel
                     operation={operation}
                     x={x + width / 2}
-                    y={y + 10}
+                    y={y + 12}
                     className="schedule-label"
                     testId={`rank-label-${operation.id}`}
                   />
@@ -352,7 +352,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     (previewOperation.duration * CELL_WIDTH) / 2
                   }
                   y={
-                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 10
+                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 12
                   }
                   className="schedule-preview-label"
                   testId={`preview-label-${previewOperation.id}`}

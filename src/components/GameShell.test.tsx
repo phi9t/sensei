@@ -107,7 +107,7 @@ describe('Game shell', () => {
     expect(within(inspector).getByText(/Legal now\. Earliest start 0/i)).toBeInTheDocument();
     const preview = screen.getByTestId('preview-tile-F:0:0');
     expect(preview).toHaveAttribute('x', '0');
-    expect(preview).toHaveAttribute('width', '44');
+    expect(preview).toHaveAttribute('width', '56');
 
     await user.click(
       within(screen.getByRole('region', { name: /schedule command rail/i })).getByRole('button', {
@@ -135,7 +135,7 @@ describe('Game shell', () => {
     await tabUntil(user, screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
 
     const preview = screen.getByTestId('preview-tile-F:1:0');
-    expect(preview).toHaveAttribute('x', '44');
+    expect(preview).toHaveAttribute('x', '56');
     expect(preview).toHaveAttribute('data-duration', '1');
     expect(screen.getByTestId('preview-label-F:1:0')).toHaveAccessibleName('F1:S1:B0');
   });
@@ -386,8 +386,8 @@ describe('Game shell', () => {
 
     const tile = screen.getByTestId('rank-tile-F:1:0');
     expect(tile).toHaveAttribute('data-duration', '1');
-    expect(tile).toHaveAttribute('x', '44');
-    expect(tile).toHaveAttribute('width', '44');
+    expect(tile).toHaveAttribute('x', '56');
+    expect(tile).toHaveAttribute('width', '56');
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     expect(

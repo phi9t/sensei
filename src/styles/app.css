@@ -666,7 +666,7 @@ summary:focus-visible {
 .schedule-preview-label {
   fill: var(--ink);
   font-family: var(--font-mono);
-  font-size: 0.46rem;
+  font-size: 0.58rem;
   font-weight: 850;
   letter-spacing: 0;
   pointer-events: none;
@@ -674,7 +674,7 @@ summary:focus-visible {
 
 .schedule-label {
   fill: var(--ink);
-  font-size: 0.46rem;
+  font-size: 0.58rem;
   font-weight: 850;
   letter-spacing: 0;
   pointer-events: none;

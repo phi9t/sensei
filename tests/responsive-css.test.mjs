@@ -160,6 +160,10 @@ describe('responsive play surface CSS contract', () => {
 
   it('keeps schedule SVG geometry intrinsic and gives memory strips explicit non-default paint', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const scheduleBoardSource = await readFile(
+      new URL('../src/components/ScheduleBoard.tsx', import.meta.url),
+      'utf8',
+    );
     const boardSvgBlock = extractBlock(css, '.schedule-board-svg');
     const scheduleRectBlock = extractBlock(css, '.schedule-rect');
     const scheduleLabelBlock = extractBlock(css, '\n.schedule-label {');
@@ -169,6 +173,10 @@ describe('responsive play surface CSS contract', () => {
     const memoryActiveBlock = extractBlock(css, '.memory-strip__segment--active');
     const memoryLabelBlock = extractBlock(css, '.memory-strip__label');
 
+    expect(scheduleBoardSource).toMatch(/export const CELL_WIDTH = 56;/);
+    expect(scheduleBoardSource).toMatch(/const WORK_BLOCK_HEIGHT = 38;/);
+    expect(scheduleBoardSource).toMatch(/const ROW_HEIGHT = 74;/);
+    expect(scheduleBoardSource).toMatch(/const MIN_BOARD_WIDTH = 860;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bwidth:\s*100%\s*;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bmax-width:\s*none\s*;/);
     expect(scheduleRectBlock).toMatch(
@@ -182,10 +190,10 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
-    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/);
+    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/);
     expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bpointer-events:\s*none\s*;/);
     expect(previewLabelBlock).toMatch(
-      /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/,
+      /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/,
     );
 
     expect(memorySegmentBlock).toMatch(
