@@ -17,13 +17,13 @@ The current model deliberately stays small: one physical rank per stage, integer
 
 ## Text walkthrough
 
-The page has five work panels:
+The page is arranged as a compact scheduling cockpit:
 
-- **Blocks:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, micro_batch_id)`.
+- **Level guide:** a short level note and goal stay above play without becoming a rules panel.
+- **Ready queue:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, micro_batch_id)`.
+- **Schedule command rail:** undo, redo, place, clear, wait, coaching, sharing, and reset stay close to the schedule.
 - **Schedule board:** the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank activation memory.
-- **Move inspector:** reports whether the selected block is legal, completed, dependency-blocked, or memory-blocked, including every typed blocker.
-- **Metrics panel:** starts collapsed and exposes completion, mastery, makespan, work/capacity, bubble ratio, intentional idle, activation peaks, mastery targets, and the ranking tuple.
-- **Game controls:** undo/redo stay visible; wait, coaching, sharing, selected placement, and reset live behind a disclosure.
+- **Score rail:** the move inspector and metrics stay together so selection state, completion, makespan, bubble ratio, activation peaks, and the ranking tuple remain scannable.
 
 A legal completion unlocks the next level. Mastery is optional and records the stronger result separately.
 
