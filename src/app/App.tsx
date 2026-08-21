@@ -50,6 +50,13 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
   const offlineNotice = offlineNoticeFor(offlineStatus);
   const placedBlockCount = game.schedule.placements.length;
   const totalBlockCount = game.schedule.operations.length;
+  const preview =
+    game.selectedExplanation?.status === 'legal'
+      ? {
+          operationId: game.selectedExplanation.operationId,
+          earliestStart: game.selectedExplanation.earliestStart,
+        }
+      : null;
 
   return (
     <main className="app-shell">
@@ -136,7 +143,11 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           onInspect={game.selectOperation}
         />
 
-        <ScheduleBoard schedule={game.schedule} selectedOperationId={game.selectedOperationId} />
+        <ScheduleBoard
+          schedule={game.schedule}
+          selectedOperationId={game.selectedOperationId}
+          preview={preview}
+        />
 
         <MoveInspector
           operationId={game.selectedOperationId}

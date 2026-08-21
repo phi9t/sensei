@@ -70,10 +70,12 @@ describe('responsive play surface CSS contract', () => {
     const controlsBlock = extractBlock(css, '.controls-panel');
     const commandButtonBlock = extractBlock(css, '.command-button');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
+    const readyCountBlock = extractBlock(css, '.ready-count');
 
     expect(controlsBlock).toMatch(/\.controls-panel\s*\{[^}]*\bdisplay:\s*grid\s*;/);
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/);
     expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*3rem\s*;/);
+    expect(readyCountBlock).toMatch(/\.ready-count\s*\{[^}]*\bborder-radius:\s*999px\s*;/);
     expect(css).toMatch(
       /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-template-rows:\s*repeat\(2,\s*auto\)\s*;/,
     );
@@ -82,12 +84,15 @@ describe('responsive play surface CSS contract', () => {
   it('keeps schedule SVG geometry intrinsic and gives memory strips explicit non-default paint', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const boardSvgBlock = extractBlock(css, '.schedule-board-svg');
+    const previewBlock = extractBlock(css, '.schedule-preview-rect');
     const memorySegmentBlock = extractBlock(css, '.memory-strip__segment');
     const memoryActiveBlock = extractBlock(css, '.memory-strip__segment--active');
     const memoryLabelBlock = extractBlock(css, '.memory-strip__label');
 
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bwidth:\s*100%\s*;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bmax-width:\s*none\s*;/);
+    expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
+    expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
 
     expect(memorySegmentBlock).toMatch(
       /\.memory-strip__segment\s*\{[^}]*\bfill:\s*rgba\(101,\s*113,\s*123,\s*0\.08\)\s*;/,

@@ -24,6 +24,7 @@
   --radius: 10px;
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   --focus-ring: 3px solid var(--accent);
+  --motion-fast: 140ms ease;
 }
 
 * {
@@ -315,6 +316,25 @@ summary:focus-visible {
   grid-area: tray;
 }
 
+.tray-panel__summary {
+  display: grid;
+  justify-items: end;
+  gap: 0.24rem;
+  text-align: right;
+}
+
+.ready-count {
+  margin: 0;
+  border: 1px solid rgba(8, 122, 104, 0.3);
+  border-radius: 999px;
+  background: rgba(8, 122, 104, 0.08);
+  color: var(--ready);
+  padding: 0.28rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
 .operation-tray-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
@@ -336,9 +356,10 @@ summary:focus-visible {
   padding: 0.55rem 0.65rem 0.62rem 0.75rem;
   text-align: left;
   transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    opacity 140ms ease;
+    transform var(--motion-fast),
+    box-shadow var(--motion-fast),
+    opacity var(--motion-fast),
+    border-color var(--motion-fast);
 }
 
 .operation-button::before {
@@ -364,6 +385,10 @@ summary:focus-visible {
 .operation-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 7px 14px rgba(23, 33, 35, 0.12);
+}
+
+.operation-button:active {
+  transform: translateY(0);
 }
 
 .operation-button[data-kind='F'] {
@@ -397,6 +422,13 @@ summary:focus-visible {
 .operation-button[data-state='blocked'] {
   color: var(--blocked);
   opacity: 0.62;
+}
+
+.operation-button[data-state='legal'] {
+  border-color: color-mix(in srgb, var(--block-color) 48%, var(--line-strong));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.62),
+    0 5px 10px rgba(23, 33, 35, 0.08);
 }
 
 .operation-button[data-state='completed'] {
@@ -481,6 +513,30 @@ summary:focus-visible {
 .schedule-rect[data-selected='true'] {
   stroke: var(--accent);
   stroke-width: 3;
+}
+
+.schedule-preview-rect {
+  fill: rgba(224, 169, 40, 0.16);
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+  stroke-width: 2;
+}
+
+.schedule-preview-rect[data-kind='F'] {
+  fill: rgba(0, 137, 149, 0.18);
+  stroke: var(--forward);
+}
+
+.schedule-preview-rect[data-kind='B'] {
+  fill: rgba(181, 92, 55, 0.18);
+  stroke: var(--backward);
+}
+
+.schedule-preview-label {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 850;
 }
 
 .schedule-label {
@@ -808,6 +864,11 @@ summary:focus-visible {
     gap: 0.3rem;
   }
 
+  .tray-panel__summary {
+    justify-items: start;
+    text-align: left;
+  }
+
   .operation-tray-grid {
     grid-auto-flow: column;
     grid-auto-columns: minmax(8.5rem, 45vw);
@@ -847,5 +908,10 @@ summary:focus-visible {
   *::after {
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+
+  .operation-button:hover,
+  .operation-button:active {
+    transform: none;
   }
 }

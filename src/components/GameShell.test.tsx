@@ -100,6 +100,9 @@ describe('Game shell', () => {
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     expect(within(inspector).getByText(/Legal now\. Earliest start 0/i)).toBeInTheDocument();
+    const preview = screen.getByTestId('preview-tile-F:0:0');
+    expect(preview).toHaveAttribute('x', '0');
+    expect(preview).toHaveAttribute('width', '44');
 
     await user.click(screen.getByText(/more controls/i));
     await user.click(
@@ -114,6 +117,22 @@ describe('Game shell', () => {
     expect(
       within(screen.getByRole('region', { name: /schedule board/i })).getByText(/^F:0:0$/),
     ).toBeInTheDocument();
+    expect(screen.queryByTestId('preview-tile-F:0:0')).not.toBeInTheDocument();
+  });
+
+  it('shows only legal selections as board previews', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /inspect B stage 0 microbatch 0/i }));
+    expect(screen.queryByTestId('preview-tile-B:0:0')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await tabUntil(user, screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+
+    const preview = screen.getByTestId('preview-tile-F:1:0');
+    expect(preview).toHaveAttribute('x', '44');
+    expect(preview).toHaveAttribute('data-duration', '1');
   });
 
   it('can clear the selected operation without changing the attempt', async () => {
@@ -182,6 +201,7 @@ describe('Game shell', () => {
     expect(backward).toHaveAttribute('data-duration', '2');
     expect(forward).toHaveStyle({ '--tile-duration': '1' });
     expect(backward).toHaveStyle({ '--tile-duration': '2' });
+    expect(screen.getByText(/^1 ready$/i)).toBeInTheDocument();
   });
 
   it('does not repeat the block inventory inside the timeline', () => {

@@ -34,16 +34,23 @@ export function OperationTray({
   onActivate,
   onInspect,
 }: OperationTrayProps) {
+  const readyCount = classifications.filter(
+    (classification) => classification.status === 'legal',
+  ).length;
+
   return (
     <section className="panel tray-panel" aria-labelledby="operation-tray-heading">
       <div className="panel-heading-row">
         <div>
-          <p className="panel-kicker">Next move</p>
+          <p className="panel-kicker">Ready queue</p>
           <h2 id="operation-tray-heading">Blocks</h2>
         </div>
-        <p className="notation-key">
-          <span className="mono">(F/B, stage_id, micro_batch_id)</span>
-        </p>
+        <div className="tray-panel__summary">
+          <p className="ready-count">{readyCount} ready</p>
+          <p className="notation-key">
+            <span className="mono">(F/B, stage_id, micro_batch_id)</span>
+          </p>
+        </div>
       </div>
       <div className="operation-tray-grid">
         {classifications.map((classification) => {
@@ -63,7 +70,6 @@ export function OperationTray({
               data-selected={isSelected ? 'true' : 'false'}
               aria-label={accessibleOperationLabel(classification)}
               aria-current={isSelected ? 'true' : undefined}
-              onMouseDown={(event) => event.preventDefault()}
               onClick={() => onActivate(operation.id)}
               onFocus={() => onInspect(operation.id)}
               style={

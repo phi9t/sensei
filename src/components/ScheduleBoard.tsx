@@ -15,6 +15,10 @@ const MIN_BOARD_WIDTH = 760;
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
   readonly selectedOperationId: OperationId | null;
+  readonly preview: {
+    readonly operationId: OperationId;
+    readonly earliestStart: number;
+  } | null;
 }
 
 function kindPatternId(kind: 'F' | 'B'): string {
@@ -100,10 +104,17 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
     .join('; ')}`;
 }
 
-export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardProps) {
-  const svgWidth = Math.max(timelineExtent(schedule), MIN_BOARD_WIDTH);
+export function ScheduleBoard({ schedule, selectedOperationId, preview }: ScheduleBoardProps) {
+  const previewOperation = preview ? operationById(schedule, preview.operationId) : null;
+  const previewStart = preview?.earliestStart ?? 0;
+  const previewEnd = previewOperation ? previewStart + previewOperation.duration : 0;
+  const svgWidth = Math.max(
+    timelineExtent(schedule),
+    MIN_BOARD_WIDTH,
+    LEFT_PADDING + previewEnd * CELL_WIDTH + RIGHT_PADDING,
+  );
   const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 20;
-  const timelineEnd = maxEndTime(schedule);
+  const timelineEnd = Math.max(maxEndTime(schedule), previewEnd);
 
   return (
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
@@ -265,6 +276,34 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                 </g>
               );
             })}
+
+            {preview && previewOperation ? (
+              <g>
+                <title>{`${formatOperationName(previewOperation)} preview on rank ${
+                  previewOperation.rank
+                } from ${preview.earliestStart} to ${previewEnd}`}</title>
+                <rect
+                  data-testid={`preview-tile-${previewOperation.id}`}
+                  x={preview.earliestStart * CELL_WIDTH}
+                  y={rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP}
+                  width={previewOperation.duration * CELL_WIDTH}
+                  height={WORK_BLOCK_HEIGHT}
+                  rx="6"
+                  className="schedule-preview-rect"
+                  data-kind={previewOperation.kind}
+                  data-duration={previewOperation.duration}
+                />
+                <text
+                  x={preview.earliestStart * CELL_WIDTH + 8}
+                  y={
+                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 20
+                  }
+                  className="schedule-preview-label"
+                >
+                  {formatOperationCode(previewOperation)}
+                </text>
+              </g>
+            ) : null}
           </g>
         </svg>
       </div>
