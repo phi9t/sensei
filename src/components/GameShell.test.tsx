@@ -61,18 +61,16 @@ describe('Game shell', () => {
     expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
   });
 
-  it('keeps secondary actions behind one disclosure', async () => {
-    const user = userEvent.setup();
-    render(<App initialLevelId="backward-is-heavier" />);
+  it('keeps core schedule commands in a thin command rail', () => {
+    render(<App initialLevelId="dependency-chain" />);
 
-    const disclosure = screen.getByText(/more controls/i).closest('details');
-    expect(disclosure).not.toHaveAttribute('open');
-
-    await user.click(screen.getByText(/more controls/i));
-
-    expect(disclosure).toHaveAttribute('open');
-    expect(screen.getByRole('button', { name: /show local hint/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /reset current attempt/i })).toBeInTheDocument();
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    expect(within(rail).getByText(/^Schedule$/i)).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /undo last action/i })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: /redo next action/i })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeEnabled();
+    expect(within(rail).getByRole('button', { name: /clear selected operation/i })).toBeEnabled();
+    expect(within(rail).getByRole('button', { name: /wait one tick on rank 0/i })).toBeEnabled();
   });
 
   it('keeps blocked operations focusable and explains every blocker', async () => {
@@ -111,9 +109,8 @@ describe('Game shell', () => {
     expect(preview).toHaveAttribute('x', '0');
     expect(preview).toHaveAttribute('width', '44');
 
-    await user.click(screen.getByText(/more controls/i));
     await user.click(
-      within(screen.getByRole('region', { name: /game controls/i })).getByRole('button', {
+      within(screen.getByRole('region', { name: /schedule command rail/i })).getByRole('button', {
         name: /place selected operation/i,
       }),
     );
@@ -148,9 +145,8 @@ describe('Game shell', () => {
     render(<App initialLevelId="dependency-chain" />);
 
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
-    await user.click(screen.getByText(/more controls/i));
     await user.click(
-      within(screen.getByRole('region', { name: /game controls/i })).getByRole('button', {
+      within(screen.getByRole('region', { name: /schedule command rail/i })).getByRole('button', {
         name: /clear selected operation/i,
       }),
     );
@@ -408,7 +404,7 @@ describe('Game shell', () => {
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 1/i }));
 
-    const controls = screen.getByRole('region', { name: /game controls/i });
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
 
     await user.click(within(controls).getByRole('button', { name: /undo last action/i }));
@@ -428,7 +424,6 @@ describe('Game shell', () => {
     ).toBeInTheDocument();
     expect(within(controls).getByRole('button', { name: /redo next action/i })).toBeDisabled();
 
-    await user.click(within(controls).getByText(/more controls/i));
     await user.click(within(controls).getByRole('button', { name: /reset current attempt/i }));
     expect(
       within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^0 -> 0 -> 0 -> 0$/i),
@@ -440,8 +435,7 @@ describe('Game shell', () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);
 
-    const controls = screen.getByRole('region', { name: /game controls/i });
-    await user.click(within(controls).getByText(/more controls/i));
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
     await user.click(
       within(controls).getByRole('button', {
         name: /wait one tick on rank 0/i,
@@ -459,10 +453,9 @@ describe('Game shell', () => {
     const user = userEvent.setup();
     render(<App initialLevelId="memory-wall" />);
 
-    const controls = screen.getByRole('region', { name: /game controls/i });
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
     const status = screen.getByRole('status', { name: /interaction feedback/i });
 
-    await user.click(within(controls).getByText(/more controls/i));
     await user.click(within(controls).getByRole('button', { name: /show local hint/i }));
     expect(status).toHaveTextContent(/Local hint: place F stage 0 microbatch 0/i);
 
@@ -518,7 +511,7 @@ describe('Game shell', () => {
     expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /move inspector/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /metrics panel/i })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /game controls/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /schedule command rail/i })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
 
     const blocked = screen.getByRole('button', {
@@ -527,7 +520,7 @@ describe('Game shell', () => {
     expect(blocked).not.toHaveAttribute('aria-disabled');
     expect(blocked).not.toBeDisabled();
 
-    const controls = screen.getByRole('region', { name: /game controls/i });
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
     expect(
       within(controls).getByRole('button', {
         name: /wait one tick on rank 0/i,
@@ -538,7 +531,7 @@ describe('Game shell', () => {
         name: /undo last action/i,
       }),
     ).toBeDisabled();
-    expect(within(controls).getByText(/more controls/i)).toBeInTheDocument();
+    expect(within(controls).queryByText(/more controls/i)).not.toBeInTheDocument();
   });
 
   it('keeps naming terse while the inspector explains blockers', async () => {

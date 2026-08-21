@@ -40,9 +40,9 @@ export function GameControls({
   onReset,
 }: GameControlsProps) {
   return (
-    <section className="panel controls-panel" aria-label="Game controls">
-      <div className="controls-primary">
-        <h2 id="game-controls-heading">Controls</h2>
+    <section className="schedule-command-rail" aria-label="Schedule command rail">
+      <div className="schedule-command-rail__primary">
+        <h2 id="game-controls-heading">Schedule</h2>
         <button
           type="button"
           className="command-button"
@@ -61,107 +61,100 @@ export function GameControls({
         >
           Redo
         </button>
+        <button
+          type="button"
+          className="command-button command-button--primary"
+          aria-label="Place selected operation"
+          onClick={onPlaceSelected}
+        >
+          Place
+        </button>
+        <button
+          type="button"
+          className="command-button"
+          aria-label="Clear selected operation"
+          onClick={onClearSelection}
+        >
+          Clear
+        </button>
       </div>
 
-      <details className="more-controls">
-        <summary>More controls</summary>
-        <div className="more-controls__body">
-          <div className="control-cluster" aria-label="Placement controls">
-            <span className="control-cluster__label">Selection</span>
+      <div className="schedule-command-rail__secondary">
+        <div className="control-cluster" aria-label="Rank wait controls">
+          <span className="control-cluster__label">Wait</span>
+          {Array.from({ length: level.rankCount }, (_, rank) => (
             <button
+              key={rank}
               type="button"
-              className="command-button command-button--primary"
-              aria-label="Place selected operation"
-              onClick={onPlaceSelected}
+              className="command-button command-button--rank"
+              aria-label={'Wait one tick on rank ' + rank}
+              onClick={() => onWait(rank)}
             >
-              Place selected
+              R{rank}
             </button>
-            <button
-              type="button"
-              className="command-button"
-              aria-label="Clear selected operation"
-              onClick={onClearSelection}
-            >
-              Clear
-            </button>
-          </div>
-
-          <div className="control-cluster" aria-label="Rank wait controls">
-            <span className="control-cluster__label">Wait 1 tick</span>
-            {Array.from({ length: level.rankCount }, (_, rank) => (
-              <button
-                key={rank}
-                type="button"
-                className="command-button command-button--rank"
-                aria-label={'Wait one tick on rank ' + rank}
-                onClick={() => onWait(rank)}
-              >
-                R{rank}
-              </button>
-            ))}
-          </div>
-
-          <div className="control-cluster" aria-label="Learning controls">
-            <span className="control-cluster__label">Assist</span>
-            <button
-              type="button"
-              className="command-button"
-              aria-label="Show ready operations"
-              onClick={onReadySet}
-              disabled={!canReadySet}
-              aria-describedby="ready-set-reason"
-            >
-              Ready
-            </button>
-            <button
-              type="button"
-              className="command-button"
-              aria-label="Show local hint"
-              onClick={onHint}
-              disabled={!level.coaching.suggest}
-              aria-describedby="hint-reason"
-            >
-              Hint
-            </button>
-            <button
-              type="button"
-              className="command-button"
-              aria-label="Run until interesting boundary"
-              onClick={onAutomate}
-              disabled={!level.coaching.auto}
-              aria-describedby="automation-reason"
-            >
-              Auto-step
-            </button>
-          </div>
-
-          <div className="control-cluster" aria-label="Attempt controls">
-            <span className="control-cluster__label">Attempt</span>
-            <button
-              type="button"
-              className="command-button"
-              aria-label="Share attempt link"
-              onClick={onShare}
-            >
-              Share
-            </button>
-            <button
-              type="button"
-              className="command-button command-button--danger"
-              aria-label="Reset current attempt"
-              onClick={onReset}
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="control-notes sr-only">
-            <p id="ready-set-reason">{readySetReason}</p>
-            <p id="hint-reason">{hintReason}</p>
-            <p id="automation-reason">{automationReason}</p>
-          </div>
+          ))}
         </div>
-      </details>
+
+        <div className="control-cluster" aria-label="Learning controls">
+          <span className="control-cluster__label">Assist</span>
+          <button
+            type="button"
+            className="command-button"
+            aria-label="Show ready operations"
+            onClick={onReadySet}
+            disabled={!canReadySet}
+            aria-describedby="ready-set-reason"
+          >
+            Ready
+          </button>
+          <button
+            type="button"
+            className="command-button"
+            aria-label="Show local hint"
+            onClick={onHint}
+            disabled={!level.coaching.suggest}
+            aria-describedby="hint-reason"
+          >
+            Hint
+          </button>
+          <button
+            type="button"
+            className="command-button"
+            aria-label="Run until interesting boundary"
+            onClick={onAutomate}
+            disabled={!level.coaching.auto}
+            aria-describedby="automation-reason"
+          >
+            Auto
+          </button>
+        </div>
+
+        <div className="control-cluster" aria-label="Attempt controls">
+          <span className="control-cluster__label">Attempt</span>
+          <button
+            type="button"
+            className="command-button"
+            aria-label="Share attempt link"
+            onClick={onShare}
+          >
+            Share
+          </button>
+          <button
+            type="button"
+            className="command-button command-button--danger"
+            aria-label="Reset current attempt"
+            onClick={onReset}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="control-notes sr-only">
+          <p id="ready-set-reason">{readySetReason}</p>
+          <p id="hint-reason">{hintReason}</p>
+          <p id="automation-reason">{automationReason}</p>
+        </div>
+      </div>
     </section>
   );
 }

@@ -144,27 +144,25 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           {game.overlay.message}
         </div>
 
-        <section className="schedule-command-rail" aria-label="Schedule command rail">
-          <GameControls
-            level={game.level}
-            canUndo={game.cursor > 0}
-            canRedo={game.cursor < game.actions.length}
-            canReadySet={game.canReadySet}
-            readySetReason={game.readySetReason}
-            hintReason={game.hintReason}
-            automationReason={game.automationReason}
-            onWait={game.waitOneTick}
-            onPlaceSelected={game.placeSelectedOperation}
-            onClearSelection={game.clearSelection}
-            onShare={game.shareAttempt}
-            onUndo={game.undo}
-            onRedo={game.redo}
-            onReadySet={game.showReadySet}
-            onHint={game.showHint}
-            onAutomate={game.automate}
-            onReset={game.reset}
-          />
-        </section>
+        <GameControls
+          level={game.level}
+          canUndo={game.cursor > 0}
+          canRedo={game.cursor < game.actions.length}
+          canReadySet={game.canReadySet}
+          readySetReason={game.readySetReason}
+          hintReason={game.hintReason}
+          automationReason={game.automationReason}
+          onWait={game.waitOneTick}
+          onPlaceSelected={game.placeSelectedOperation}
+          onClearSelection={game.clearSelection}
+          onShare={game.shareAttempt}
+          onUndo={game.undo}
+          onRedo={game.redo}
+          onReadySet={game.showReadySet}
+          onHint={game.showHint}
+          onAutomate={game.automate}
+          onReset={game.reset}
+        />
 
         <ScheduleBoard
           schedule={game.schedule}
