@@ -19,17 +19,17 @@ The current model deliberately stays small: one physical rank per stage, integer
 
 The page has five work panels:
 
-- **Operation tray:** every operation remains visible. Legal moves can be placed; blocked and completed moves stay focusable so the inspector can explain them.
-- **Schedule board:** an inventory band previews truthful duration geometry, while the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank activation memory.
-- **Move inspector:** reports whether the selected move is legal, completed, dependency-blocked, or memory-blocked, including every typed blocker.
-- **Metrics panel:** shows completion, mastery, makespan, work/capacity, bubble ratio, intentional idle, activation peaks, mastery targets, and the ranking tuple.
-- **Game controls:** wait on a rank, undo/redo, reveal the ready set, request a local hint, run bounded automation, or reset.
+- **Blocks:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, micro_batch_id)`.
+- **Schedule board:** the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank activation memory.
+- **Move inspector:** reports whether the selected block is legal, completed, dependency-blocked, or memory-blocked, including every typed blocker.
+- **Metrics panel:** starts collapsed and exposes completion, mastery, makespan, work/capacity, bubble ratio, intentional idle, activation peaks, mastery targets, and the ranking tuple.
+- **Game controls:** undo/redo stay visible; wait, coaching, sharing, selected placement, and reset live behind a disclosure.
 
 A legal completion unlocks the next level. Mastery is optional and records the stronger result separately.
 
 ## Prerequisites and commands
 
-Use a Node.js and npm toolchain compatible with the pinned lockfile. This release was verified with Node `24.13.0` and npm `11.7.0`; the repository does not declare a narrower `engines` range.
+Use a Node.js and npm toolchain compatible with the pinned lockfile. This release was verified with Node `24.13.0` and npm `11.7.0`; the package metadata requires at least those versions.
 
 ```bash
 npm install
@@ -66,9 +66,9 @@ Every level uses `F = 1`, `B = 2`, and one rank per stage. Exact definitions liv
 
 ## Controls and accessibility
 
-With a pointer, click an operation to place it or inspect its blockers. The remaining buttons append rank-local idle, navigate history, expose the level's coaching affordances, or reset.
+With a pointer, click an operation to place it or inspect its blockers. The remaining buttons append rank-local idle, navigate history, expose the level's coaching affordances, share, or reset.
 
-With a keyboard, use `Tab`/`Shift+Tab` to move through the native level picker, operation buttons, and controls, then `Enter` to activate a focused button. Blocked operation buttons use `aria-disabled` rather than native `disabled`, so they remain keyboard-inspectable. The app also provides polite live feedback and honors `prefers-reduced-motion`.
+With a keyboard, use `Tab`/`Shift+Tab` to move through the native level picker, operation buttons, and controls, then `Enter` to activate a focused button. Blocked operation buttons remain enabled and announce as inspectable, so they stay keyboard-inspectable. The app also provides polite live feedback and honors `prefers-reduced-motion`.
 
 ## Offline behavior
 

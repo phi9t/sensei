@@ -7,10 +7,11 @@ schedule includes deliberate and forced idle time.
 
 ## Operation
 
-One unit of modeled work for a logical pipeline stage and microbatch. The tutor
-models forward (`F`), input-gradient backward (`B`), and, where gradients are
-split, weight-gradient (`W`) operations. An operation's horizontal width denotes
-its modeled compute duration; operation count alone does not denote equal work.
+One unit of modeled work for a logical pipeline stage and microbatch. V1 models
+forward (`F`) and unsplit backward (`B`) operations. Split weight-gradient (`W`)
+operations are future vocabulary, not part of the current executable model. An
+operation's horizontal width denotes its modeled compute duration; operation
+count alone does not denote equal work.
 
 ## Move
 

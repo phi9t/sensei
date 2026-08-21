@@ -133,7 +133,7 @@ src/levels/       four original validated level configurations
 src/coaching/     explanations, suggestions, bounded automation
 src/persistence/  versioned local and URL replay formats
 src/offline/      versioned application-shell cache registration
-src/game/         React orchestration and command handling
+src/app/          React orchestration and command handling
 src/components/   board, tray, inspector, metrics, controls, level shell
 src/styles/       original technical-tabletop tokens and responsive layout
 ```
