@@ -12,9 +12,7 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
   return (
     <section className="panel inspector-panel" aria-labelledby="move-inspector-heading">
       <h2 id="move-inspector-heading">Move inspector</h2>
-      {operationId === null || explanation === null ? (
-        <p>Select an operation to inspect its constraints.</p>
-      ) : null}
+      {operationId === null || explanation === null ? <p>Select a block to inspect it.</p> : null}
 
       {operationId !== null && explanation !== null ? (
         <div className="inspector-content">
@@ -25,7 +23,7 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
 
           {explanation.status === 'blocked' ? (
             <>
-              <p>This move is blocked. Every typed blocker is listed below.</p>
+              <p>Blocked by:</p>
               <ul className="inspector-list">
                 {explanation.explanations.map((entry, index) => (
                   <li key={`${entry.kind}-${index}`}>
@@ -38,13 +36,10 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
           ) : null}
 
           {explanation.status === 'legal' ? (
-            <>
-              <p>
-                Legal now. Earliest start {explanation.earliestStart}. Projected activation memory{' '}
-                {explanation.projectedMemory}. This is a local replay-derived fact, not a global
-                optimality claim.
-              </p>
-            </>
+            <p>
+              Legal now. Earliest start {explanation.earliestStart}. Memory after:{' '}
+              {explanation.projectedMemory}.
+            </p>
           ) : null}
 
           {explanation.status === 'completed' ? (
@@ -69,6 +64,8 @@ function humanBlockedMessage(reason: BlockReason): string {
       return `${formatOperationName(reason.operationId)} is already placed.`;
     case 'invalid-rank':
       return `Rank ${reason.rank} is not a valid wait target.`;
+    case 'unknown-operation-id':
+      return `${reason.operationId} is not part of this level.`;
   }
 }
 
@@ -82,5 +79,7 @@ function typedReasonLabel(reason: BlockReason): string {
       return reason.operationId;
     case 'invalid-rank':
       return `invalid-rank ${reason.rank}`;
+    case 'unknown-operation-id':
+      return reason.operationId;
   }
 }

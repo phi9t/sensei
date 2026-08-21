@@ -580,7 +580,7 @@ function readUrlAttempt(
 }
 
 export function loadProgress(
-  storage: Storage,
+  storage: Storage | null,
   hash: string,
   getLevel: GetLevel,
 ): LoadProgressResult {
@@ -589,22 +589,51 @@ export function loadProgress(
     | { readonly kind: 'quarantined-storage'; readonly reason: DeserializeProgressReason }
     | undefined;
 
-  try {
-    const stored = storage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      const deserialized = deserializeProgress(stored, getLevel);
-      if (deserialized.ok) {
-        progress = deserialized.progress;
-      } else {
-        recovery = Object.freeze({
-          kind: 'quarantined-storage',
-          reason: deserialized.reason,
-        });
+  if (storage !== null) {
+    try {
+      const stored = storage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        const deserialized = deserializeProgress(stored, getLevel);
+        if (deserialized.ok) {
+          progress = deserialized.progress;
+        } else {
+          recovery = Object.freeze({
+            kind: 'quarantined-storage',
+            reason: deserialized.reason,
+          });
+        }
       }
+    } catch (error) {
+      const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      const urlResult = readUrlAttempt(hash, getLevel);
+      const result: {
+        status: 'session-only';
+        progress: Progress;
+        urlAttempt: StoredAttempt | null;
+        reason: string;
+        recovery?: {
+          readonly kind: 'quarantined-storage';
+          readonly reason: DeserializeProgressReason;
+        };
+        urlRecovery?: UrlRecovery;
+      } = {
+        status: 'session-only',
+        progress,
+        urlAttempt: urlResult.urlAttempt,
+        reason,
+      };
+      if (recovery) {
+        result.recovery = recovery;
+      }
+      if (urlResult.urlRecovery) {
+        result.urlRecovery = urlResult.urlRecovery;
+      }
+      return Object.freeze(result);
     }
-  } catch (error) {
-    const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-    const urlResult = readUrlAttempt(hash, getLevel);
+  }
+
+  const urlResult = readUrlAttempt(hash, getLevel);
+  if (storage === null) {
     const result: {
       status: 'session-only';
       progress: Progress;
@@ -619,7 +648,7 @@ export function loadProgress(
       status: 'session-only',
       progress,
       urlAttempt: urlResult.urlAttempt,
-      reason,
+      reason: 'Storage unavailable',
     };
     if (recovery) {
       result.recovery = recovery;
@@ -630,7 +659,6 @@ export function loadProgress(
     return Object.freeze(result);
   }
 
-  const urlResult = readUrlAttempt(hash, getLevel);
   const result: {
     status: 'ok';
     progress: Progress;

@@ -95,7 +95,7 @@ describe('validateLevelConfig boundary: NaN/Infinity/fractions', () => {
     { kind: 'B', values: [NaN, Infinity, -Infinity] },
   ];
 
-  it('rejects NaN and Infinity for durations (non-integer durations are allowed)', () => {
+  it('rejects NaN, Infinity, and fractions for durations', () => {
     for (const { kind, values } of durations) {
       for (const value of values) {
         expect(() =>
@@ -105,6 +105,13 @@ describe('validateLevelConfig boundary: NaN/Infinity/fractions', () => {
           }),
         ).toThrow(new RegExp(`${kind} duration must be a positive finite number`));
       }
+
+      expect(() =>
+        validateLevelConfig({
+          ...makeConfig(),
+          durations: { F: kind === 'F' ? 1.5 : 1, B: kind === 'B' ? 1.5 : 2 },
+        }),
+      ).toThrow(new RegExp(`${kind} duration must be a positive finite integer`));
     }
   });
 
@@ -122,9 +129,12 @@ describe('validateLevelConfig boundary: NaN/Infinity/fractions', () => {
     }
   });
 
-  it('allows fractional durations (design does not require integer durations)', () => {
-    expect(() =>
-      validateLevelConfig({ ...makeConfig(), durations: { F: 1.5, B: 2.5 } }),
-    ).not.toThrow();
+  it('requires the V1 fixed F=1 and B=2 duration model', () => {
+    expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 2, B: 2 } })).toThrow(
+      /V1 durations must be F=1 and B=2/,
+    );
+    expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 1, B: 3 } })).toThrow(
+      /V1 durations must be F=1 and B=2/,
+    );
   });
 });

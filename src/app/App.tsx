@@ -48,16 +48,26 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
   const initialPersistenceNotice = defaultStorage?.notice ?? null;
   const game = useGame(initialLevelId, resolvedStorage, initialPersistenceNotice);
   const offlineNotice = offlineNoticeFor(offlineStatus);
+  const placedBlockCount = game.schedule.placements.length;
+  const totalBlockCount = game.schedule.operations.length;
 
   return (
     <main className="app-shell">
-      <section className="panel hero-panel" aria-labelledby="sensei-heading">
-        <div className="hero-panel__topline">
-          <div>
-            <h1 id="sensei-heading">Sensei Pipeline Scheduling</h1>
-            <p>Correct first. Efficient next.</p>
-          </div>
+      <a className="skip-link" href="#play-surface">
+        Skip to blocks
+      </a>
+
+      <header className="hero-panel">
+        <div className="brand-lockup">
+          <h1 id="sensei-heading">
+            <span>Sensei</span> <span>Pipeline scheduling</span>
+          </h1>
+          <p>Place the next legal block.</p>
+        </div>
+
+        <div className="level-picker">
           <label>
+            <span>Level</span>
             <select
               aria-label="Choose level"
               value={game.levelId}
@@ -70,16 +80,22 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
               ))}
             </select>
           </label>
-        </div>
-        <section aria-labelledby="goal-and-introduction-heading">
-          <h2 id="goal-and-introduction-heading">Goal and introduction</h2>
-          <p>{game.level.title}</p>
-          <div className="hero-panel__status">
-            <p>{game.score.complete ? 'Legal completion' : 'Incomplete'}</p>
-            <p>{game.score.mastered ? 'Mastered' : 'Mastery pending'}</p>
-          </div>
+
+          <p className="hero-panel__count">
+            {placedBlockCount}/{totalBlockCount} blocks
+          </p>
+
+          <ul className="sr-only" aria-label="Level access status">
+            {game.levelOptions
+              .filter((option) => !option.unlocked && option.reason !== null)
+              .map((option) => (
+                <li key={option.levelId}>{option.reason}</li>
+              ))}
+          </ul>
+
           {offlineNotice ? (
             <p
+              className="header-notice"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -90,6 +106,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           ) : null}
           {game.persistenceNotice ? (
             <p
+              className="header-notice"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -98,21 +115,25 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
               {game.persistenceNotice}
             </p>
           ) : null}
-          <ul aria-label="Level access status">
-            {game.levelOptions
-              .filter((option) => !option.unlocked && option.reason !== null)
-              .map((option) => (
-                <li key={option.levelId}>{option.reason}</li>
-              ))}
-          </ul>
-        </section>
-      </section>
+        </div>
+      </header>
 
-      <div className="content-grid">
+      <div
+        className="live-region"
+        role="status"
+        aria-label="Interaction feedback"
+        aria-live="polite"
+      >
+        <span className="live-region__pulse" aria-hidden="true" />
+        {game.overlay.message}
+      </div>
+
+      <div className="content-grid" id="play-surface">
         <OperationTray
           classifications={game.moveClassifications}
           selectedOperationId={game.selectedOperationId}
           onActivate={game.activateOperation}
+          onInspect={game.selectOperation}
         />
 
         <ScheduleBoard schedule={game.schedule} selectedOperationId={game.selectedOperationId} />
@@ -120,13 +141,6 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
         <MoveInspector
           operationId={game.selectedOperationId}
           explanation={game.selectedExplanation}
-        />
-
-        <MetricsPanel
-          level={game.level}
-          score={game.score}
-          currentMemory={game.schedule.currentMemory}
-          attemptTuple={game.attemptTuple}
         />
 
         <GameControls
@@ -138,6 +152,9 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           hintReason={game.hintReason}
           automationReason={game.automationReason}
           onWait={game.waitOneTick}
+          onPlaceSelected={game.placeSelectedOperation}
+          onClearSelection={game.clearSelection}
+          onShare={game.shareAttempt}
           onUndo={game.undo}
           onRedo={game.redo}
           onReadySet={game.showReadySet}
@@ -145,15 +162,13 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           onAutomate={game.automate}
           onReset={game.reset}
         />
-      </div>
 
-      <div
-        className="live-region"
-        role="status"
-        aria-label="Interaction feedback"
-        aria-live="polite"
-      >
-        {game.overlay.message}
+        <MetricsPanel
+          level={game.level}
+          score={game.score}
+          currentMemory={game.schedule.currentMemory}
+          attemptTuple={game.attemptTuple}
+        />
       </div>
     </main>
   );

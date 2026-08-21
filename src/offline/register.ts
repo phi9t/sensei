@@ -2,6 +2,7 @@ export type OfflineStatus = 'ready' | 'unavailable' | 'unsupported';
 
 type ServiceWorkerContainerLike = {
   register(scriptUrl: string): Promise<unknown>;
+  ready?: Promise<unknown>;
 };
 
 type NavigatorLike = {
@@ -50,6 +51,9 @@ export async function registerOfflineSupport({
 
   try {
     await serviceWorker.register('/sw.js');
+    if (serviceWorker.ready) {
+      await serviceWorker.ready;
+    }
     return { status: 'ready' };
   } catch {
     return { status: 'unavailable' };

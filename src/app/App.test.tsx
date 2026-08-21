@@ -2,6 +2,8 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { MASTERED_ACTIONS } from '../levels/fixtures';
+import { encodeAttempt } from '../persistence/storage';
 
 function createMemoryStorage(seed: Record<string, string> = {}): Storage {
   const data = new Map(Object.entries(seed));
@@ -30,6 +32,8 @@ function createMemoryStorage(seed: Record<string, string> = {}): Storage {
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
+  window.location.hash = '';
 });
 
 describe('App', () => {
@@ -95,8 +99,37 @@ describe('App', () => {
     }
   });
 
+  it('loads shared URL attempts even when persistent storage is unavailable', () => {
+    window.location.hash = `#attempt=${encodeAttempt({
+      schemaVersion: 1,
+      levelId: 'dependency-chain',
+      levelVersion: 1,
+      actions: MASTERED_ACTIONS['dependency-chain'],
+    })}`;
+
+    render(<App storage={null} />);
+
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    expect(within(metrics).getByText(/^Legal completion$/i)).toBeInTheDocument();
+    expect(within(metrics).getByText(/^Mastered$/i)).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Loaded Dependency Chain from a shared attempt/i,
+    );
+  });
+
+  it('surfaces malformed shared URL recovery in the default app path', () => {
+    window.location.hash = '#attempt=%ZZ';
+
+    render(<App storage={createMemoryStorage()} />);
+
+    expect(screen.getByRole('status', { name: /saved progress notice/i })).toHaveTextContent(
+      /Shared attempt could not be read: malformed-uri/i,
+    );
+  });
+
   it('gives ready set, hint, and automation controls their explanatory descriptions', () => {
     render(<App initialLevelId="memory-wall" />);
+    screen.getByText(/more controls/i).click();
 
     expect(
       screen.getByRole('button', { name: /show ready operations/i }),
@@ -154,6 +187,7 @@ describe('App', () => {
       /Could not save progress\. Progress is staying in this tab only\./i,
     );
 
+    await user.click(screen.getByText(/more controls/i));
     await user.click(screen.getByRole('button', { name: /reset current attempt/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));

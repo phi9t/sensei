@@ -24,6 +24,15 @@ export function validateLevelConfig(config: LevelConfig): void {
   if (!isFinitePositive(config.durations.B)) {
     throw new Error('B duration must be a positive finite number');
   }
+  if (!isFinitePositiveInteger(config.durations.F)) {
+    throw new Error('F duration must be a positive finite integer');
+  }
+  if (!isFinitePositiveInteger(config.durations.B)) {
+    throw new Error('B duration must be a positive finite integer');
+  }
+  if (config.durations.F !== 1 || config.durations.B !== 2) {
+    throw new Error('V1 durations must be F=1 and B=2');
+  }
   if (config.stageCount !== config.rankCount) {
     throw new Error('stageCount must equal rankCount');
   }

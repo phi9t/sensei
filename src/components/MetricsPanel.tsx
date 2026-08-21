@@ -26,53 +26,61 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
 
   return (
     <section className="panel metrics-panel" aria-labelledby="metrics-panel-heading">
-      <h2 id="metrics-panel-heading">Metrics panel</h2>
-      <dl className="metrics-grid">
-        <div>
-          <dt>Completion</dt>
-          <dd>{score.complete ? 'Legal completion' : 'Incomplete'}</dd>
-        </div>
-        <div>
-          <dt>Mastery</dt>
-          <dd>{score.mastered ? 'Mastered' : 'In progress'}</dd>
-        </div>
-        <div>
-          <dt>Makespan</dt>
-          <dd>{score.makespan}</dd>
-        </div>
-        <div>
-          <dt>Total work</dt>
-          <dd>{score.totalWork}</dd>
-        </div>
-        <div>
-          <dt>Capacity</dt>
-          <dd>{score.capacity}</dd>
-        </div>
-        <div>
-          <dt>Bubble</dt>
-          <dd>1 - work/capacity = {formatBubbleRatio(score.bubbleRatio)}</dd>
-        </div>
-        <div>
-          <dt>Intentional idle</dt>
-          <dd>{score.intentionalIdle}</dd>
-        </div>
-        <div>
-          <dt>Current activation memory</dt>
-          <dd>{currentMemory.join(', ')}</dd>
-        </div>
-        <div>
-          <dt>Peak activation memory</dt>
-          <dd>{score.peakActivationMemory}</dd>
-        </div>
-        <div>
-          <dt>Mastery targets</dt>
-          <dd>{masteryTargets}</dd>
-        </div>
-        <div>
-          <dt>Current attempt tuple</dt>
-          <dd>{formatTuple(attemptTuple)}</dd>
-        </div>
-      </dl>
+      <h2 id="metrics-panel-heading" className="sr-only">
+        Metrics panel
+      </h2>
+      <details className="metrics-details">
+        <summary>
+          <span>Metrics</span>
+          <span className="metrics-summary__value">makespan {score.makespan}</span>
+        </summary>
+        <dl className="metrics-grid">
+          <div>
+            <dt>Completion</dt>
+            <dd>{score.complete ? 'Legal completion' : 'Incomplete'}</dd>
+          </div>
+          <div>
+            <dt>Mastery</dt>
+            <dd>{score.mastered ? 'Mastered' : 'In progress'}</dd>
+          </div>
+          <div>
+            <dt>Makespan</dt>
+            <dd>{score.makespan}</dd>
+          </div>
+          <div>
+            <dt>Total work</dt>
+            <dd>{score.totalWork}</dd>
+          </div>
+          <div>
+            <dt>Capacity</dt>
+            <dd>{score.capacity}</dd>
+          </div>
+          <div>
+            <dt>Bubble</dt>
+            <dd>1 - work/capacity = {formatBubbleRatio(score.bubbleRatio)}</dd>
+          </div>
+          <div>
+            <dt>Intentional idle</dt>
+            <dd>{score.intentionalIdle}</dd>
+          </div>
+          <div>
+            <dt>Current activation memory</dt>
+            <dd>{currentMemory.join(', ')}</dd>
+          </div>
+          <div>
+            <dt>Peak activation memory</dt>
+            <dd>{score.peakActivationMemory}</dd>
+          </div>
+          <div>
+            <dt>Mastery targets</dt>
+            <dd>{masteryTargets}</dd>
+          </div>
+          <div>
+            <dt>Current attempt tuple</dt>
+            <dd>{formatTuple(attemptTuple)}</dd>
+          </div>
+        </dl>
+      </details>
     </section>
   );
 }

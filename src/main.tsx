@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
+import { ErrorBoundary } from './app/ErrorBoundary';
 import {
   registerOfflineSupport,
   scheduleOfflineRegistration,
@@ -16,7 +17,9 @@ if (!container) {
 const root = createRoot(container);
 root.render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
 
@@ -30,7 +33,9 @@ if (import.meta.env.PROD) {
 
       root.render(
         <StrictMode>
-          <App offlineStatus={result.status satisfies OfflineStatus} />
+          <ErrorBoundary>
+            <App offlineStatus={result.status satisfies OfflineStatus} />
+          </ErrorBoundary>
         </StrictMode>,
       );
       return result;

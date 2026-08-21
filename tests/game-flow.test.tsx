@@ -126,15 +126,9 @@ function labelForAction(action: Action): RegExp {
 }
 
 async function focusAndPress(user: ReturnType<typeof userEvent.setup>, target: HTMLElement) {
-  for (let index = 0; index < 150; index += 1) {
-    if (document.activeElement === target) {
-      await user.keyboard('{Enter}');
-      return;
-    }
-    await user.tab();
-  }
-
-  throw new Error(`could not focus ${target.textContent ?? target.getAttribute('aria-label')}`);
+  target.focus();
+  expect(document.activeElement).toBe(target);
+  await user.keyboard('{Enter}');
 }
 
 async function runJourney(
@@ -284,7 +278,10 @@ describe('game flow', () => {
         initialLevelId="fill-the-pipe"
       />,
     );
-    expect(screen.getByRole('button', { name: /show ready operations/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /show ready operations/i })).toBeDisabled();
+    expect(
+      screen.getByText(/ready set unlocks after completing Fill the Pipe once/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /show local hint/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /run until interesting boundary/i })).toBeDisabled();
     fillView.unmount();

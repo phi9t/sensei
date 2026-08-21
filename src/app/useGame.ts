@@ -23,8 +23,10 @@ import {
   loadProgress,
   saveProgress,
   selectBest,
+  encodeAttempt,
   type Progress,
   type StoredAttempt,
+  type UrlAttemptPayload,
 } from '../persistence/storage';
 
 interface OverlayState {
@@ -72,6 +74,9 @@ export interface GameViewModel {
   readonly automationReason: string;
   readonly activateOperation: (operationId: OperationId) => void;
   readonly selectOperation: (operationId: OperationId) => void;
+  readonly clearSelection: () => void;
+  readonly placeSelectedOperation: () => void;
+  readonly shareAttempt: () => void;
   readonly waitOneTick: (rank: number) => void;
   readonly undo: () => void;
   readonly redo: () => void;
@@ -84,15 +89,6 @@ export interface GameViewModel {
 
 const DEFAULT_LEVEL_ID: LevelId = 'dependency-chain';
 const READY_MESSAGE = 'Ready to place operations.';
-
-function emptyProgress(): Progress {
-  return Object.freeze({
-    unlockedLevelIds: Object.freeze(['dependency-chain'] as const),
-    bestLegalAttempts: Object.freeze({}),
-    bestMasteredAttempts: Object.freeze({}),
-    historicalAttempts: Object.freeze([]),
-  });
-}
 
 function cloneAction(action: Action): Action {
   switch (action.type) {
@@ -170,26 +166,17 @@ function coachingReason(
     : `${name} is unavailable on ${levelTitle}.`;
 }
 
+function urlRecoveryNotice(reason: string): string {
+  return `Shared attempt could not be read: ${reason}.`;
+}
+
 function initialGameState(
   initialLevelId: LevelId,
   storage: Storage | null,
   initialPersistenceNotice: string | null,
 ): GameState {
-  if (storage === null) {
-    return {
-      levelId: initialLevelId,
-      actions: Object.freeze([]),
-      cursor: 0,
-      batchEnds: Object.freeze([]),
-      selectedOperationId: null,
-      overlay: { message: READY_MESSAGE },
-      progress: emptyProgress(),
-      persistenceNotice: initialPersistenceNotice,
-      lastRecordedAttemptKey: null,
-    };
-  }
-
-  const loaded = loadProgress(storage, window.location.hash, getLevel);
+  const hash = typeof window === 'undefined' ? '' : window.location.hash;
+  const loaded = loadProgress(storage, hash, getLevel);
   const loadedLevelId = loaded.urlAttempt?.levelId ?? initialLevelId;
   const loadedActions = freezeActions(loaded.urlAttempt?.actions ?? []);
   const loadedBatchEnds = Object.freeze(loadedActions.map((_, index) => index + 1));
@@ -203,6 +190,14 @@ function initialGameState(
 
   if (loaded.recovery) {
     persistenceNotice = 'Saved progress could not be read. Starting from the last safe state.';
+  }
+
+  if (loaded.urlRecovery) {
+    persistenceNotice = urlRecoveryNotice(loaded.urlRecovery.failure.reason);
+  }
+
+  if (initialPersistenceNotice !== null && persistenceNotice === null) {
+    persistenceNotice = initialPersistenceNotice;
   }
 
   return {
@@ -271,6 +266,16 @@ function formatBlockedSummary(operationId: OperationId, count: number): string {
   return `${formatOperationName(operationId)} is blocked by ${count} ${reasonLabel}.`;
 }
 
+function activeAttemptUrl(levelId: LevelId, actions: readonly Action[]): string {
+  const encoded = encodeAttempt(buildUrlAttempt(levelId, actions));
+  if (typeof window === 'undefined') {
+    return `#attempt=${encoded}`;
+  }
+  const url = new URL(window.location.href);
+  url.hash = `attempt=${encoded}`;
+  return url.toString();
+}
+
 export function formatStopReason(stop: StopReason): string {
   switch (stop.kind) {
     case 'choice':
@@ -336,6 +341,16 @@ function buildAttempt(levelId: LevelId, actions: readonly Action[]): StoredAttem
     actions: freezeActions(actions),
     outcome: scoreResult.mastered ? 'mastered' : 'legal',
     tuple: attemptRankingTuple(replayed.state),
+  });
+}
+
+function buildUrlAttempt(levelId: LevelId, actions: readonly Action[]): UrlAttemptPayload {
+  const level = getLevel(levelId);
+  return Object.freeze({
+    schemaVersion: 1,
+    levelId,
+    levelVersion: level.version,
+    actions: freezeActions(actions),
   });
 }
 
@@ -459,6 +474,32 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   };
 }
 
+function hasCompletedLevel(progress: Progress, levelId: LevelId): boolean {
+  return (
+    progress.bestLegalAttempts[levelId] !== undefined ||
+    progress.bestMasteredAttempts[levelId] !== undefined
+  );
+}
+
+function canUseReadySet(progress: Progress, levelId: LevelId): boolean {
+  const level = getLevel(levelId);
+  if (!level.coaching.readySet) {
+    return false;
+  }
+  return levelId === 'fill-the-pipe' ? hasCompletedLevel(progress, levelId) : true;
+}
+
+function readySetAvailabilityReason(progress: Progress, levelId: LevelId): string {
+  const level = getLevel(levelId);
+  if (!level.coaching.readySet) {
+    return coachingReason('readySet', levelId, false);
+  }
+  if (levelId === 'fill-the-pipe' && !hasCompletedLevel(progress, levelId)) {
+    return 'Ready set unlocks after completing Fill the Pipe once.';
+  }
+  return coachingReason('readySet', levelId, true);
+}
+
 export function useGame(
   initialLevelId: LevelId = DEFAULT_LEVEL_ID,
   storage: Storage | null = null,
@@ -477,10 +518,10 @@ export function useGame(
   const selectedExplanation =
     selectedOperationId === null ? null : explainBlockedMove(schedule, selectedOperationId);
   const suggestion = level.coaching.suggest ? suggestMove(schedule) : null;
-  const readySet = level.coaching.readySet ? revealReadySet(schedule) : [];
+  const canReadySet = canUseReadySet(game.progress, game.levelId);
+  const readySet = canReadySet ? revealReadySet(schedule) : [];
   const optionStates = levelOptions(game.progress, game.levelId);
-  const canReadySet = level.coaching.readySet;
-  const readySetReason = coachingReason('readySet', game.levelId, canReadySet);
+  const readySetReason = readySetAvailabilityReason(game.progress, game.levelId);
   const hintReason = coachingReason('suggest', game.levelId, level.coaching.suggest);
   const automationReason = coachingReason('auto', game.levelId, level.coaching.auto);
 
@@ -547,6 +588,72 @@ export function useGame(
       selectedOperationId: operationId,
       overlay: { message: `Inspecting ${formatOperationName(operationId)}.` },
     }));
+  }
+
+  function clearSelection(): void {
+    updateWithCurrentSchedule((current) => ({
+      ...current,
+      selectedOperationId: null,
+      overlay: { message: 'Cleared the selected operation.' },
+    }));
+  }
+
+  function placeSelectedOperation(): void {
+    updateWithCurrentSchedule((current, currentSchedule) => {
+      const operationId = current.selectedOperationId;
+      if (operationId === null) {
+        return {
+          ...current,
+          overlay: { message: 'Select a ready operation before placing it.' },
+        };
+      }
+
+      const classification = moveClassificationsFor(currentSchedule).find(
+        (entry) => entry.operation.id === operationId,
+      );
+      if (!classification) {
+        throw new Error(`Operation ${operationId} not found in current inventory`);
+      }
+      if (classification.status === 'completed') {
+        return {
+          ...current,
+          overlay: { message: `${formatOperationName(operationId)} is already placed.` },
+        };
+      }
+      if (classification.status === 'blocked') {
+        return {
+          ...current,
+          overlay: { message: formatBlockedSummary(operationId, classification.reasons.length) },
+        };
+      }
+
+      const action: Action = { type: 'place', operationId };
+      const applied = applyAction(currentSchedule, action);
+      if (!applied.ok) {
+        throw new Error(
+          `Engine inconsistency while placing ${operationId}: ${applied.reason.kind}`,
+        );
+      }
+      return appendBatch(
+        current,
+        [action],
+        operationId,
+        `Placed ${formatOperationName(operationId)} on rank ${classification.operation.rank}.`,
+      );
+    });
+  }
+
+  function shareAttempt(): void {
+    setGame((current) => {
+      const url = activeAttemptUrl(current.levelId, activeActions(current.actions, current.cursor));
+      if (typeof window !== 'undefined') {
+        window.location.hash = new URL(url).hash;
+      }
+      return {
+        ...current,
+        overlay: { message: 'Share link updated in the address bar.' },
+      };
+    });
   }
 
   function waitOneTick(rank: number): void {
@@ -665,10 +772,10 @@ export function useGame(
 
   function showReadySet(): void {
     updateWithCurrentSchedule((current, currentSchedule) => {
-      if (!getLevel(current.levelId).coaching.readySet) {
+      if (!canUseReadySet(current.progress, current.levelId)) {
         return {
           ...current,
-          overlay: { message: coachingReason('readySet', current.levelId, false) },
+          overlay: { message: readySetAvailabilityReason(current.progress, current.levelId) },
         };
       }
 
@@ -764,6 +871,9 @@ export function useGame(
     automationReason,
     activateOperation,
     selectOperation,
+    clearSelection,
+    placeSelectedOperation,
+    shareAttempt,
     waitOneTick,
     undo,
     redo,

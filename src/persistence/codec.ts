@@ -162,6 +162,11 @@ function freezeBlockReason(blockReason: BlockReason): BlockReason {
         kind: 'invalid-rank',
         rank: blockReason.rank,
       });
+    case 'unknown-operation-id':
+      return Object.freeze({
+        kind: 'unknown-operation-id',
+        operationId: blockReason.operationId,
+      });
   }
 }
 

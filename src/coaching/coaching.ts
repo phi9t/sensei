@@ -135,6 +135,9 @@ function formatBlockMessage(reason: BlockReason): string {
     case 'invalid-rank': {
       return `Rank ${reason.rank} is invalid.`;
     }
+    case 'unknown-operation-id': {
+      return `${reason.operationId} is not part of this level.`;
+    }
   }
   return assertNever(reason);
 }

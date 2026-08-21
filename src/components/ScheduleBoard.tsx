@@ -1,18 +1,16 @@
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
-import type { Operation, OperationId } from '../engine/types';
+import type { OperationId } from '../engine/types';
 
-export const CELL_WIDTH = 48;
-const RIGHT_PADDING = 24;
-const INVENTORY_TOP = 24;
-const INVENTORY_HEIGHT = 18;
-const INVENTORY_LABEL_Y = INVENTORY_TOP - 6;
-const INVENTORY_GAP = 12;
-const MEMORY_STRIP_HEIGHT = 12;
+export const CELL_WIDTH = 44;
+const RIGHT_PADDING = 32;
+const MEMORY_STRIP_HEIGHT = 8;
 const MEMORY_STRIP_GAP = 8;
-const ROW_HEIGHT = 44;
-const TOP_PADDING = 72;
-const LEFT_PADDING = 88;
+const WORK_BLOCK_HEIGHT = 30;
+const ROW_HEIGHT = 60;
+const TOP_PADDING = 48;
+const LEFT_PADDING = 78;
+const MIN_BOARD_WIDTH = 760;
 
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
@@ -21,12 +19,6 @@ interface ScheduleBoardProps {
 
 function kindPatternId(kind: 'F' | 'B'): string {
   return kind === 'F' ? 'pattern-forward' : 'pattern-backward';
-}
-
-interface InventoryTile {
-  readonly operation: Operation;
-  readonly x: number;
-  readonly width: number;
 }
 
 interface MemorySegment {
@@ -56,22 +48,6 @@ function gapLabel(gap: Gap): string {
 function placementSummary(state: ScheduleState, placement: Placement): string {
   const operation = operationById(state, placement.operationId);
   return `Rank ${placement.rank}, start ${placement.start}, end ${placement.end}, duration ${operation.duration}`;
-}
-
-function inventoryGeometry(state: ScheduleState): readonly InventoryTile[] {
-  const placedIds = new Set(state.placements.map((placement) => placement.operationId));
-  return state.operations
-    .filter((operation) => !placedIds.has(operation.id))
-    .map((operation, index) => ({
-      operation,
-      x: index * (CELL_WIDTH * 2 + INVENTORY_GAP),
-      width: operation.duration * CELL_WIDTH,
-    }));
-}
-
-function inventoryExtent(inventoryTiles: readonly InventoryTile[]): number {
-  const rightmost = inventoryTiles.reduce((max, tile) => Math.max(max, tile.x + tile.width), 0);
-  return LEFT_PADDING + rightmost + RIGHT_PADDING;
 }
 
 function timelineExtent(state: ScheduleState): number {
@@ -125,34 +101,31 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
 }
 
 export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardProps) {
-  const inventoryTiles = inventoryGeometry(schedule);
-  const inventoryWidth = inventoryExtent(inventoryTiles);
-  const svgWidth = Math.max(timelineExtent(schedule), inventoryWidth);
-  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 64;
+  const svgWidth = Math.max(timelineExtent(schedule), MIN_BOARD_WIDTH);
+  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 20;
   const timelineEnd = maxEndTime(schedule);
 
   return (
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
       <h2 id="schedule-board-heading">Schedule board</h2>
-      <p className="panel-intro">
-        Timelines show placed work only. The inventory strip previews truthful duration geometry.
-      </p>
+      <p className="panel-intro">Your pipeline, one move at a time.</p>
       <div
         className="board-scroll-region"
         role="group"
         aria-label="Schedule board horizontal scroll region"
+        tabIndex={0}
       >
         <svg
           className="schedule-board-svg"
+          style={{ minWidth: `${svgWidth}px` }}
+          width={svgWidth}
+          height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           aria-labelledby="schedule-svg-title schedule-svg-desc"
           role="img"
         >
           <title id="schedule-svg-title">Pipeline schedule board</title>
-          <desc id="schedule-svg-desc">
-            Rank timelines, truthful duration tiles, gaps, and activation memory strips for the
-            current replayed attempt.
-          </desc>
+          <desc id="schedule-svg-desc">Rank timelines, placed blocks, gaps, and memory.</desc>
           <defs>
             <pattern
               id="pattern-forward"
@@ -161,49 +134,19 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
+              <rect width="6" height="6" className="tile-pattern-base tile-pattern-base--forward" />
               <line x1="0" y1="0" x2="0" y2="6" className="tile-pattern tile-pattern--forward" />
             </pattern>
             <pattern id="pattern-backward" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect
+                width="8"
+                height="8"
+                className="tile-pattern-base tile-pattern-base--backward"
+              />
               <line x1="0" y1="1" x2="8" y2="1" className="tile-pattern tile-pattern--backward" />
               <line x1="0" y1="5" x2="8" y2="5" className="tile-pattern tile-pattern--backward" />
             </pattern>
           </defs>
-
-          <g transform={`translate(${LEFT_PADDING} 0)`}>
-            <text x="0" y={INVENTORY_LABEL_Y} className="board-caption">
-              Inventory geometry
-            </text>
-            <rect
-              data-testid="inventory-extent"
-              x="0"
-              y={INVENTORY_TOP}
-              width={inventoryWidth - LEFT_PADDING}
-              height={INVENTORY_HEIGHT}
-              fill="transparent"
-              pointerEvents="none"
-              aria-hidden="true"
-            />
-
-            {inventoryTiles.map(({ operation, x, width }) => (
-              <g key={`inventory-${operation.id}`} aria-hidden="true">
-                <rect
-                  data-testid={`tile-${operation.id}`}
-                  x={x}
-                  y={INVENTORY_TOP}
-                  width={width}
-                  height={INVENTORY_HEIGHT}
-                  rx="2"
-                  className="inventory-rect"
-                  data-kind={operation.kind}
-                  data-duration={operation.duration}
-                  fill={`url(#${kindPatternId(operation.kind)})`}
-                />
-                <text x={x + 4} y={INVENTORY_TOP + 12} className="inventory-label">
-                  {formatOperationCode(operation)}
-                </text>
-              </g>
-            ))}
-          </g>
 
           {schedule.rankFrontiers.map((_, rank) => {
             const y = rankRowTop(rank);
@@ -227,7 +170,9 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                         y={stripY}
                         width={(segment.end - segment.start) * CELL_WIDTH}
                         height={MEMORY_STRIP_HEIGHT}
-                        className="memory-strip__segment"
+                        className={`memory-strip__segment${
+                          segment.value > 0 ? ' memory-strip__segment--active' : ''
+                        }`}
                         data-memory={segment.value}
                       />
                       <text
@@ -280,11 +225,11 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                     x={x}
                     y={y}
                     width={width}
-                    height="24"
+                    height={WORK_BLOCK_HEIGHT}
                     className="gap-rect"
                     data-kind={gap.kind}
                   />
-                  <text x={x + width / 2} y={y + 16} textAnchor="middle" className="gap-label">
+                  <text x={x + width / 2} y={y + 19} textAnchor="middle" className="gap-label">
                     {gap.kind === 'intentional' ? 'WAIT' : 'GAP'}
                   </text>
                 </g>
@@ -306,15 +251,15 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
                     x={x}
                     y={y}
                     width={width}
-                    height="24"
-                    rx="3"
+                    height={WORK_BLOCK_HEIGHT}
+                    rx="6"
                     className="schedule-rect"
                     data-kind={operation.kind}
                     data-duration={operation.duration}
                     data-selected={isSelected ? 'true' : 'false'}
                     fill={`url(#${kindPatternId(operation.kind)})`}
                   />
-                  <text x={x + 6} y={y + 16} className="schedule-label">
+                  <text x={x + 8} y={y + 20} className="schedule-label">
                     {formatOperationCode(operation)}
                   </text>
                 </g>
@@ -324,67 +269,70 @@ export function ScheduleBoard({ schedule, selectedOperationId }: ScheduleBoardPr
         </svg>
       </div>
 
-      <div className="board-details">
-        <div>
-          <h3 className="board-subheading">Gaps</h3>
-          <dl className="board-list">
-            {schedule.gaps.length === 0 ? (
-              <div>
-                <dt>None</dt>
-                <dd>No replayed gaps yet.</dd>
-              </div>
-            ) : (
-              schedule.gaps.map((gap) => (
-                <div key={`gap-detail-${gap.rank}-${gap.start}-${gap.end}-${gap.kind}`}>
-                  <dt>{gapLabel(gap)}</dt>
-                  <dd>
-                    {gap.kind === 'intentional'
-                      ? 'Added by a learner wait action.'
-                      : 'Created because dependencies delayed the owning rank.'}
-                  </dd>
+      <details className="board-details">
+        <summary>Timeline details</summary>
+        <div className="board-details__grid">
+          <div>
+            <h3 className="board-subheading">Gaps</h3>
+            <dl className="board-list">
+              {schedule.gaps.length === 0 ? (
+                <div>
+                  <dt>None</dt>
+                  <dd>No replayed gaps yet.</dd>
                 </div>
-              ))
-            )}
-          </dl>
-        </div>
+              ) : (
+                schedule.gaps.map((gap) => (
+                  <div key={`gap-detail-${gap.rank}-${gap.start}-${gap.end}-${gap.kind}`}>
+                    <dt>{gapLabel(gap)}</dt>
+                    <dd>
+                      {gap.kind === 'intentional'
+                        ? 'Added by a learner wait action.'
+                        : 'Created because dependencies delayed the owning rank.'}
+                    </dd>
+                  </div>
+                ))
+              )}
+            </dl>
+          </div>
 
-        <div>
-          <h3 className="board-subheading">Placed operations</h3>
-          <dl className="board-list">
-            {schedule.placements.length === 0 ? (
-              <div>
-                <dt>None</dt>
-                <dd>No operations are placed yet.</dd>
-              </div>
-            ) : (
-              schedule.placements.map((placement) => {
-                const operation = operationById(schedule, placement.operationId);
+          <div>
+            <h3 className="board-subheading">Placed operations</h3>
+            <dl className="board-list">
+              {schedule.placements.length === 0 ? (
+                <div>
+                  <dt>None</dt>
+                  <dd>No operations are placed yet.</dd>
+                </div>
+              ) : (
+                schedule.placements.map((placement) => {
+                  const operation = operationById(schedule, placement.operationId);
+                  return (
+                    <div key={`placement-detail-${placement.operationId}`}>
+                      <dt>{formatOperationName(operation)}</dt>
+                      <dd>{placementSummary(schedule, placement)}</dd>
+                    </div>
+                  );
+                })
+              )}
+            </dl>
+          </div>
+
+          <div>
+            <h3 className="board-subheading">Activation memory</h3>
+            <dl className="board-list">
+              {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
+                const segments = memorySegmentsForRank(schedule, rank);
                 return (
-                  <div key={`placement-detail-${placement.operationId}`}>
-                    <dt>{formatOperationName(operation)}</dt>
-                    <dd>{placementSummary(schedule, placement)}</dd>
+                  <div key={`memory-detail-${rank}`}>
+                    <dt>Rank {rank}</dt>
+                    <dd>{memoryTimelineText(segments, rank)}</dd>
                   </div>
                 );
-              })
-            )}
-          </dl>
+              })}
+            </dl>
+          </div>
         </div>
-
-        <div>
-          <h3 className="board-subheading">Activation memory</h3>
-          <dl className="board-list">
-            {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
-              const segments = memorySegmentsForRank(schedule, rank);
-              return (
-                <div key={`memory-detail-${rank}`}>
-                  <dt>Rank {rank}</dt>
-                  <dd>{memoryTimelineText(segments, rank)}</dd>
-                </div>
-              );
-            })}
-          </dl>
-        </div>
-      </div>
+      </details>
     </section>
   );
 }

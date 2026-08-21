@@ -20,7 +20,8 @@ export type BlockReason =
   | { kind: 'already-placed'; operationId: OperationId }
   | { kind: 'dependency-not-finished'; operationId: OperationId }
   | { kind: 'memory-cap'; rank: number; resident: number; requested: 1; cap: number }
-  | { kind: 'invalid-rank'; rank: number };
+  | { kind: 'invalid-rank'; rank: number }
+  | { kind: 'unknown-operation-id'; operationId: OperationId };
 
 export type MoveClassification =
   | { status: 'legal'; operation: Operation; earliestStart: number; projectedMemory: number }
@@ -143,6 +144,23 @@ function validateOperationIdInInventory(id: OperationId, operations: readonly Op
       `Operation ${id} not in inventory. Valid operations have matching stage/microbatch for this config.`,
     );
   }
+}
+
+function operationIdReasonInInventory(
+  id: OperationId,
+  operations: readonly Operation[],
+): BlockReason | null {
+  try {
+    const parsed = parseOperationId(id);
+    if (parsed.kind !== 'F' && parsed.kind !== 'B') {
+      return { kind: 'unknown-operation-id', operationId: id };
+    }
+  } catch {
+    return { kind: 'unknown-operation-id', operationId: id };
+  }
+
+  const found = operations.find((op) => op.id === id);
+  return found ? null : { kind: 'unknown-operation-id', operationId: id };
 }
 
 function validateWaitRank(rank: number, rankCount: number): BlockReason | null {
@@ -394,6 +412,12 @@ export function replay(config: LevelConfig, actions: readonly Action[]): ReplayR
 
   for (let i = 0; i < actions.length; i++) {
     const action = actions[i]!;
+    if (action.type === 'place') {
+      const unknownReason = operationIdReasonInInventory(action.operationId, state.operations);
+      if (unknownReason) {
+        return { ok: false, index: i, action, reason: unknownReason };
+      }
+    }
     const result = applyAction(state, action);
     if (!result.ok) {
       return { ok: false, index: i, action, reason: result.reason };

@@ -7,6 +7,7 @@ interface OperationTrayProps {
   readonly classifications: readonly MoveClassification[];
   readonly selectedOperationId: OperationId | null;
   readonly onActivate: (operationId: OperationId) => void;
+  readonly onInspect: (operationId: OperationId) => void;
 }
 
 function visibleStateLabel(classification: MoveClassification): string {
@@ -23,25 +24,31 @@ function visibleStateLabel(classification: MoveClassification): string {
 function accessibleOperationLabel(classification: MoveClassification): string {
   const { operation } = classification;
   const tickLabel = operation.duration === 1 ? '1 tick' : `${operation.duration} ticks`;
-  return `Place ${formatOperationName(operation)}, ${tickLabel}, ${visibleStateLabel(classification)}`;
+  const verb = classification.status === 'blocked' ? 'Inspect' : 'Place';
+  return `${verb} ${formatOperationName(operation)}, ${tickLabel}, ${visibleStateLabel(classification)}`;
 }
 
 export function OperationTray({
   classifications,
   selectedOperationId,
   onActivate,
+  onInspect,
 }: OperationTrayProps) {
   return (
     <section className="panel tray-panel" aria-labelledby="operation-tray-heading">
-      <h2 id="operation-tray-heading">Operation tray</h2>
-      <p className="panel-intro">
-        Choose any operation. Blocked moves stay focusable so the inspector can explain them.
-      </p>
+      <div className="panel-heading-row">
+        <div>
+          <p className="panel-kicker">Next move</p>
+          <h2 id="operation-tray-heading">Blocks</h2>
+        </div>
+        <p className="notation-key">
+          <span className="mono">(F/B, stage_id, micro_batch_id)</span>
+        </p>
+      </div>
       <div className="operation-tray-grid">
         {classifications.map((classification) => {
           const { operation } = classification;
           const stateLabel = visibleStateLabel(classification);
-          const isBlocked = classification.status === 'blocked';
           const isSelected = selectedOperationId === operation.id;
 
           return (
@@ -49,13 +56,16 @@ export function OperationTray({
               key={operation.id}
               type="button"
               className="operation-button"
+              data-testid={`tile-${operation.id}`}
+              data-duration={operation.duration}
               data-kind={operation.kind}
               data-state={classification.status}
               data-selected={isSelected ? 'true' : 'false'}
               aria-label={accessibleOperationLabel(classification)}
-              aria-disabled={isBlocked ? 'true' : undefined}
               aria-current={isSelected ? 'true' : undefined}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => onActivate(operation.id)}
+              onFocus={() => onInspect(operation.id)}
               style={
                 {
                   '--tile-duration': String(operation.duration),
@@ -64,8 +74,7 @@ export function OperationTray({
             >
               <span className="operation-button__code">{formatOperationCode(operation)}</span>
               <span className="operation-button__meta">
-                {operation.kind} • rank {operation.rank} • {operation.duration} tick
-                {operation.duration === 1 ? '' : 's'}
+                R{operation.rank} · {operation.duration}t
               </span>
               <span className="operation-button__state">{stateLabel}</span>
             </button>

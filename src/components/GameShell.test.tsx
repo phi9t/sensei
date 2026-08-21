@@ -44,15 +44,38 @@ function metricRowIn(container: HTMLElement, name: RegExp): HTMLElement {
 }
 
 describe('Game shell', () => {
+  it('centers the play surface on blocks and the timeline', () => {
+    render(<App initialLevelId="backward-is-heavier" />);
+
+    expect(screen.getByRole('region', { name: /^blocks$/i })).toBeInTheDocument();
+    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/inventory geometry/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps secondary actions behind one disclosure', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="backward-is-heavier" />);
+
+    const disclosure = screen.getByText(/more controls/i).closest('details');
+    expect(disclosure).not.toHaveAttribute('open');
+
+    await user.click(screen.getByText(/more controls/i));
+
+    expect(disclosure).toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: /show local hint/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset current attempt/i })).toBeInTheDocument();
+  });
+
   it('keeps blocked operations focusable and explains every blocker', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);
 
     const blocked = screen.getByRole('button', {
-      name: /place B stage 0 microbatch 0/i,
+      name: /inspect B stage 0 microbatch 0/i,
     });
 
-    expect(blocked).toHaveAttribute('aria-disabled', 'true');
     expect(blocked).not.toBeDisabled();
 
     await tabUntil(user, blocked);
@@ -63,7 +86,57 @@ describe('Game shell', () => {
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/F:0:0/)).toBeInTheDocument();
     expect(within(inspector).getByText(/B:1:0/)).toBeInTheDocument();
-    expect(blocked).toHaveAccessibleName(/place B stage 0 microbatch 0, 2 ticks, blocked/i);
+    expect(blocked).toHaveAccessibleName(/inspect B stage 0 microbatch 0, 2 ticks, blocked/i);
+  });
+
+  it('previews a legal focused operation and can place the selected move from controls', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    const firstMove = screen.getByRole('button', {
+      name: /place F stage 0 microbatch 0, 1 tick, ready/i,
+    });
+    await tabUntil(user, firstMove);
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/Legal now\. Earliest start 0/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText(/more controls/i));
+    await user.click(
+      within(screen.getByRole('region', { name: /game controls/i })).getByRole('button', {
+        name: /place selected operation/i,
+      }),
+    );
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Placed F stage 0 microbatch 0 on rank 0/i,
+    );
+    expect(
+      within(screen.getByRole('region', { name: /schedule board/i })).getByText(/^F:0:0$/),
+    ).toBeInTheDocument();
+  });
+
+  it('can clear the selected operation without changing the attempt', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByText(/more controls/i));
+    await user.click(
+      within(screen.getByRole('region', { name: /game controls/i })).getByRole('button', {
+        name: /clear selected operation/i,
+      }),
+    );
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Cleared the selected operation/i,
+    );
+    expect(screen.getByText(/Select a block to inspect it/i)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: /metrics panel/i })).getByText(
+        /^1 -> 1 -> 0 -> 1$/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('surfaces legal-then-rejected engine inconsistencies instead of overlaying them', async () => {
@@ -85,7 +158,7 @@ describe('Game shell', () => {
     render(<App initialLevelId="dependency-chain" />);
 
     const blocked = screen.getByRole('button', {
-      name: /place B stage 0 microbatch 0/i,
+      name: /inspect B stage 0 microbatch 0/i,
     });
     await user.click(blocked);
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
@@ -107,46 +180,16 @@ describe('Game shell', () => {
 
     expect(forward).toHaveAttribute('data-duration', '1');
     expect(backward).toHaveAttribute('data-duration', '2');
-    expect(Number(forward.getAttribute('width'))).toBeGreaterThan(0);
-    expect(Number(backward.getAttribute('width'))).toBe(Number(forward.getAttribute('width')) * 2);
+    expect(forward).toHaveStyle({ '--tile-duration': '1' });
+    expect(backward).toHaveStyle({ '--tile-duration': '2' });
   });
 
-  it('gives inventory its own vertical band and sizes the board to contain the full inventory extent', () => {
+  it('does not repeat the block inventory inside the timeline', () => {
     render(<App initialLevelId="dependency-chain" />);
 
-    const dependencyBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
-    const dependencyInventory = screen.getByTestId('tile-F:0:0');
-    const dependencyFirstRankMemory = screen.getByTestId('memory-segment-rank-0-0');
-    const dependencyInventoryExtent = screen.getByTestId('inventory-extent');
-    const dependencyViewBoxWidth = Number(
-      dependencyBoard.getAttribute('viewBox')?.split(/\s+/).at(2),
-    );
-
-    expect(Number(dependencyInventory.getAttribute('y'))).toBeLessThan(
-      Number(dependencyFirstRankMemory.getAttribute('y')),
-    );
-    expect(
-      Number(dependencyInventory.getAttribute('y')) +
-        Number(dependencyInventory.getAttribute('height')),
-    ).toBeLessThanOrEqual(Number(dependencyFirstRankMemory.getAttribute('y')));
-    expect(dependencyViewBoxWidth).toBeGreaterThanOrEqual(
-      Number(dependencyInventoryExtent.getAttribute('x')) +
-        Number(dependencyInventoryExtent.getAttribute('width')) +
-        24,
-    );
-
-    cleanup();
-    render(<App initialLevelId="memory-wall" />);
-
-    const memoryBoard = screen.getByRole('img', { name: /pipeline schedule board/i });
-    const memoryInventoryExtent = screen.getByTestId('inventory-extent');
-    const memoryViewBoxWidth = Number(memoryBoard.getAttribute('viewBox')?.split(/\s+/).at(2));
-
-    expect(memoryViewBoxWidth).toBeGreaterThanOrEqual(
-      Number(memoryInventoryExtent.getAttribute('x')) +
-        Number(memoryInventoryExtent.getAttribute('width')) +
-        24,
-    );
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    expect(within(board).queryByText(/inventory geometry/i)).not.toBeInTheDocument();
+    expect(within(board).queryByTestId('tile-F:0:0')).not.toBeInTheDocument();
   });
 
   it('renders per-rank activation-memory strips aligned to time and updates on forward acquire and backward release', async () => {
@@ -258,8 +301,8 @@ describe('Game shell', () => {
 
     const tile = screen.getByTestId('rank-tile-F:1:0');
     expect(tile).toHaveAttribute('data-duration', '1');
-    expect(tile).toHaveAttribute('x', '48');
-    expect(tile).toHaveAttribute('width', '48');
+    expect(tile).toHaveAttribute('x', '44');
+    expect(tile).toHaveAttribute('width', '44');
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     expect(
@@ -296,11 +339,12 @@ describe('Game shell', () => {
     ).toBeInTheDocument();
     expect(within(controls).getByRole('button', { name: /redo next action/i })).toBeDisabled();
 
+    await user.click(within(controls).getByText(/more controls/i));
     await user.click(within(controls).getByRole('button', { name: /reset current attempt/i }));
     expect(
       within(metricRowIn(metrics, /current attempt tuple/i)).getByText(/^0 -> 0 -> 0 -> 0$/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Select an operation to inspect its constraints/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select a block to inspect it/i)).toBeInTheDocument();
   });
 
   it('adds one intentional idle tick for a per-rank wait action', async () => {
@@ -308,6 +352,7 @@ describe('Game shell', () => {
     render(<App initialLevelId="dependency-chain" />);
 
     const controls = screen.getByRole('region', { name: /game controls/i });
+    await user.click(within(controls).getByText(/more controls/i));
     await user.click(
       within(controls).getByRole('button', {
         name: /wait one tick on rank 0/i,
@@ -328,6 +373,7 @@ describe('Game shell', () => {
     const controls = screen.getByRole('region', { name: /game controls/i });
     const status = screen.getByRole('status', { name: /interaction feedback/i });
 
+    await user.click(within(controls).getByText(/more controls/i));
     await user.click(within(controls).getByRole('button', { name: /show local hint/i }));
     expect(status).toHaveTextContent(/Local hint: place F stage 0 microbatch 0/i);
 
@@ -376,20 +422,20 @@ describe('Game shell', () => {
     expect(completed).toHaveAttribute('aria-current', 'true');
   });
 
-  it('exposes named regions and truthful controls while using aria-disabled for blocked moves', () => {
+  it('exposes named regions and truthful controls while keeping blocked moves inspectable', () => {
     render(<App initialLevelId="dependency-chain" />);
 
-    expect(screen.getByRole('region', { name: /goal and introduction/i })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /operation tray/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /^blocks$/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /move inspector/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /metrics panel/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /game controls/i })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
 
     const blocked = screen.getByRole('button', {
-      name: /place B stage 0 microbatch 0/i,
+      name: /inspect B stage 0 microbatch 0/i,
     });
-    expect(blocked).toHaveAttribute('aria-disabled', 'true');
+    expect(blocked).not.toHaveAttribute('aria-disabled');
     expect(blocked).not.toBeDisabled();
 
     const controls = screen.getByRole('region', { name: /game controls/i });
@@ -403,5 +449,18 @@ describe('Game shell', () => {
         name: /undo last action/i,
       }),
     ).toBeDisabled();
+    expect(within(controls).getByText(/more controls/i)).toBeInTheDocument();
+  });
+
+  it('keeps naming terse while the inspector explains blockers', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /inspect B stage 0 microbatch 0/i }));
+
+    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
   });
 });

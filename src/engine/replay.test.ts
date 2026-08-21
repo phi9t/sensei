@@ -586,6 +586,28 @@ describe('unknown OperationId handling', () => {
     expect(state.actions.length).toBe(0);
     expect(JSON.parse(JSON.stringify(state))).toEqual(snapshot);
   });
+
+  it('replay reports invalid operation IDs as typed failures with action index', () => {
+    const result = replay(makeConfig(), [{ type: 'place', operationId: 'INVALID' as OperationId }]);
+
+    expect(result).toEqual({
+      ok: false,
+      index: 0,
+      action: { type: 'place', operationId: 'INVALID' },
+      reason: { kind: 'unknown-operation-id', operationId: 'INVALID' },
+    });
+  });
+
+  it('replay reports out-of-inventory operation IDs without throwing', () => {
+    const result = replay(makeConfig(), [{ type: 'place', operationId: 'F:9:9' as OperationId }]);
+
+    expect(result).toEqual({
+      ok: false,
+      index: 0,
+      action: { type: 'place', operationId: 'F:9:9' },
+      reason: { kind: 'unknown-operation-id', operationId: 'F:9:9' },
+    });
+  });
 });
 
 describe('memory-cap only for dependency-ready forward placements', () => {

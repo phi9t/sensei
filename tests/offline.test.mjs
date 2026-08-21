@@ -363,6 +363,33 @@ describe('offline support', () => {
     ).resolves.toEqual({ status: 'unavailable' });
   });
 
+  it('reports ready only after the service worker ready promise resolves', async () => {
+    let resolveReady;
+    const ready = new Promise((resolve) => {
+      resolveReady = resolve;
+    });
+    const registration = registerOfflineSupport({
+      isProduction: true,
+      navigator: {
+        serviceWorker: {
+          register: vi.fn().mockResolvedValue({}),
+          ready,
+        },
+      },
+    });
+    let settled = false;
+    void registration.then(() => {
+      settled = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+
+    resolveReady({});
+
+    await expect(registration).resolves.toEqual({ status: 'ready' });
+  });
+
   it('defers registration until window load when the document is not complete, but runs immediately after render when already loaded', async () => {
     const beforeLoad = [];
     const addEventListener = vi.fn((type, listener, options) => {
