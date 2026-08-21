@@ -337,23 +337,96 @@ summary:focus-visible {
 
 .operation-tray-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
   gap: 0.55rem;
 }
 
-.operation-button {
+.batch-lane {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.15rem 0.45rem;
+  gap: 0.42rem;
   min-width: 0;
-  min-height: 3rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-strong);
+  padding: 0.5rem;
+}
+
+.batch-lane::before {
+  position: absolute;
+  inset: 0.45rem auto 0.45rem 0.45rem;
+  width: 0.2rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+  content: '';
+}
+
+.batch-lane__heading {
+  display: flex;
+  align-items: center;
+  min-height: 1rem;
+  padding-left: 0.48rem;
+}
+
+.batch-lane__heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.batch-lane__stacks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.36rem;
+  padding-left: 0.48rem;
+}
+
+.batch-stack {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.batch-stack__label {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.batch-stack[data-kind='F'] .batch-stack__label {
+  color: var(--forward);
+}
+
+.batch-stack[data-kind='B'] .batch-stack__label {
+  color: var(--backward);
+}
+
+.batch-stack__tokens {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.operation-button {
+  --block-color: var(--operation-accent);
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  min-height: 2.75rem;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--paper-strong);
   color: var(--ink);
-  padding: 0.55rem 0.65rem 0.62rem 0.75rem;
+  padding: 0.42rem 0.46rem 0.5rem;
   text-align: left;
   transition:
     transform var(--motion-fast),
@@ -364,19 +437,21 @@ summary:focus-visible {
 
 .operation-button::before {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 0.3rem;
+  inset: 0.33rem 0.33rem auto auto;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
   background: var(--block-color);
   content: '';
 }
 
 .operation-button::after {
   position: absolute;
-  right: 0.65rem;
-  bottom: 0.38rem;
-  left: 0.75rem;
-  width: min(calc(var(--tile-duration, 1) * 1.35rem), calc(100% - 1.4rem));
-  height: 0.18rem;
+  right: 0.45rem;
+  bottom: 0.32rem;
+  left: 0.45rem;
+  width: min(calc(var(--tile-duration, 1) * 1.05rem), calc(100% - 0.9rem));
+  height: 0.14rem;
   border-radius: 999px;
   background: var(--block-color);
   content: '';
@@ -392,31 +467,29 @@ summary:focus-visible {
 }
 
 .operation-button[data-kind='F'] {
-  --block-color: var(--forward);
-  border-color: rgba(0, 137, 149, 0.32);
+  border-color: color-mix(in srgb, var(--operation-accent) 36%, var(--forward));
   background:
     repeating-linear-gradient(
       135deg,
-      rgba(0, 137, 149, 0.09) 0,
-      rgba(0, 137, 149, 0.09) 0.38rem,
+      hsl(var(--operation-hue) 42% 48% / 0.1) 0,
+      hsl(var(--operation-hue) 42% 48% / 0.1) 0.38rem,
       transparent 0.38rem,
       transparent 0.9rem
     ),
-    var(--forward-soft);
+    hsl(var(--operation-hue) 56% 94%);
 }
 
 .operation-button[data-kind='B'] {
-  --block-color: var(--backward);
-  border-color: rgba(181, 92, 55, 0.34);
+  border-color: color-mix(in srgb, var(--operation-accent) 36%, var(--backward));
   background:
     repeating-linear-gradient(
       0deg,
-      rgba(181, 92, 55, 0.09) 0,
-      rgba(181, 92, 55, 0.09) 0.26rem,
+      hsl(var(--operation-hue) 42% 48% / 0.1) 0,
+      hsl(var(--operation-hue) 42% 48% / 0.1) 0.26rem,
       transparent 0.26rem,
       transparent 0.72rem
     ),
-    var(--backward-soft);
+    hsl(var(--operation-hue) 56% 94%);
 }
 
 .operation-button[data-state='blocked'] {
@@ -443,24 +516,29 @@ summary:focus-visible {
   opacity: 1;
 }
 
-.operation-button__code {
+.operation-button__stage {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
   font-size: 0.88rem;
-  font-weight: 850;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operation-button__meta {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.58rem;
   font-weight: 700;
 }
 
 .operation-button__state {
-  grid-column: 1 / -1;
-  margin-top: 0.1rem;
+  margin-top: 0;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.52rem;
   font-weight: 850;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -506,7 +584,7 @@ summary:focus-visible {
 }
 
 .schedule-rect {
-  stroke: rgba(23, 33, 35, 0.7);
+  stroke: var(--operation-accent);
   stroke-width: 1.5;
 }
 
@@ -516,20 +594,18 @@ summary:focus-visible {
 }
 
 .schedule-preview-rect {
-  fill: rgba(224, 169, 40, 0.16);
-  stroke: var(--accent);
+  fill: hsl(var(--operation-hue) 58% 48% / 0.16);
+  stroke: var(--operation-accent);
   stroke-dasharray: 5 4;
   stroke-width: 2;
 }
 
 .schedule-preview-rect[data-kind='F'] {
-  fill: rgba(0, 137, 149, 0.18);
-  stroke: var(--forward);
+  fill: hsl(var(--operation-hue) 58% 48% / 0.18);
 }
 
 .schedule-preview-rect[data-kind='B'] {
-  fill: rgba(181, 92, 55, 0.18);
-  stroke: var(--backward);
+  fill: hsl(var(--operation-hue) 58% 48% / 0.18);
 }
 
 .schedule-preview-label {
@@ -871,14 +947,15 @@ summary:focus-visible {
 
   .operation-tray-grid {
     grid-auto-flow: column;
-    grid-auto-columns: minmax(8.5rem, 45vw);
-    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: minmax(13.75rem, 76vw);
+    grid-template-columns: none;
+    grid-template-rows: none;
     overflow-x: auto;
     padding: 0.15rem 0 0.45rem;
     scroll-snap-type: x proximity;
   }
 
-  .operation-button {
+  .batch-lane {
     scroll-snap-align: start;
   }
 

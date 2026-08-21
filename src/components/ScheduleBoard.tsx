@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react';
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { OperationId } from '../engine/types';
+import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 export const CELL_WIDTH = 44;
 const RIGHT_PADDING = 32;
@@ -265,10 +267,12 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     height={WORK_BLOCK_HEIGHT}
                     rx="6"
                     className="schedule-rect"
+                    data-operation-visual={operationVisualKey(operation)}
                     data-kind={operation.kind}
                     data-duration={operation.duration}
                     data-selected={isSelected ? 'true' : 'false'}
                     fill={`url(#${kindPatternId(operation.kind)})`}
+                    style={operationVisualVars(operation) as CSSProperties}
                   />
                   <text x={x + 8} y={y + 20} className="schedule-label">
                     {formatOperationCode(operation)}
@@ -290,8 +294,10 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                   height={WORK_BLOCK_HEIGHT}
                   rx="6"
                   className="schedule-preview-rect"
+                  data-operation-visual={operationVisualKey(previewOperation)}
                   data-kind={previewOperation.kind}
                   data-duration={previewOperation.duration}
+                  style={operationVisualVars(previewOperation) as CSSProperties}
                 />
                 <text
                   x={preview.earliestStart * CELL_WIDTH + 8}

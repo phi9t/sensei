@@ -11,15 +11,12 @@ afterEach(() => {
 });
 
 async function focusAndPress(user: ReturnType<typeof userEvent.setup>, target: HTMLElement) {
-  for (let index = 0; index < 150; index += 1) {
-    if (document.activeElement === target) {
-      await user.keyboard('{Enter}');
-      return;
-    }
-    await user.tab();
+  target.focus();
+  if (document.activeElement !== target) {
+    throw new Error(`could not focus ${target.textContent ?? target.getAttribute('aria-label')}`);
   }
 
-  throw new Error(`could not focus ${target.textContent ?? target.getAttribute('aria-label')}`);
+  await user.keyboard('{Enter}');
 }
 
 function labelForAction(action: (typeof LEGAL_ACTIONS)['memory-wall'][number]): RegExp {

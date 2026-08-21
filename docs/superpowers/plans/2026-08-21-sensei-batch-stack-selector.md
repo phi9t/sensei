@@ -44,6 +44,7 @@ The current worktree may contain an uncommitted selector prototype. Treat it as 
 ## Task 1: Operation Visual Identity Helper
 
 **Files:**
+
 - Create: `src/components/operationVisuals.ts`
 - Test indirectly in: `src/components/GameShell.test.tsx`
 
@@ -67,7 +68,8 @@ export function operationVisualKey(operation: Operation): string {
 
 export function operationHue(operation: Operation): number {
   const kindOffset = operation.kind === 'F' ? 0 : 5;
-  const index = (operation.microbatch * 3 + operation.stage * 2 + kindOffset) % OPERATION_HUES.length;
+  const index =
+    (operation.microbatch * 3 + operation.stage * 2 + kindOffset) % OPERATION_HUES.length;
   return OPERATION_HUES[index]!;
 }
 
@@ -93,6 +95,7 @@ Expected: this may still fail until later tasks import the helper correctly. If 
 ## Task 2: Group Selector By Batch And Pass
 
 **Files:**
+
 - Modify: `src/components/OperationTray.tsx`
 - Test: `src/components/GameShell.test.tsx`
 
@@ -277,6 +280,7 @@ Expected: PASS.
 ## Task 3: Style Batch Lanes And Vertical Stacks
 
 **Files:**
+
 - Modify: `src/styles/app.css`
 - Test: `tests/responsive-css.test.mjs`
 
@@ -295,9 +299,7 @@ expect(batchStacksBlock).toMatch(
 );
 expect(batchStackBlock).toMatch(/\.batch-stack\s*\{[^}]*\bmin-width:\s*0\s*;/);
 expect(batchStackTokensBlock).toMatch(/\.batch-stack__tokens\s*\{[^}]*\bdisplay:\s*grid\s*;/);
-expect(operationButtonBlock).toMatch(
-  /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/,
-);
+expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/);
 expect(css).toMatch(
   /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-auto-columns:\s*minmax\(13\.75rem,\s*76vw\)\s*;/,
 );
@@ -440,6 +442,7 @@ Expected: PASS.
 ## Task 4: Carry Operation Color Hints Into Board And Preview
 
 **Files:**
+
 - Modify: `src/components/ScheduleBoard.tsx`
 - Modify: `src/styles/app.css`
 - Test: `src/components/GameShell.test.tsx`
@@ -539,6 +542,7 @@ Expected: PASS.
 ## Task 5: Focused Verification And Commit
 
 **Files:**
+
 - Modify: all Phase 1 files
 
 - [ ] **Step 1: Format touched files**

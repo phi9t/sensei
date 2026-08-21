@@ -204,6 +204,63 @@ describe('Game shell', () => {
     expect(screen.getByText(/^1 ready$/i)).toBeInTheDocument();
   });
 
+  it('groups compact block tokens by microbatch and pass stack', () => {
+    render(<App initialLevelId="backward-is-heavier" />);
+
+    const blocks = screen.getByRole('region', { name: /^blocks$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
+    const forwardStack = within(batchZero).getByRole('group', {
+      name: /batch 0 forward blocks/i,
+    });
+    const backwardStack = within(batchZero).getByRole('group', {
+      name: /batch 0 backward blocks/i,
+    });
+
+    expect(within(batchZero).getByText(/^Batch 0$/i)).toBeInTheDocument();
+    expect(within(forwardStack).getByText(/^FWD$/i)).toBeInTheDocument();
+    expect(within(backwardStack).getByText(/^BWD$/i)).toBeInTheDocument();
+    expect(within(forwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
+    expect(within(backwardStack).getAllByText(/^S[0-2]$/i)).toHaveLength(3);
+    expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
+    expect(
+      within(forwardStack).getByRole('button', {
+        name: /place F stage 0 microbatch 0, 1 tick, ready/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps operation visual identity consistent from selector to preview and board', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    const tile = screen.getByRole('button', {
+      name: /place F stage 0 microbatch 0, 1 tick, ready/i,
+    });
+    expect(tile).toHaveAttribute('data-operation-visual', 'F-0-0');
+    expect(tile).toHaveStyle({
+      '--operation-hue': '184',
+      '--operation-accent': 'hsl(184 44% 40%)',
+    });
+
+    await tabUntil(user, tile);
+
+    const preview = screen.getByTestId('preview-tile-F:0:0');
+    expect(preview).toHaveAttribute('data-operation-visual', 'F-0-0');
+    expect(preview).toHaveStyle({
+      '--operation-hue': '184',
+      '--operation-accent': 'hsl(184 44% 40%)',
+    });
+
+    await user.keyboard('{Enter}');
+
+    const placed = screen.getByTestId('rank-tile-F:0:0');
+    expect(placed).toHaveAttribute('data-operation-visual', 'F-0-0');
+    expect(placed).toHaveStyle({
+      '--operation-hue': '184',
+      '--operation-accent': 'hsl(184 44% 40%)',
+    });
+  });
+
   it('does not repeat the block inventory inside the timeline', () => {
     render(<App initialLevelId="dependency-chain" />);
 

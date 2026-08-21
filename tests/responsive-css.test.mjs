@@ -70,20 +70,46 @@ describe('responsive play surface CSS contract', () => {
     const controlsBlock = extractBlock(css, '.controls-panel');
     const commandButtonBlock = extractBlock(css, '.command-button');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
+    const batchStacksBlock = extractBlock(css, '.batch-lane__stacks');
+    const batchStackBlock = extractBlock(css, '.batch-stack');
+    const batchStackTokensBlock = extractBlock(css, '.batch-stack__tokens');
     const readyCountBlock = extractBlock(css, '.ready-count');
 
     expect(controlsBlock).toMatch(/\.controls-panel\s*\{[^}]*\bdisplay:\s*grid\s*;/);
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/);
-    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*3rem\s*;/);
+    expect(operationButtonBlock).toMatch(
+      /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.75rem\s*;/,
+    );
+    expect(batchStacksBlock).toMatch(
+      /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
+    );
+    expect(batchStackBlock).toMatch(/\.batch-stack\s*\{[^}]*\bmin-width:\s*0\s*;/);
+    expect(batchStackTokensBlock).toMatch(/\.batch-stack__tokens\s*\{[^}]*\bdisplay:\s*grid\s*;/);
     expect(readyCountBlock).toMatch(/\.ready-count\s*\{[^}]*\bborder-radius:\s*999px\s*;/);
     expect(css).toMatch(
-      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-template-rows:\s*repeat\(2,\s*auto\)\s*;/,
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-auto-flow:\s*column\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-auto-columns:\s*minmax\(13\.75rem,\s*76vw\)\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?grid-template-columns:\s*none\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?overflow-x:\s*auto\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?scroll-snap-type:\s*x proximity\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.batch-lane\s*\{[\s\S]*?scroll-snap-align:\s*start\s*;/,
     );
   });
 
   it('keeps schedule SVG geometry intrinsic and gives memory strips explicit non-default paint', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const boardSvgBlock = extractBlock(css, '.schedule-board-svg');
+    const scheduleRectBlock = extractBlock(css, '.schedule-rect');
     const previewBlock = extractBlock(css, '.schedule-preview-rect');
     const memorySegmentBlock = extractBlock(css, '.memory-strip__segment');
     const memoryActiveBlock = extractBlock(css, '.memory-strip__segment--active');
@@ -91,6 +117,15 @@ describe('responsive play surface CSS contract', () => {
 
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bwidth:\s*100%\s*;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bmax-width:\s*none\s*;/);
+    expect(scheduleRectBlock).toMatch(
+      /\.schedule-rect\s*\{[^}]*\bstroke:\s*var\(--operation-accent\)\s*;/,
+    );
+    expect(previewBlock).toMatch(
+      /\.schedule-preview-rect\s*\{[^}]*\bfill:\s*hsl\(var\(--operation-hue\) 58% 48% \/ 0\.16\)\s*;/,
+    );
+    expect(previewBlock).toMatch(
+      /\.schedule-preview-rect\s*\{[^}]*\bstroke:\s*var\(--operation-accent\)\s*;/,
+    );
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
 
