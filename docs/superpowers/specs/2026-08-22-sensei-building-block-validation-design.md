@@ -89,7 +89,10 @@ Public API:
 
 ```ts
 type BuildingBlockViolation =
+  | { kind: 'invalid-period'; period: number }
   | { kind: 'unknown-operation'; operationId: OperationId }
+  | { kind: 'duplicate-operation'; operationId: OperationId }
+  | { kind: 'missing-operation'; operationId: OperationId }
   | {
       kind: 'duplicate-rank-residue';
       rank: number;
@@ -129,10 +132,12 @@ function expandBuildingBlockPlan(
 Validation should check:
 
 1. The period is a positive integer.
-2. Every referenced operation exists in the level inventory.
-3. No two operations on the same rank occupy the same residue modulo `period`.
-4. Dependencies are satisfiable after stamping across all microbatches.
-5. Predicted peak activation memory does not exceed configured caps.
+2. The trajectory contains exactly one template entry for every operation in
+   representative microbatch `0`.
+3. Every referenced operation exists in the representative microbatch inventory.
+4. No two operations on the same rank occupy the same residue modulo `period`.
+5. Dependencies are satisfiable after stamping across all microbatches.
+6. Predicted peak activation memory does not exceed configured caps.
 
 Expansion should stamp the trajectory across the level's microbatch count and
 return a deterministic sequence of `place` actions. If expansion produces a
@@ -222,6 +227,8 @@ Engine tests:
 
 - valid plan expands into actions that replay to a complete schedule;
 - unknown operation returns `unknown-operation`;
+- duplicate template entry returns `duplicate-operation`;
+- omitted representative operation returns `missing-operation`;
 - duplicate rank residue returns `duplicate-rank-residue`;
 - dependency ordering problems return `unsatisfied-dependency`;
 - memory prediction catches cap overflow before expansion.
