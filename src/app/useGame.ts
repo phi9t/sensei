@@ -15,6 +15,7 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from '../engine/replay';
+import { recognizeSchedule } from '../engine/policies';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, Operation, OperationId } from '../engine/types';
@@ -347,6 +348,30 @@ function buildAttempt(levelId: LevelId, actions: readonly Action[]): StoredAttem
   });
 }
 
+function completionMessage(levelId: LevelId, actions: readonly Action[]): string | null {
+  const level = getLevel(levelId);
+  const replayed = replay(level, actions);
+  if (!replayed.ok) {
+    throw new Error(`Completed attempt became invalid at action ${replayed.index}.`);
+  }
+
+  const scoreResult = score(replayed.state);
+  if (!scoreResult.complete) {
+    return null;
+  }
+
+  const recognition = recognizeSchedule(replayed.state);
+  const canNameReference =
+    level.algorithm.family === 'gpipe' || level.algorithm.family === 'one-f-one-b';
+  if (canNameReference && recognition.kind === 'matched' && recognition.exact) {
+    return `Completed as ${recognition.label} reference. ${
+      scoreResult.mastered ? 'Mastered.' : 'Legal completion.'
+    }`;
+  }
+
+  return scoreResult.mastered ? 'Completed. Mastered.' : 'Legal completion.';
+}
+
 function buildUrlAttempt(levelId: LevelId, actions: readonly Action[]): UrlAttemptPayload {
   const level = getLevel(levelId);
   return Object.freeze({
@@ -435,10 +460,8 @@ function appendBatch(
 }
 
 function persistIfComplete(current: GameState, storage: Storage | null): GameState {
-  const completedAttempt = buildAttempt(
-    current.levelId,
-    activeActions(current.actions, current.cursor),
-  );
+  const currentActions = activeActions(current.actions, current.cursor);
+  const completedAttempt = buildAttempt(current.levelId, currentActions);
   if (completedAttempt === null) {
     return current;
   }
@@ -451,10 +474,12 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   }
 
   const nextProgress = mergeProgress(current.progress, completedAttempt);
+  const message = completionMessage(current.levelId, currentActions) ?? current.overlay.message;
   if (storage === null) {
     return {
       ...current,
       progress: nextProgress,
+      overlay: { message },
       lastRecordedAttemptKey: fingerprint,
     };
   }
@@ -467,6 +492,7 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   return {
     ...current,
     progress: saved.progress,
+    overlay: { message },
     persistenceNotice:
       saved.status === 'session-only'
         ? 'Could not save progress. Progress is staying in this tab only.'

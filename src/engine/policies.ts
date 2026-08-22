@@ -1,0 +1,402 @@
+import {
+  applyAction,
+  classifyMoves,
+  replay,
+  type BlockReason,
+  type MoveClassification,
+  type ScheduleState,
+} from './replay';
+import type { Action, LevelConfig, Operation, OperationId } from './types';
+
+export type ReferencePolicyId = 'gpipe-afab' | 'one-f-one-b';
+
+export interface ReferencePolicy {
+  readonly id: ReferencePolicyId;
+  readonly label: string;
+}
+
+export const REFERENCE_POLICIES: Readonly<Record<ReferencePolicyId, ReferencePolicy>> =
+  Object.freeze({
+    'gpipe-afab': Object.freeze({ id: 'gpipe-afab', label: 'GPipe AFAB' }),
+    'one-f-one-b': Object.freeze({ id: 'one-f-one-b', label: '1F1B' }),
+  });
+
+type LegalMove = Extract<MoveClassification, { status: 'legal' }>;
+
+export type PolicyProjectionResult =
+  | {
+      readonly ok: true;
+      readonly policyId: ReferencePolicyId;
+      readonly actions: readonly Action[];
+      readonly state: ScheduleState;
+    }
+  | {
+      readonly ok: false;
+      readonly policyId: ReferencePolicyId;
+      readonly reason: PolicyProjectionFailure;
+    };
+
+export type PolicyProjectionFailure =
+  | { readonly kind: 'deadlock' }
+  | {
+      readonly kind: 'blocked';
+      readonly operationId: OperationId;
+      readonly blockReason: BlockReason;
+    }
+  | {
+      readonly kind: 'engine-rejected';
+      readonly operationId: OperationId;
+      readonly blockReason: BlockReason;
+    };
+
+export type RecognitionResult =
+  | {
+      readonly kind: 'matched';
+      readonly policyId: ReferencePolicyId;
+      readonly label: string;
+      readonly exact: boolean;
+    }
+  | {
+      readonly kind: 'unmatched';
+      readonly candidatePolicyIds: readonly ReferencePolicyId[];
+    }
+  | {
+      readonly kind: 'incomplete';
+      readonly candidatePolicyIds: readonly ReferencePolicyId[];
+    };
+
+function isLegalMove(move: MoveClassification): move is LegalMove {
+  return move.status === 'legal';
+}
+
+function compareByEarliestStartThenId(left: LegalMove, right: LegalMove): number {
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function operationSortKey(operation: Operation): readonly number[] {
+  const backwardStage = operation.stage;
+  const backwardMicrobatch = operation.microbatch;
+
+  return operation.kind === 'F'
+    ? [0, operation.stage, operation.microbatch]
+    : [1, backwardMicrobatch, -backwardStage];
+}
+
+function compareByPolicyOrder(left: Operation, right: Operation): number {
+  const leftKey = operationSortKey(left);
+  const rightKey = operationSortKey(right);
+  for (let index = 0; index < leftKey.length; index += 1) {
+    const delta = leftKey[index]! - rightKey[index]!;
+    if (delta !== 0) {
+      return delta;
+    }
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function selectAfabMove(state: ScheduleState, legalMoves: readonly LegalMove[]): LegalMove | null {
+  const unplaced = state.operations
+    .filter((operation) => !state.placementById[operation.id])
+    .sort(compareByPolicyOrder);
+
+  const legalById = new Map(legalMoves.map((move) => [move.operation.id, move]));
+  for (const operation of unplaced) {
+    const legal = legalById.get(operation.id);
+    if (legal) {
+      return legal;
+    }
+
+    const classification = classifyMoves(state).find((move) => move.operation.id === operation.id);
+    if (
+      classification?.status === 'blocked' &&
+      classification.reasons.some((reason) => reason.kind === 'memory-cap')
+    ) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function placedForwardCount(state: ScheduleState, stage: number): number {
+  return state.placements.filter((placement) => {
+    const operation = state.operations.find((candidate) => candidate.id === placement.operationId);
+    return operation?.kind === 'F' && operation.stage === stage;
+  }).length;
+}
+
+function selectWarmupMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  for (let stage = 0; stage < state.config.stageCount; stage += 1) {
+    const warmupQuota = state.config.stageCount - stage;
+    if (placedForwardCount(state, stage) >= warmupQuota) {
+      continue;
+    }
+
+    const candidates = legalMoves
+      .filter((move) => move.operation.kind === 'F' && move.operation.stage === stage)
+      .sort((left, right) => left.operation.microbatch - right.operation.microbatch);
+    if (candidates[0]) {
+      return candidates[0];
+    }
+  }
+
+  return null;
+}
+
+function selectOneFOneBMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  const warmupMove = selectWarmupMove(state, legalMoves);
+  if (warmupMove) {
+    return warmupMove;
+  }
+
+  const sorted = [...legalMoves].sort((left, right) => {
+    if (left.operation.kind !== right.operation.kind) {
+      return left.operation.kind === 'B' ? -1 : 1;
+    }
+    if (left.operation.kind === 'B' && left.operation.stage !== right.operation.stage) {
+      return right.operation.stage - left.operation.stage;
+    }
+    if (left.operation.kind === 'F') {
+      const leftDiagonal = left.operation.stage + left.operation.microbatch;
+      const rightDiagonal = right.operation.stage + right.operation.microbatch;
+      if (leftDiagonal !== rightDiagonal) {
+        return leftDiagonal - rightDiagonal;
+      }
+    }
+    if (left.operation.stage !== right.operation.stage) {
+      return left.operation.stage - right.operation.stage;
+    }
+    if (left.operation.microbatch !== right.operation.microbatch) {
+      return left.operation.microbatch - right.operation.microbatch;
+    }
+    return left.operation.id.localeCompare(right.operation.id);
+  });
+
+  return sorted[0] ?? null;
+}
+
+function blockedPolicyOperation(
+  state: ScheduleState,
+  policyId: ReferencePolicyId,
+): PolicyProjectionFailure | null {
+  if (policyId !== 'gpipe-afab') {
+    return null;
+  }
+
+  const unplaced = state.operations
+    .filter((operation) => !state.placementById[operation.id])
+    .sort(compareByPolicyOrder);
+  const next = unplaced[0];
+  if (!next) {
+    return null;
+  }
+
+  const classification = classifyMoves(state).find((move) => move.operation.id === next.id);
+  if (classification?.status !== 'blocked') {
+    return null;
+  }
+
+  const memoryCap = classification.reasons.find((reason) => reason.kind === 'memory-cap');
+  if (!memoryCap) {
+    return null;
+  }
+
+  return Object.freeze({
+    kind: 'blocked' as const,
+    operationId: next.id,
+    blockReason: Object.freeze({ ...memoryCap }),
+  });
+}
+
+function selectMove(
+  state: ScheduleState,
+  policyId: ReferencePolicyId,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  switch (policyId) {
+    case 'gpipe-afab':
+      return selectAfabMove(state, legalMoves);
+    case 'one-f-one-b':
+      return selectOneFOneBMove(state, legalMoves);
+  }
+}
+
+export function projectReferencePolicy(
+  config: LevelConfig,
+  policyId: ReferencePolicyId,
+): PolicyProjectionResult {
+  let currentState = replay(config, []);
+  if (!currentState.ok) {
+    throw new Error('initial replay unexpectedly failed');
+  }
+
+  const actions: Action[] = [];
+  const maxSteps = currentState.state.operations.length;
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (currentState.state.placements.length === currentState.state.operations.length) {
+      return Object.freeze({
+        ok: true as const,
+        policyId,
+        actions: Object.freeze(actions),
+        state: currentState.state,
+      });
+    }
+
+    const legalMoves = classifyMoves(currentState.state)
+      .filter(isLegalMove)
+      .sort(compareByEarliestStartThenId);
+    if (legalMoves.length === 0) {
+      return Object.freeze({
+        ok: false as const,
+        policyId,
+        reason: Object.freeze({ kind: 'deadlock' as const }),
+      });
+    }
+
+    const selected = selectMove(currentState.state, policyId, legalMoves);
+    if (selected === null) {
+      return Object.freeze({
+        ok: false as const,
+        policyId,
+        reason:
+          blockedPolicyOperation(currentState.state, policyId) ??
+          Object.freeze({ kind: 'deadlock' as const }),
+      });
+    }
+
+    const action: Action = Object.freeze({ type: 'place', operationId: selected.operation.id });
+    const applied = applyAction(currentState.state, action);
+    if (!applied.ok) {
+      return Object.freeze({
+        ok: false as const,
+        policyId,
+        reason: Object.freeze({
+          kind: 'engine-rejected' as const,
+          operationId: selected.operation.id,
+          blockReason: Object.freeze({ ...applied.reason }),
+        }),
+      });
+    }
+
+    actions.push(action);
+    currentState = { ok: true, state: applied.state };
+  }
+
+  return currentState.state.placements.length === currentState.state.operations.length
+    ? Object.freeze({
+        ok: true as const,
+        policyId,
+        actions: Object.freeze(actions),
+        state: currentState.state,
+      })
+    : Object.freeze({
+        ok: false as const,
+        policyId,
+        reason: Object.freeze({ kind: 'deadlock' as const }),
+      });
+}
+
+function operationsByRank(state: ScheduleState): ReadonlyMap<number, readonly OperationId[]> {
+  const result = new Map<number, OperationId[]>();
+  for (const placement of state.placements) {
+    const operations = result.get(placement.rank) ?? [];
+    operations.push(placement.operationId);
+    result.set(placement.rank, operations);
+  }
+
+  return new Map(
+    [...result.entries()].map(([rank, operations]) => [rank, Object.freeze([...operations])]),
+  );
+}
+
+function sameOrderByRank(left: ScheduleState, right: ScheduleState): boolean {
+  const leftByRank = operationsByRank(left);
+  const rightByRank = operationsByRank(right);
+
+  for (let rank = 0; rank < left.config.rankCount; rank += 1) {
+    const leftOps = leftByRank.get(rank) ?? [];
+    const rightOps = rightByRank.get(rank) ?? [];
+    if (leftOps.length !== rightOps.length) {
+      return false;
+    }
+    for (let index = 0; index < leftOps.length; index += 1) {
+      if (leftOps[index] !== rightOps[index]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function sameExactPlacement(left: ScheduleState, right: ScheduleState): boolean {
+  if (left.placements.length !== right.placements.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.placements.length; index += 1) {
+    const leftPlacement = left.placements[index]!;
+    const rightPlacement = right.placements[index]!;
+    if (
+      leftPlacement.operationId !== rightPlacement.operationId ||
+      leftPlacement.rank !== rightPlacement.rank ||
+      leftPlacement.start !== rightPlacement.start ||
+      leftPlacement.end !== rightPlacement.end
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[] {
+  switch (config.algorithm.family) {
+    case 'gpipe':
+      return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
+    case 'one-f-one-b':
+      return Object.freeze(['one-f-one-b', 'gpipe-afab'] as const);
+    default:
+      return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
+  }
+}
+
+export function recognizeSchedule(state: ScheduleState): RecognitionResult {
+  const candidatePolicyIds = candidatePoliciesFor(state.config);
+  if (state.placements.length !== state.operations.length) {
+    return Object.freeze({
+      kind: 'incomplete' as const,
+      candidatePolicyIds,
+    });
+  }
+
+  for (const policyId of candidatePolicyIds) {
+    const projected = projectReferencePolicy(state.config, policyId);
+    if (!projected.ok) {
+      continue;
+    }
+    if (sameOrderByRank(state, projected.state)) {
+      return Object.freeze({
+        kind: 'matched' as const,
+        policyId,
+        label: REFERENCE_POLICIES[policyId].label,
+        exact: sameExactPlacement(state, projected.state),
+      });
+    }
+  }
+
+  return Object.freeze({
+    kind: 'unmatched' as const,
+    candidatePolicyIds,
+  });
+}

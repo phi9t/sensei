@@ -147,6 +147,18 @@ async function runJourney(
 }
 
 describe('game flow', () => {
+  it('names the recognized reference policy when a current-engine schedule completes', async () => {
+    const user = userEvent.setup();
+
+    render(<App initialLevelId="gpipe-afab" />);
+
+    await runJourney(user, MASTERED_ACTIONS['gpipe-afab'], 'pointer');
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Completed as GPipe AFAB reference\. Mastered\./i,
+    );
+  }, 10000);
+
   it('plays every legal and mastered fixture journey through public controls, unlocks by completion, and keeps the better persisted attempt', async () => {
     const user = userEvent.setup();
     const storage = createMemoryStorage();
