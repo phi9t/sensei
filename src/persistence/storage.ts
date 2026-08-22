@@ -181,6 +181,31 @@ function safeEmptyProgress(): Progress {
   return createEmptyProgress();
 }
 
+function nextLevelId(levelId: LevelId): LevelId | null {
+  const index = LEVEL_IDS.indexOf(levelId);
+  return index >= 0 && index + 1 < LEVEL_IDS.length ? LEVEL_IDS[index + 1]! : null;
+}
+
+function deriveUnlockedLevelIds(
+  storedUnlockedLevelIds: readonly LevelId[],
+  bestLegalAttempts: Partial<Record<LevelId, StoredAttempt>>,
+  bestMasteredAttempts: Partial<Record<LevelId, StoredAttempt>>,
+): readonly LevelId[] {
+  const unlocked = new Set<LevelId>(storedUnlockedLevelIds);
+
+  for (const levelId of LEVEL_IDS) {
+    if (bestLegalAttempts[levelId] || bestMasteredAttempts[levelId]) {
+      unlocked.add(levelId);
+      const next = nextLevelId(levelId);
+      if (next) {
+        unlocked.add(next);
+      }
+    }
+  }
+
+  return Object.freeze(LEVEL_IDS.filter((levelId) => unlocked.has(levelId)));
+}
+
 function normalizeProgress(progress: Progress): Progress {
   const unlockedLevelIds = validateUnlockedLevelIds(progress.unlockedLevelIds);
   if (typeof unlockedLevelIds === 'string') {
@@ -206,7 +231,11 @@ function normalizeProgress(progress: Progress): Progress {
   const historicalAttempts = Object.freeze(progress.historicalAttempts.map(clonePayload));
 
   return Object.freeze({
-    unlockedLevelIds,
+    unlockedLevelIds: deriveUnlockedLevelIds(
+      unlockedLevelIds,
+      bestLegalAttempts,
+      bestMasteredAttempts,
+    ),
     bestLegalAttempts: freezeAttemptMap(bestLegalAttempts),
     bestMasteredAttempts: freezeAttemptMap(bestMasteredAttempts),
     historicalAttempts,
@@ -234,7 +263,7 @@ function createEmptyProgress(): Progress {
 }
 
 export function progressContaining(attempt: StoredAttempt): Progress {
-  const unlockedLevelIds =
+  const storedUnlockedLevelIds =
     attempt.levelId === 'dependency-chain'
       ? Object.freeze(['dependency-chain'] as const)
       : Object.freeze(['dependency-chain', attempt.levelId] as const);
@@ -246,7 +275,11 @@ export function progressContaining(attempt: StoredAttempt): Progress {
     attempt.outcome === 'mastered' ? { [attempt.levelId]: cloneAttempt(attempt) } : {};
 
   return Object.freeze({
-    unlockedLevelIds,
+    unlockedLevelIds: deriveUnlockedLevelIds(
+      storedUnlockedLevelIds,
+      bestLegalAttempts,
+      bestMasteredAttempts,
+    ),
     bestLegalAttempts: freezeAttemptMap(bestLegalAttempts),
     bestMasteredAttempts: freezeAttemptMap(bestMasteredAttempts),
     historicalAttempts: Object.freeze([]),
@@ -479,7 +512,11 @@ export function deserializeProgress(raw: string, getLevel: GetLevel): Deserializ
   }
 
   const progress: Progress = Object.freeze({
-    unlockedLevelIds,
+    unlockedLevelIds: deriveUnlockedLevelIds(
+      unlockedLevelIds,
+      bestLegalAttempts,
+      bestMasteredAttempts,
+    ),
     bestLegalAttempts: freezeAttemptMap(bestLegalAttempts),
     bestMasteredAttempts: freezeAttemptMap(bestMasteredAttempts),
     historicalAttempts: Object.freeze([...historicalByEncoding.values()]),

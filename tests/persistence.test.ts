@@ -360,6 +360,37 @@ describe('stored progress validation and recovery', () => {
     });
   });
 
+  it('unlocks appended curriculum from a completed legacy terminal level', () => {
+    const oldProgress = {
+      schemaVersion: 1,
+      unlockedLevelIds: ['dependency-chain', 'fill-the-pipe', 'backward-is-heavier', 'memory-wall'],
+      bestLegalAttempts: {},
+      bestMasteredAttempts: {
+        'memory-wall': {
+          schemaVersion: 1,
+          levelId: 'memory-wall',
+          levelVersion: getLevel('memory-wall').version,
+          actions: MASTERED_ACTIONS['memory-wall'],
+        },
+      },
+      historicalAttempts: [],
+    };
+
+    const decoded = deserializeProgress(JSON.stringify(oldProgress), getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.progress.unlockedLevelIds).toEqual([
+        'dependency-chain',
+        'fill-the-pipe',
+        'backward-is-heavier',
+        'memory-wall',
+        'gpipe-afab',
+      ]);
+      expect(decoded.progress.bestMasteredAttempts['memory-wall']?.outcome).toBe('mastered');
+    }
+  });
+
   it('replays canonical stored actions to recompute outcome and tuple', () => {
     const stored = {
       schemaVersion: 1,
@@ -712,7 +743,7 @@ describe('stored progress validation and recovery', () => {
     mutableProgress.unlockedLevelIds.push('memory-wall');
     delete mutableProgress.bestLegalAttempts['dependency-chain'];
 
-    expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain']);
+    expect(result.progress.unlockedLevelIds).toEqual(['dependency-chain', 'fill-the-pipe']);
     expect(result.progress.bestLegalAttempts['dependency-chain']).toBeDefined();
     expect(storage.getItem(STORAGE_KEY)).toBe(serializeProgress(result.progress));
   });
@@ -741,11 +772,12 @@ describe('stored progress validation and recovery', () => {
 describe('progress shape, immutability, and ranking', () => {
   it('progressContaining unlocks dependency-chain and applies legal/mastered slot semantics', () => {
     const mastered = progressContaining(storedMasteredAttempt());
-    expect(mastered.unlockedLevelIds).toEqual(['dependency-chain']);
+    expect(mastered.unlockedLevelIds).toEqual(['dependency-chain', 'fill-the-pipe']);
     expect(mastered.bestLegalAttempts['dependency-chain']?.outcome).toBe('mastered');
     expect(mastered.bestMasteredAttempts['dependency-chain']?.outcome).toBe('mastered');
 
     const legal = progressContaining(storedLegalAttempt());
+    expect(legal.unlockedLevelIds).toEqual(['dependency-chain', 'fill-the-pipe']);
     expect(legal.bestLegalAttempts['dependency-chain']?.outcome).toBe('legal');
     expect(legal.bestMasteredAttempts['dependency-chain']).toBeUndefined();
   });

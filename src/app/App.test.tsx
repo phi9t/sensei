@@ -5,7 +5,7 @@ import { App, groupLevelOptions } from './App';
 import type { LevelOptionState } from './useGame';
 import { MASTERED_ACTIONS } from '../levels/fixtures';
 import { LEVEL_IDS, getLevel } from '../levels/levels';
-import { encodeAttempt } from '../persistence/storage';
+import { encodeAttempt, STORAGE_KEY } from '../persistence/storage';
 
 function createMemoryStorage(seed: Record<string, string> = {}): Storage {
   const data = new Map(Object.entries(seed));
@@ -139,6 +139,35 @@ describe('App', () => {
     expect(screen.getByText(/Progress restored\./i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /choose level/i })).toHaveValue('dependency-chain');
     expect(screen.getByRole('option', { name: 'Fill the Pipe (Fill/Drain)' })).toBeEnabled();
+  });
+
+  it('enables appended GPipe curriculum after loading completed legacy terminal progress', () => {
+    const storage = createMemoryStorage({
+      [STORAGE_KEY]: JSON.stringify({
+        schemaVersion: 1,
+        unlockedLevelIds: [
+          'dependency-chain',
+          'fill-the-pipe',
+          'backward-is-heavier',
+          'memory-wall',
+        ],
+        bestLegalAttempts: {},
+        bestMasteredAttempts: {
+          'memory-wall': {
+            schemaVersion: 1,
+            levelId: 'memory-wall',
+            levelVersion: getLevel('memory-wall').version,
+            actions: MASTERED_ACTIONS['memory-wall'],
+          },
+        },
+        historicalAttempts: [],
+      }),
+    });
+
+    render(<App storage={storage} />);
+
+    expect(screen.getByText(/Progress restored\./i)).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'GPipe AFAB (AFAB)' })).toBeEnabled();
   });
 
   it('shows a polite session-only notice when browser storage is unavailable in the default app path', () => {
