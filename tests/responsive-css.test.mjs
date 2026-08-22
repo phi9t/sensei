@@ -79,6 +79,8 @@ describe('responsive play surface CSS contract', () => {
     const trayPanelBlock = extractBlock(css, '.tray-panel');
     const operationTrayGridBlock = extractBlock(css, '.operation-tray-grid');
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
+    const operationCodeBlock = extractBlock(css, '\n.operation-button__code {');
+    const operationSecondaryBlock = extractBlock(css, '.operation-button__meta,');
     const batchStacksBlock = extractBlock(css, '.batch-lane__stacks');
     const batchStackBlock = extractBlock(css, '.batch-stack');
     const batchStackTokensBlock = extractBlock(css, '.batch-stack__tokens');
@@ -118,10 +120,28 @@ describe('responsive play surface CSS contract', () => {
       /\.operation-tray-grid\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
     );
     expect(operationButtonBlock).toMatch(
-      /\.operation-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/,
+      /\.operation-button\s*\{[^}]*\bgrid-template-rows:\s*minmax\(0,\s*1fr\)\s*;/,
     );
+    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bheight:\s*2rem\s*;/);
+    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*2rem\s*;/);
+    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmax-height:\s*2rem\s*;/);
     expect(operationButtonBlock).toMatch(
-      /\.operation-button\s*\{[^}]*\bpadding:\s*0\.3rem 0\.38rem 0\.38rem\s*;/,
+      /\.operation-button\s*\{[^}]*\bpadding:\s*0\.2rem 0\.95rem 0\.32rem 0\.36rem\s*;/,
+    );
+    expect(operationCodeBlock).toMatch(
+      /\.operation-button__code\s*\{[^}]*\bline-height:\s*1\.05\s*;/,
+    );
+    expect(operationSecondaryBlock).toMatch(
+      /\.operation-button__meta,\s*\.operation-button__state\s*\{[^}]*\bposition:\s*absolute\s*;/,
+    );
+    expect(operationSecondaryBlock).toMatch(
+      /\.operation-button__meta,\s*\.operation-button__state\s*\{[^}]*\bwidth:\s*1px\s*;/,
+    );
+    expect(operationSecondaryBlock).toMatch(
+      /\.operation-button__meta,\s*\.operation-button__state\s*\{[^}]*\bheight:\s*1px\s*;/,
+    );
+    expect(operationSecondaryBlock).toMatch(
+      /\.operation-button__meta,\s*\.operation-button__state\s*\{[^}]*\bclip:\s*rect\(0,\s*0,\s*0,\s*0\)\s*;/,
     );
     expect(batchStacksBlock).toMatch(
       /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
