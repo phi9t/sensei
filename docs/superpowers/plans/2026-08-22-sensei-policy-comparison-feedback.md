@@ -138,7 +138,9 @@ describe('policy comparison', () => {
       label: 'GPipe AFAB',
       match: 'unmatched',
     });
-    expect(comparison?.current.makespan).toBeGreaterThanOrEqual(comparison?.reference.makespan ?? 0);
+    expect(comparison?.current.makespan).toBeGreaterThanOrEqual(
+      comparison?.reference.makespan ?? 0,
+    );
   });
 
   it('returns null for incomplete schedules', () => {
@@ -340,10 +342,7 @@ Expected: FAIL because no reference comparison region is rendered.
 In `src/app/useGame.ts`, add the import:
 
 ```ts
-import {
-  compareToReferencePolicy,
-  type PolicyComparison,
-} from '../engine/policyComparison';
+import { compareToReferencePolicy, type PolicyComparison } from '../engine/policyComparison';
 ```
 
 Extend `GameViewModel`:
@@ -355,7 +354,7 @@ Extend `GameViewModel`:
 Inside `useGame()`, after `const attemptTuple = attemptRankingTuple(schedule);`, add:
 
 ```ts
-  const policyComparison = compareToReferencePolicy(schedule);
+const policyComparison = compareToReferencePolicy(schedule);
 ```
 
 In the returned object, add:
@@ -369,13 +368,13 @@ In the returned object, add:
 In `src/app/App.tsx`, update the `MetricsPanel` call:
 
 ```tsx
-            <MetricsPanel
-              level={game.level}
-              score={game.score}
-              currentMemory={game.schedule.currentMemory}
-              attemptTuple={game.attemptTuple}
-              policyComparison={game.policyComparison}
-            />
+<MetricsPanel
+  level={game.level}
+  score={game.score}
+  currentMemory={game.schedule.currentMemory}
+  attemptTuple={game.attemptTuple}
+  policyComparison={game.policyComparison}
+/>
 ```
 
 - [ ] **Step 5: Render compact comparison in `MetricsPanel`**
@@ -429,40 +428,42 @@ export function MetricsPanel({
 Render this block after the scoreboard and before `Metric details`:
 
 ```tsx
-      {policyComparison ? (
-        <details className="policy-comparison">
-          <summary>
-            <span>Reference comparison</span>
-            <span className="metrics-summary__value">{policyComparison.label}</span>
-          </summary>
-          <dl className="metrics-grid" role="group" aria-label="Reference comparison">
-            <div>
-              <dt>Policy</dt>
-              <dd>{policyComparison.label} reference</dd>
-            </div>
-            <div>
-              <dt>Match</dt>
-              <dd>{formatMatch(policyComparison.match)}</dd>
-            </div>
-            <div>
-              <dt>Reference makespan</dt>
-              <dd>{policyComparison.reference.makespan}</dd>
-            </div>
-            <div>
-              <dt>Makespan delta</dt>
-              <dd>{formatDelta(policyComparison.delta.makespan)}</dd>
-            </div>
-            <div>
-              <dt>Reference peak memory</dt>
-              <dd>{policyComparison.reference.peakActivationMemory}</dd>
-            </div>
-            <div>
-              <dt>Peak memory delta</dt>
-              <dd>{formatDelta(policyComparison.delta.peakActivationMemory)}</dd>
-            </div>
-          </dl>
-        </details>
-      ) : null}
+{
+  policyComparison ? (
+    <details className="policy-comparison">
+      <summary>
+        <span>Reference comparison</span>
+        <span className="metrics-summary__value">{policyComparison.label}</span>
+      </summary>
+      <dl className="metrics-grid" role="group" aria-label="Reference comparison">
+        <div>
+          <dt>Policy</dt>
+          <dd>{policyComparison.label} reference</dd>
+        </div>
+        <div>
+          <dt>Match</dt>
+          <dd>{formatMatch(policyComparison.match)}</dd>
+        </div>
+        <div>
+          <dt>Reference makespan</dt>
+          <dd>{policyComparison.reference.makespan}</dd>
+        </div>
+        <div>
+          <dt>Makespan delta</dt>
+          <dd>{formatDelta(policyComparison.delta.makespan)}</dd>
+        </div>
+        <div>
+          <dt>Reference peak memory</dt>
+          <dd>{policyComparison.reference.peakActivationMemory}</dd>
+        </div>
+        <div>
+          <dt>Peak memory delta</dt>
+          <dd>{formatDelta(policyComparison.delta.peakActivationMemory)}</dd>
+        </div>
+      </dl>
+    </details>
+  ) : null;
+}
 ```
 
 - [ ] **Step 6: Run the focused UI test**
@@ -535,7 +536,10 @@ function formatSignedDelta(value: number): string {
   return `${value}`;
 }
 
-function missedMasteryReason(level: ReturnType<typeof getLevel>, scoreResult: ReturnType<typeof score>): string | null {
+function missedMasteryReason(
+  level: ReturnType<typeof getLevel>,
+  scoreResult: ReturnType<typeof score>,
+): string | null {
   for (const target of level.masteryTargets) {
     if (!('metric' in target)) {
       continue;
@@ -632,11 +636,15 @@ git commit -m "feat: add policy-relative completion feedback"
 In `tests/responsive-css.test.mjs`, inside `it('keeps selected identity and score summary compact in the right rail', async () => { ... })`, add:
 
 ```js
-    const policyComparisonBlock = extractBlock(css, '.policy-comparison');
+const policyComparisonBlock = extractBlock(css, '.policy-comparison');
 
-    expect(policyComparisonBlock).toMatch(/\\.policy-comparison\\s*\\{[^}]*\\bborder-radius:\\s*8px\\s*;/);
-    expect(policyComparisonBlock).toMatch(/\\.policy-comparison\\s*\\{[^}]*\\boverflow:\\s*hidden\\s*;/);
-    expect(policyComparisonBlock).not.toMatch(/\\bposition:\\s*absolute\\s*;/);
+expect(policyComparisonBlock).toMatch(
+  /\\.policy-comparison\\s*\\{[^}]*\\bborder-radius:\\s*8px\\s*;/,
+);
+expect(policyComparisonBlock).toMatch(
+  /\\.policy-comparison\\s*\\{[^}]*\\boverflow:\\s*hidden\\s*;/,
+);
+expect(policyComparisonBlock).not.toMatch(/\\bposition:\\s*absolute\\s*;/);
 ```
 
 - [ ] **Step 2: Run the CSS test and verify it fails**

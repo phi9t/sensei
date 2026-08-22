@@ -15,10 +15,7 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from '../engine/replay';
-import {
-  compareToReferencePolicy,
-  type PolicyComparison,
-} from '../engine/policyComparison';
+import { compareToReferencePolicy, type PolicyComparison } from '../engine/policyComparison';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, Operation, OperationId } from '../engine/types';
