@@ -29,6 +29,26 @@ export interface MasteryTarget {
   value: number;
 }
 
+export type AlgorithmFamily =
+  | 'foundations'
+  | 'gpipe'
+  | 'one-f-one-b'
+  | 'building-block'
+  | 'interleaved-one-f-one-b'
+  | 'zero-bubble'
+  | 'grouped'
+  | 'fsdp-residency'
+  | 'dualpipe';
+
+export interface AlgorithmLevelMetadata {
+  readonly family: AlgorithmFamily;
+  readonly setTitle: string;
+  readonly concept: string;
+  readonly objective: string;
+  readonly patternLabel: string | null;
+  readonly introducedModel: readonly string[];
+}
+
 export interface LevelConfig {
   id: string;
   version: number;
@@ -40,4 +60,5 @@ export interface LevelConfig {
   memoryCaps: readonly number[] | null;
   masteryTargets: readonly MasteryTarget[];
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
+  algorithm: AlgorithmLevelMetadata;
 }

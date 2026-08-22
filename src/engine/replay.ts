@@ -126,6 +126,10 @@ function cloneConfig(config: LevelConfig): LevelConfig {
       ? Object.freeze(config.masteryTargets.map((t) => Object.freeze({ ...t })))
       : Object.freeze([]),
     coaching: Object.freeze({ ...config.coaching }),
+    algorithm: Object.freeze({
+      ...config.algorithm,
+      introducedModel: Object.freeze([...config.algorithm.introducedModel]),
+    }),
   };
   if (config.memoryCaps) {
     cloned.memoryCaps = Object.freeze([...config.memoryCaps]);

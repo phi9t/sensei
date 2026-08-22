@@ -27,6 +27,14 @@ const EXPECTED_CONFIGS = {
       { metric: 'makespan', op: '<=', value: 6 },
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Read the dependency chain before placing backward work.',
+      objective: 'Finish the only microbatch without inserting idle.',
+      patternLabel: null,
+      introducedModel: ['forward dependency', 'backward dependency'],
+    },
   },
   'fill-the-pipe': {
     id: 'fill-the-pipe',
@@ -42,6 +50,14 @@ const EXPECTED_CONFIGS = {
       { metric: 'makespan', op: '<=', value: 12 },
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Place forward blocks to fill the pipeline before draining it.',
+      objective: 'Overlap microbatches while keeping every move legal.',
+      patternLabel: 'Fill/Drain',
+      introducedModel: ['pipeline fill', 'pipeline drain', 'bubble'],
+    },
   },
   'backward-is-heavier': {
     id: 'backward-is-heavier',
@@ -57,6 +73,14 @@ const EXPECTED_CONFIGS = {
       { metric: 'makespan', op: '<=', value: 15 },
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Backward work is heavier, so the tail dominates sloppy schedules.',
+      objective: 'Keep the heavier backward tail short.',
+      patternLabel: 'F=1 B=2',
+      introducedModel: ['duration asymmetry', 'critical tail'],
+    },
   },
   'memory-wall': {
     id: 'memory-wall',
@@ -73,6 +97,14 @@ const EXPECTED_CONFIGS = {
       { metric: 'intentionalIdle', op: '<=', value: 0 },
       { metric: 'peakActivationMemory', op: '<=', value: 3 },
     ],
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Activation memory can block otherwise legal forward work.',
+      objective: 'Respect per-rank memory caps without adding idle.',
+      patternLabel: 'Memory cap',
+      introducedModel: ['activation lifetime', 'memory admission'],
+    },
   },
 } satisfies Record<LevelId, LevelConfig>;
 
@@ -186,6 +218,27 @@ describe('levels public API', () => {
 
   it('throws a clear error for runtime misuse with an unknown id', () => {
     expect(() => getLevel('unknown-level' as LevelId)).toThrow(/unknown level/i);
+  });
+
+  it('exports metadata for every current curriculum level', () => {
+    for (const id of LEVEL_IDS) {
+      const level = getLevel(id);
+
+      expect(level.algorithm).toEqual(
+        expect.objectContaining({
+          family: expect.any(String),
+          setTitle: expect.any(String),
+          concept: expect.any(String),
+          objective: expect.any(String),
+          introducedModel: expect.any(Array),
+        }),
+      );
+      expect(level.algorithm.setTitle.trim().length).toBeGreaterThan(0);
+      expect(level.algorithm.concept.trim().length).toBeGreaterThan(0);
+      expect(level.algorithm.objective.trim().length).toBeGreaterThan(0);
+      expect(Object.isFrozen(level.algorithm)).toBe(true);
+      expect(Object.isFrozen(level.algorithm.introducedModel)).toBe(true);
+    }
   });
 
   it('returns frozen canonical configs and nested structures', () => {

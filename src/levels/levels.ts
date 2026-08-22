@@ -1,4 +1,4 @@
-import type { LevelConfig, MasteryTarget } from '../engine/types';
+import type { AlgorithmLevelMetadata, LevelConfig, MasteryTarget } from '../engine/types';
 
 export const LEVEL_IDS = [
   'dependency-chain',
@@ -13,6 +13,13 @@ function freezeTargets(targets: readonly MasteryTarget[]): readonly MasteryTarge
   return Object.freeze(targets.map((target) => Object.freeze({ ...target })));
 }
 
+function freezeAlgorithm(metadata: AlgorithmLevelMetadata): AlgorithmLevelMetadata {
+  return Object.freeze({
+    ...metadata,
+    introducedModel: Object.freeze([...metadata.introducedModel]),
+  });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
   const frozen: LevelConfig = {
     ...config,
@@ -20,6 +27,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     memoryCaps: config.memoryCaps === null ? null : Object.freeze([...config.memoryCaps]),
     masteryTargets: freezeTargets(config.masteryTargets),
     coaching: Object.freeze({ ...config.coaching }),
+    algorithm: freezeAlgorithm(config.algorithm),
   };
 
   return Object.freeze(frozen);
@@ -40,6 +48,14 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
     coaching: { readySet: false, suggest: false, auto: false },
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Read the dependency chain before placing backward work.',
+      objective: 'Finish the only microbatch without inserting idle.',
+      patternLabel: null,
+      introducedModel: ['forward dependency', 'backward dependency'],
+    },
   }),
   'fill-the-pipe': freezeLevel({
     id: 'fill-the-pipe',
@@ -55,6 +71,14 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
     coaching: { readySet: true, suggest: false, auto: false },
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Place forward blocks to fill the pipeline before draining it.',
+      objective: 'Overlap microbatches while keeping every move legal.',
+      patternLabel: 'Fill/Drain',
+      introducedModel: ['pipeline fill', 'pipeline drain', 'bubble'],
+    },
   }),
   'backward-is-heavier': freezeLevel({
     id: 'backward-is-heavier',
@@ -70,6 +94,14 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       { metric: 'intentionalIdle', op: '<=', value: 0 },
     ],
     coaching: { readySet: true, suggest: true, auto: false },
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Backward work is heavier, so the tail dominates sloppy schedules.',
+      objective: 'Keep the heavier backward tail short.',
+      patternLabel: 'F=1 B=2',
+      introducedModel: ['duration asymmetry', 'critical tail'],
+    },
   }),
   'memory-wall': freezeLevel({
     id: 'memory-wall',
@@ -86,6 +118,14 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       { metric: 'peakActivationMemory', op: '<=', value: 3 },
     ],
     coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Foundations',
+      concept: 'Activation memory can block otherwise legal forward work.',
+      objective: 'Respect per-rank memory caps without adding idle.',
+      patternLabel: 'Memory cap',
+      introducedModel: ['activation lifetime', 'memory admission'],
+    },
   }),
 });
 

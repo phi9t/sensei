@@ -20,6 +20,14 @@ export function makeConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
     memoryCaps: null,
     masteryTargets: [],
     coaching: { readySet: true, suggest: false, auto: false },
+    algorithm: {
+      family: 'foundations',
+      setTitle: 'Test',
+      concept: 'Test concept.',
+      objective: 'Test objective.',
+      patternLabel: null,
+      introducedModel: [],
+    },
     ...overrides,
   };
 }

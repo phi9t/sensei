@@ -28,6 +28,30 @@ describe('initialState', () => {
     expect(Object.isFrozen(state.placementById)).toBe(true);
     expect(Object.isFrozen(state.operations)).toBe(true);
   });
+
+  it('deep-freezes cloned algorithm metadata independently of the input config', () => {
+    const config = makeConfig({
+      algorithm: {
+        family: 'foundations',
+        setTitle: 'Original Set',
+        concept: 'Original concept.',
+        objective: 'Original objective.',
+        patternLabel: 'Original',
+        introducedModel: ['original model'],
+      },
+    });
+
+    const state = initialState(config);
+
+    expect(Object.isFrozen(state.config.algorithm)).toBe(true);
+    expect(Object.isFrozen(state.config.algorithm.introducedModel)).toBe(true);
+
+    (config.algorithm as { setTitle: string }).setTitle = 'Mutated Set';
+    (config.algorithm.introducedModel as string[]).push('mutated model');
+
+    expect(state.config.algorithm.setTitle).toBe('Original Set');
+    expect(state.config.algorithm.introducedModel).toEqual(['original model']);
+  });
 });
 
 describe('classifyOperation / classifyMoves', () => {
