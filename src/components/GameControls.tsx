@@ -1,4 +1,5 @@
 import type { LevelConfig } from '../engine/types';
+import { PatternCheck, type PatternCheckModel } from './PatternCheck';
 
 interface GameControlsProps {
   readonly level: LevelConfig;
@@ -8,6 +9,7 @@ interface GameControlsProps {
   readonly readySetReason: string;
   readonly hintReason: string;
   readonly automationReason: string;
+  readonly patternCheck: PatternCheckModel | null;
   readonly onWait: (rank: number) => void;
   readonly onPlaceSelected: () => void;
   readonly onClearSelection: () => void;
@@ -17,6 +19,7 @@ interface GameControlsProps {
   readonly onReadySet: () => void;
   readonly onHint: () => void;
   readonly onAutomate: () => void;
+  readonly onStampPattern: () => void;
   readonly onReset: () => void;
 }
 
@@ -28,6 +31,7 @@ export function GameControls({
   readySetReason,
   hintReason,
   automationReason,
+  patternCheck,
   onWait,
   onPlaceSelected,
   onClearSelection,
@@ -37,6 +41,7 @@ export function GameControls({
   onReadySet,
   onHint,
   onAutomate,
+  onStampPattern,
   onReset,
 }: GameControlsProps) {
   return (
@@ -128,6 +133,8 @@ export function GameControls({
             Auto
           </button>
         </div>
+
+        {patternCheck ? <PatternCheck check={patternCheck} onStamp={onStampPattern} /> : null}
 
         <div className="control-cluster" aria-label="Attempt controls">
           <span className="control-cluster__label">Attempt</span>

@@ -15,10 +15,12 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from '../engine/replay';
+import { expandBuildingBlockPlan, validateBuildingBlockPlan } from '../engine/buildingBlocks';
 import { compareToReferencePolicy, type PolicyComparison } from '../engine/policyComparison';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, Operation, OperationId } from '../engine/types';
+import type { PatternCheckModel } from '../components/PatternCheck';
 import { LEVEL_IDS, getLevel, type LevelId } from '../levels/levels';
 import {
   loadProgress,
@@ -76,6 +78,7 @@ export interface GameViewModel {
   readonly readySetReason: string;
   readonly hintReason: string;
   readonly automationReason: string;
+  readonly buildingBlockCheck: PatternCheckModel | null;
   readonly activateOperation: (operationId: OperationId) => void;
   readonly selectOperation: (operationId: OperationId) => void;
   readonly clearSelection: () => void;
@@ -89,6 +92,7 @@ export interface GameViewModel {
   readonly showReadySet: () => void;
   readonly showHint: () => void;
   readonly automate: () => void;
+  readonly stampBuildingBlockPlan: () => void;
 }
 
 const DEFAULT_LEVEL_ID: LevelId = 'dependency-chain';
@@ -600,6 +604,18 @@ export function useGame(
   const readySetReason = readySetAvailabilityReason(game.progress, game.levelId);
   const hintReason = coachingReason('suggest', game.levelId, level.coaching.suggest);
   const automationReason = coachingReason('auto', game.levelId, level.coaching.auto);
+  const buildingBlockValidation = level.buildingBlock
+    ? validateBuildingBlockPlan(level, level.buildingBlock.plan)
+    : null;
+  const buildingBlockCheck =
+    level.buildingBlock && buildingBlockValidation
+      ? Object.freeze({
+          label: level.buildingBlock.label,
+          period: level.buildingBlock.plan.period,
+          validation: buildingBlockValidation,
+          canStamp: buildingBlockValidation.ok,
+        })
+      : null;
 
   function updateWithCurrentSchedule(
     updater: (current: GameState, currentSchedule: ScheduleState) => GameState,
@@ -925,6 +941,43 @@ export function useGame(
     });
   }
 
+  function stampBuildingBlockPlan(): void {
+    updateWithCurrentSchedule((current) => {
+      const currentLevel = getLevel(current.levelId);
+      if (!currentLevel.buildingBlock) {
+        return {
+          ...current,
+          overlay: { message: 'No pattern is available on this level.' },
+        };
+      }
+
+      if (activeActions(current.actions, current.cursor).length > 0) {
+        return {
+          ...current,
+          overlay: { message: 'Reset before stamping pattern.' },
+        };
+      }
+
+      const expanded = expandBuildingBlockPlan(currentLevel, currentLevel.buildingBlock.plan);
+      if (!expanded.ok) {
+        const first = expanded.validation.violations[0];
+        return {
+          ...current,
+          overlay: {
+            message: first ? `Pattern is invalid: ${first.kind}.` : 'Pattern is invalid.',
+          },
+        };
+      }
+
+      return appendBatch(
+        current,
+        expanded.actions,
+        null,
+        `Stamped ${currentLevel.buildingBlock.label} into ${expanded.actions.length} actions.`,
+      );
+    });
+  }
+
   return {
     levelId: game.levelId,
     level,
@@ -946,6 +999,7 @@ export function useGame(
     readySetReason,
     hintReason,
     automationReason,
+    buildingBlockCheck,
     activateOperation,
     selectOperation,
     clearSelection,
@@ -959,6 +1013,7 @@ export function useGame(
     showReadySet,
     showHint,
     automate,
+    stampBuildingBlockPlan,
   };
 }
 

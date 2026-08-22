@@ -179,6 +179,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
             readySetReason={game.readySetReason}
             hintReason={game.hintReason}
             automationReason={game.automationReason}
+            patternCheck={game.buildingBlockCheck}
             onWait={game.waitOneTick}
             onPlaceSelected={game.placeSelectedOperation}
             onClearSelection={game.clearSelection}
@@ -188,6 +189,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
             onReadySet={game.showReadySet}
             onHint={game.showHint}
             onAutomate={game.automate}
+            onStampPattern={game.stampBuildingBlockPlan}
             onReset={game.reset}
           />
 

@@ -123,6 +123,58 @@ describe('Game shell', () => {
     ).not.toBeNull();
   });
 
+  it('shows a compact pattern check only on building-block levels', () => {
+    render(<App initialLevelId="stamp-the-pattern" />);
+
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    const pattern = within(rail).getByRole('group', { name: /pattern check/i });
+
+    expect(within(pattern).getByText(/^Pattern$/i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/Two-rank periodic trajectory/i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/period 3/i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/Pattern valid\. Peak memory 2\./i)).toBeInTheDocument();
+    expect(
+      within(pattern).getByRole('button', { name: /stamp building-block pattern/i }),
+    ).toBeEnabled();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+
+    cleanup();
+    render(<App initialLevelId="gpipe-afab" />);
+    expect(screen.queryByRole('group', { name: /pattern check/i })).not.toBeInTheDocument();
+  });
+
+  it('stamps a valid building-block pattern as one undoable batch', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="stamp-the-pattern" />);
+
+    await user.click(screen.getByRole('button', { name: /stamp building-block pattern/i }));
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Completed\. Mastered\./i,
+    );
+    expect(screen.getAllByText(/mastered/i).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('rank-label-F:0:2')).toHaveAccessibleName('F0:S0:B2');
+    expect(screen.getByTestId('rank-label-B:0:2')).toHaveAccessibleName('B0:S0:B2');
+
+    await user.click(screen.getByRole('button', { name: /undo last action/i }));
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Undid 1 batch containing 14 actions/i,
+    );
+    expect(screen.queryByTestId('rank-label-F:0:2')).not.toBeInTheDocument();
+  });
+
+  it('stamps only from empty attempts', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="stamp-the-pattern" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /stamp building-block pattern/i }));
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Reset before stamping pattern/i,
+    );
+  });
+
   it('keeps core schedule commands in a thin command rail', () => {
     render(<App initialLevelId="dependency-chain" />);
 

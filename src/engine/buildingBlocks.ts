@@ -1,5 +1,5 @@
 import { deriveOperations, parseOperationId, predecessorsOf } from './operations';
-import { replay } from './replay';
+import { classifyOperation, replay } from './replay';
 import type {
   Action,
   BuildingBlockPlan,
@@ -419,24 +419,48 @@ export function expandBuildingBlockPlan(
   }
 
   const representativeById = operationById(representativeInventory(config));
-  const allOperationsById = operationById(deriveOperations(config));
   const stamped = expandedOperations(config, representativeById, plan);
-  const rankFrontiers = new Array<number>(config.rankCount).fill(0);
   const actions: Action[] = [];
+  let replayed = replay(config, actions);
+  if (!replayed.ok) {
+    return Object.freeze({
+      ok: false as const,
+      validation: replayFailureValidation(config, plan, validation, actions),
+    });
+  }
 
   for (const operation of stamped) {
-    while ((rankFrontiers[operation.rank] ?? 0) < operation.start) {
+    let classification = classifyOperation(replayed.state, operation.operationId);
+    while (classification.status === 'legal' && classification.earliestStart < operation.start) {
       actions.push(Object.freeze({ type: 'wait' as const, rank: operation.rank }));
-      rankFrontiers[operation.rank] = (rankFrontiers[operation.rank] ?? 0) + 1;
+      replayed = replay(config, actions);
+      if (!replayed.ok) {
+        return Object.freeze({
+          ok: false as const,
+          validation: replayFailureValidation(config, plan, validation, actions),
+        });
+      }
+      classification = classifyOperation(replayed.state, operation.operationId);
+    }
+
+    if (classification.status !== 'legal') {
+      return Object.freeze({
+        ok: false as const,
+        validation: replayFailureValidation(config, plan, validation, actions),
+      });
     }
 
     actions.push(Object.freeze({ type: 'place' as const, operationId: operation.operationId }));
-    const duration = allOperationsById.get(operation.operationId)?.duration;
-    rankFrontiers[operation.rank] = operation.start + (duration ?? 0);
+    replayed = replay(config, actions);
+    if (!replayed.ok) {
+      return Object.freeze({
+        ok: false as const,
+        validation: replayFailureValidation(config, plan, validation, actions),
+      });
+    }
   }
 
   const frozenActions = Object.freeze(actions);
-  const replayed = replay(config, frozenActions);
   if (!replayed.ok || replayed.state.placements.length !== replayed.state.operations.length) {
     return Object.freeze({
       ok: false as const,

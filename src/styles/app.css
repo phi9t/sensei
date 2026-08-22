@@ -1030,6 +1030,50 @@ summary:focus-visible {
   text-transform: uppercase;
 }
 
+.pattern-check {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 1fr) minmax(9rem, 1.2fr) auto;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: min(100%, 31rem);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--paper-strong) 88%, var(--accent));
+  padding: 0.3rem 0.4rem;
+}
+
+.pattern-check[data-status='invalid'] {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+}
+
+.pattern-check__copy,
+.pattern-check__status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+
+.pattern-check__copy {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.pattern-check__copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pattern-check__copy span,
+.pattern-check__extra {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
 .score-rail {
   grid-area: score;
   display: grid;
@@ -1198,6 +1242,14 @@ summary:focus-visible {
   .level-picker label,
   .level-picker select {
     width: 100%;
+  }
+
+  .pattern-check {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .pattern-check__status {
+    grid-column: 1 / -1;
   }
 
   .panel {
