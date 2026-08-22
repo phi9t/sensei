@@ -159,6 +159,18 @@ describe('game flow', () => {
     );
   }, 10000);
 
+  it('summarizes policy-relative deltas for non-exact reference completions', async () => {
+    const user = userEvent.setup();
+
+    render(<App initialLevelId="gpipe-afab" />);
+
+    await runJourney(user, LEGAL_ACTIONS['gpipe-afab'], 'pointer');
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Completed with GPipe AFAB order, \+1 makespan vs reference\. Legal completion\. Missed makespan target\./i,
+    );
+  }, 10000);
+
   it('plays every legal and mastered fixture journey through public controls, unlocks by completion, and keeps the better persisted attempt', async () => {
     const user = userEvent.setup();
     const storage = createMemoryStorage();

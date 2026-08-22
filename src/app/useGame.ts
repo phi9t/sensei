@@ -15,7 +15,6 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from '../engine/replay';
-import { recognizeSchedule } from '../engine/policies';
 import {
   compareToReferencePolicy,
   type PolicyComparison,
@@ -353,6 +352,39 @@ function buildAttempt(levelId: LevelId, actions: readonly Action[]): StoredAttem
   });
 }
 
+function formatSignedDelta(value: number): string {
+  if (value > 0) {
+    return `+${value}`;
+  }
+  return `${value}`;
+}
+
+function missedMasteryReason(
+  level: ReturnType<typeof getLevel>,
+  scoreResult: ReturnType<typeof score>,
+): string | null {
+  for (const target of level.masteryTargets) {
+    if (!('metric' in target)) {
+      continue;
+    }
+
+    const actual =
+      target.metric === 'makespan'
+        ? scoreResult.makespan
+        : target.metric === 'bubbleRatio'
+          ? scoreResult.bubbleRatio
+          : target.metric === 'intentionalIdle'
+            ? scoreResult.intentionalIdle
+            : scoreResult.peakActivationMemory;
+
+    if (actual > target.value) {
+      return `Missed ${target.metric} target.`;
+    }
+  }
+
+  return null;
+}
+
 function completionMessage(levelId: LevelId, actions: readonly Action[]): string | null {
   const level = getLevel(levelId);
   const replayed = replay(level, actions);
@@ -365,16 +397,28 @@ function completionMessage(levelId: LevelId, actions: readonly Action[]): string
     return null;
   }
 
-  const recognition = recognizeSchedule(replayed.state);
-  const canNameReference =
-    level.algorithm.family === 'gpipe' || level.algorithm.family === 'one-f-one-b';
-  if (canNameReference && recognition.kind === 'matched' && recognition.exact) {
-    return `Completed as ${recognition.label} reference. ${
-      scoreResult.mastered ? 'Mastered.' : 'Legal completion.'
-    }`;
+  const outcome = scoreResult.mastered ? 'Mastered.' : 'Legal completion.';
+  const missed = scoreResult.mastered ? null : missedMasteryReason(level, scoreResult);
+  const suffix = missed ? ` ${missed}` : '';
+  const comparison = compareToReferencePolicy(replayed.state);
+
+  if (!comparison) {
+    return `Completed. ${outcome}${suffix}`;
   }
 
-  return scoreResult.mastered ? 'Completed. Mastered.' : 'Legal completion.';
+  if (comparison.match === 'exact') {
+    return `Completed as ${comparison.label} reference. ${outcome}${suffix}`;
+  }
+
+  if (comparison.match === 'order-only') {
+    return `Completed with ${comparison.label} order, ${formatSignedDelta(
+      comparison.delta.makespan,
+    )} makespan vs reference. ${outcome}${suffix}`;
+  }
+
+  return `Completed against ${comparison.label} reference, ${formatSignedDelta(
+    comparison.delta.makespan,
+  )} makespan vs reference. ${outcome}${suffix}`;
 }
 
 function buildUrlAttempt(levelId: LevelId, actions: readonly Action[]): UrlAttemptPayload {
