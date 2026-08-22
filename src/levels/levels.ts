@@ -26,12 +26,8 @@ function freezeAlgorithm(metadata: AlgorithmLevelMetadata): AlgorithmLevelMetada
 }
 
 function freezeBuildingBlock(
-  buildingBlock: LevelConfig['buildingBlock'],
-): LevelConfig['buildingBlock'] {
-  if (!buildingBlock) {
-    return undefined;
-  }
-
+  buildingBlock: NonNullable<LevelConfig['buildingBlock']>,
+): NonNullable<LevelConfig['buildingBlock']> {
   return Object.freeze({
     ...buildingBlock,
     plan: Object.freeze({
@@ -44,17 +40,16 @@ function freezeBuildingBlock(
 }
 
 function freezeLevel(config: LevelConfig): LevelConfig {
-  const frozen: LevelConfig = {
-    ...config,
+  const { buildingBlock, ...baseConfig } = config;
+  const frozen = {
+    ...baseConfig,
     durations: Object.freeze({ ...config.durations }),
     memoryCaps: config.memoryCaps === null ? null : Object.freeze([...config.memoryCaps]),
     masteryTargets: freezeTargets(config.masteryTargets),
     coaching: Object.freeze({ ...config.coaching }),
     algorithm: freezeAlgorithm(config.algorithm),
-    ...(config.buildingBlock
-      ? { buildingBlock: freezeBuildingBlock(config.buildingBlock) }
-      : undefined),
-  };
+    ...(buildingBlock ? { buildingBlock: freezeBuildingBlock(buildingBlock) } : {}),
+  } satisfies LevelConfig;
 
   return Object.freeze(frozen);
 }
