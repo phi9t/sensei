@@ -16,13 +16,19 @@ function formatBubbleRatio(value: number): string {
   return `${value.toFixed(3)} (${(value * 100).toFixed(1)}%)`;
 }
 
+function formatMasteryTarget(target: LevelConfig['masteryTargets'][number]): string {
+  if ('metric' in target) {
+    return `${target.metric} ${target.op} ${target.value}`;
+  }
+
+  return `pattern ${target.pattern.toUpperCase()}`;
+}
+
 export function MetricsPanel({ level, score, currentMemory, attemptTuple }: MetricsPanelProps) {
   const masteryTargets =
     level.masteryTargets.length === 0
       ? 'None'
-      : level.masteryTargets
-          .map((target) => `${target.metric} ${target.op} ${target.value}`)
-          .join('; ');
+      : level.masteryTargets.map(formatMasteryTarget).join('; ');
   const memoryCap = level.memoryCaps === null ? null : Math.max(...level.memoryCaps);
   const memorySummary =
     memoryCap === null

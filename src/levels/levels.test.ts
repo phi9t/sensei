@@ -3,7 +3,13 @@ import { LEGAL_ACTIONS, MASTERED_ACTIONS } from './fixtures';
 import { getLevel, LEVEL_IDS, type LevelId } from './levels';
 import { initialState, replay } from '../engine/replay';
 import { score } from '../engine/score';
-import type { Action, LevelConfig, OperationId } from '../engine/types';
+import type {
+  Action,
+  LevelConfig,
+  MasteryTarget,
+  MetricMasteryTarget,
+  OperationId,
+} from '../engine/types';
 
 const EXPECTED_LEVEL_IDS = [
   'dependency-chain',
@@ -112,7 +118,7 @@ const EXPECTED_CONFIGS = {
   },
   'gpipe-afab': {
     id: 'gpipe-afab',
-    version: 1,
+    version: 2,
     title: 'GPipe AFAB',
     rankCount: 3,
     stageCount: 3,
@@ -121,6 +127,7 @@ const EXPECTED_CONFIGS = {
     memoryCaps: null,
     coaching: { readySet: true, suggest: true, auto: true },
     masteryTargets: [
+      { kind: 'schedule-pattern', pattern: 'afab' },
       { metric: 'makespan', op: '<=', value: 18 },
       { metric: 'intentionalIdle', op: '<=', value: 0 },
       { metric: 'peakActivationMemory', op: '<=', value: 4 },
@@ -433,6 +440,10 @@ const EXPECTED_GOLDEN_ROWS = {
   }
 >;
 
+function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
+  return 'metric' in target;
+}
+
 describe('levels public API', () => {
   it('exports LEVEL_IDS in the approved order and getLevel lookups', () => {
     expect(LEVEL_IDS).toEqual(EXPECTED_LEVEL_IDS);
@@ -560,6 +571,23 @@ describe('golden replay outcomes', () => {
     }
   });
 
+  it('does not master GPipe AFAB with a 1F1B-shaped schedule', () => {
+    const replayResult = replay(getLevel('gpipe-afab'), MASTERED_ACTIONS['warm-up-then-alternate']);
+
+    expect(replayResult.ok).toBe(true);
+    if (!replayResult.ok) {
+      return;
+    }
+
+    const result = score(replayResult.state);
+
+    expect(result.complete).toBe(true);
+    expect(result.makespan).toBe(18);
+    expect(result.intentionalIdle).toBe(0);
+    expect(result.peakActivationMemory).toBe(3);
+    expect(result.mastered).toBe(false);
+  });
+
   it('ensures each mastered fixture covers the exact operation inventory once', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const config = getLevel(id);
@@ -591,10 +619,9 @@ describe('golden replay outcomes', () => {
 
       const result = score(replayResult.state);
       const goldenRow = EXPECTED_GOLDEN_ROWS[id];
-      const makespanTarget = config.masteryTargets.find((target) => target.metric === 'makespan');
-      const idleTarget = config.masteryTargets.find(
-        (target) => target.metric === 'intentionalIdle',
-      );
+      const metricTargets = config.masteryTargets.filter(isMetricTarget);
+      const makespanTarget = metricTargets.find((target) => target.metric === 'makespan');
+      const idleTarget = metricTargets.find((target) => target.metric === 'intentionalIdle');
 
       expect(result.complete).toBe(true);
       expect(result.mastered).toBe(false);

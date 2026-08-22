@@ -23,11 +23,18 @@ export interface InsertIdleAction {
 
 export type Action = PlaceOperationAction | InsertIdleAction;
 
-export interface MasteryTarget {
+export interface MetricMasteryTarget {
   metric: 'makespan' | 'bubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
   op: '<=';
   value: number;
 }
+
+export interface SchedulePatternMasteryTarget {
+  kind: 'schedule-pattern';
+  pattern: 'afab';
+}
+
+export type MasteryTarget = MetricMasteryTarget | SchedulePatternMasteryTarget;
 
 export type AlgorithmFamily =
   | 'foundations'

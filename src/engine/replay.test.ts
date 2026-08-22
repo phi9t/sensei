@@ -546,7 +546,8 @@ describe('immutability at caller boundaries', () => {
     const config = makeConfig({ masteryTargets: targets });
     const state = initialState(config);
     targets[0]!.value = 999;
-    expect(state.config.masteryTargets[0]!.value).toBe(100);
+    const target = state.config.masteryTargets[0]!;
+    expect('metric' in target ? target.value : null).toBe(100);
     const newTarget = { metric: 'bubbleRatio' as const, op: '<=' as const, value: 50 };
     targets.push(newTarget as unknown as Parameters<typeof targets.push>[0]);
     expect(state.config.masteryTargets.length).toBe(1);

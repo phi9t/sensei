@@ -58,6 +58,10 @@ function isComplete(state: ScheduleState): boolean {
 }
 
 function masteryMetricValue(scoreResult: ScoreResult, target: MasteryTarget): number {
+  if (!('metric' in target)) {
+    throw new Error(`unsupported non-metric mastery target: ${target.kind}`);
+  }
+
   switch (target.metric) {
     case 'makespan':
       return scoreResult.makespan;
@@ -70,13 +74,45 @@ function masteryMetricValue(scoreResult: ScoreResult, target: MasteryTarget): nu
   }
 }
 
-function satisfiesTarget(scoreResult: ScoreResult, target: MasteryTarget): boolean {
+function satisfiesMetricTarget(scoreResult: ScoreResult, target: MasteryTarget): boolean {
+  if (!('metric' in target)) {
+    return false;
+  }
+
   const actual = masteryMetricValue(scoreResult, target);
   switch (target.op) {
     case '<=':
       // bubbleRatio mastery uses exact JS <= semantics. Level authors should use the
       // intended representable value directly, or leave an explicit margin.
       return actual <= target.value;
+  }
+}
+
+function satisfiesAfabPattern(state: ScheduleState): boolean {
+  const firstBackwardIndex = state.placements.findIndex((placement) =>
+    placement.operationId.startsWith('B:'),
+  );
+  if (firstBackwardIndex < 0) {
+    return false;
+  }
+
+  return state.placements
+    .slice(firstBackwardIndex)
+    .every((placement) => placement.operationId.startsWith('B:'));
+}
+
+function satisfiesTarget(
+  state: ScheduleState,
+  scoreResult: ScoreResult,
+  target: MasteryTarget,
+): boolean {
+  if ('metric' in target) {
+    return satisfiesMetricTarget(scoreResult, target);
+  }
+
+  switch (target.pattern) {
+    case 'afab':
+      return satisfiesAfabPattern(state);
   }
 }
 
@@ -109,7 +145,7 @@ export function score(state: ScheduleState): ScoreResult {
   const mastered =
     complete &&
     state.config.masteryTargets.every((target) =>
-      satisfiesTarget(scoreResultWithoutMastery, target),
+      satisfiesTarget(state, scoreResultWithoutMastery, target),
     );
 
   return Object.freeze({

@@ -1,5 +1,5 @@
 import type { ScoreResult } from '../engine/score';
-import type { LevelConfig } from '../engine/types';
+import type { LevelConfig, MasteryTarget, MetricMasteryTarget } from '../engine/types';
 
 interface LevelGuideProps {
   readonly level: LevelConfig;
@@ -7,10 +7,16 @@ interface LevelGuideProps {
 }
 
 function primaryGoal(level: LevelConfig): string {
-  const makespanTarget = level.masteryTargets.find((target) => target.metric === 'makespan');
+  const makespanTarget = level.masteryTargets
+    .filter((target): target is MetricMasteryTarget => isMetricTarget(target))
+    .find((target) => target.metric === 'makespan');
   return makespanTarget
     ? `Goal: makespan ${makespanTarget.op} ${makespanTarget.value}`
     : 'Goal: complete the schedule';
+}
+
+function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
+  return 'metric' in target;
 }
 
 export function LevelGuide({ level, score }: LevelGuideProps) {

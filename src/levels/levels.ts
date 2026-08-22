@@ -133,7 +133,7 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
   }),
   'gpipe-afab': freezeLevel({
     id: 'gpipe-afab',
-    version: 1,
+    version: 2,
     title: 'GPipe AFAB',
     rankCount: 3,
     stageCount: 3,
@@ -141,6 +141,7 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
     durations: { F: 1, B: 2 },
     memoryCaps: null,
     masteryTargets: [
+      { kind: 'schedule-pattern', pattern: 'afab' },
       { metric: 'makespan', op: '<=', value: 18 },
       { metric: 'intentionalIdle', op: '<=', value: 0 },
       { metric: 'peakActivationMemory', op: '<=', value: 4 },
