@@ -23,6 +23,51 @@ export interface InsertIdleAction {
 
 export type Action = PlaceOperationAction | InsertIdleAction;
 
+export interface BuildingBlockOperation {
+  readonly operationId: OperationId;
+  readonly offset: number;
+}
+
+export interface BuildingBlockPlan {
+  readonly period: number;
+  readonly trajectory: readonly BuildingBlockOperation[];
+}
+
+export type BuildingBlockViolation =
+  | { readonly kind: 'invalid-period'; readonly period: number }
+  | { readonly kind: 'unknown-operation'; readonly operationId: OperationId }
+  | { readonly kind: 'duplicate-operation'; readonly operationId: OperationId }
+  | { readonly kind: 'missing-operation'; readonly operationId: OperationId }
+  | {
+      readonly kind: 'duplicate-rank-residue';
+      readonly rank: number;
+      readonly residue: number;
+      readonly operationIds: readonly OperationId[];
+    }
+  | {
+      readonly kind: 'unsatisfied-dependency';
+      readonly operationId: OperationId;
+      readonly dependencyId: OperationId;
+    }
+  | {
+      readonly kind: 'memory-cap';
+      readonly rank: number;
+      readonly peak: number;
+      readonly cap: number;
+    };
+
+export interface BuildingBlockValidation {
+  readonly ok: boolean;
+  readonly period: number;
+  readonly violations: readonly BuildingBlockViolation[];
+  readonly projectedPeakMemory: readonly number[];
+}
+
+export interface BuildingBlockLevelMetadata {
+  readonly label: string;
+  readonly plan: BuildingBlockPlan;
+}
+
 export interface MetricMasteryTarget {
   metric: 'makespan' | 'bubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
   op: '<=';
@@ -68,4 +113,5 @@ export interface LevelConfig {
   masteryTargets: readonly MasteryTarget[];
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
   algorithm: AlgorithmLevelMetadata;
+  buildingBlock?: BuildingBlockLevelMetadata;
 }
