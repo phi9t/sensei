@@ -336,12 +336,7 @@ describe('stored progress validation and recovery', () => {
   it('accepts old progress payloads that only mention the original four levels', () => {
     const oldProgress = {
       schemaVersion: 1,
-      unlockedLevelIds: [
-        'dependency-chain',
-        'fill-the-pipe',
-        'backward-is-heavier',
-        'memory-wall',
-      ],
+      unlockedLevelIds: ['dependency-chain', 'fill-the-pipe', 'backward-is-heavier', 'memory-wall'],
       bestLegalAttempts: {},
       bestMasteredAttempts: {},
       historicalAttempts: [],

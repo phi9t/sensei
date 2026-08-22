@@ -113,7 +113,9 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
                 <optgroup key={group.setTitle} label={group.setTitle}>
                   {group.options.map((option) => (
                     <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
-                      {option.patternLabel ? `${option.title} (${option.patternLabel})` : option.title}
+                      {option.patternLabel
+                        ? `${option.title} (${option.patternLabel})`
+                        : option.title}
                     </option>
                   ))}
                 </optgroup>
