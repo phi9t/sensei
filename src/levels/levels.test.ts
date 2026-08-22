@@ -20,6 +20,7 @@ const EXPECTED_LEVEL_IDS = [
   'warm-up-then-alternate',
   'tie-at-the-frontier',
   'memory-capped-one-f-one-b',
+  'stamp-the-pattern',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -213,9 +214,45 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['memory-constrained 1F1B', 'admission pressure'],
     },
   },
+  'stamp-the-pattern': {
+    id: 'stamp-the-pattern',
+    version: 1,
+    title: 'Stamp The Pattern',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 3,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 12 },
+      { metric: 'intentionalIdle', op: '<=', value: 2 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'building-block',
+      setTitle: 'Building Blocks',
+      concept: 'Repeat one trajectory across microbatches.',
+      objective: 'Validate the pattern, stamp it, and inspect the completed schedule.',
+      patternLabel: 'Periodic',
+      introducedModel: ['periodic trajectory', 'pattern stamping'],
+    },
+    buildingBlock: {
+      label: 'Two-rank periodic trajectory',
+      plan: {
+        period: 3,
+        trajectory: [
+          { operationId: 'F:0:0', offset: 0 },
+          { operationId: 'F:1:0', offset: 1 },
+          { operationId: 'B:1:0', offset: 2 },
+          { operationId: 'B:0:0', offset: 4 },
+        ],
+      },
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
-const EXPECTED_MASTERED_IDS = {
+const EXPECTED_MASTERED_ACTIONS = {
   'dependency-chain': ['F:0:0', 'F:1:0', 'B:1:0', 'B:0:0'],
   'fill-the-pipe': [
     'F:0:0',
@@ -379,61 +416,93 @@ const EXPECTED_MASTERED_IDS = {
     'B:1:4',
     'B:0:4',
   ],
-} satisfies Record<LevelId, readonly OperationId[]>;
+  'stamp-the-pattern': [
+    'F:0:0',
+    'F:1:0',
+    'B:1:0',
+    { type: 'wait', rank: 0 },
+    { type: 'wait', rank: 0 },
+    'F:0:1',
+    'B:0:0',
+    'F:1:1',
+    'B:1:1',
+    'F:0:2',
+    'B:0:1',
+    'F:1:2',
+    'B:1:2',
+    'B:0:2',
+  ],
+} satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 const EXPECTED_GOLDEN_ROWS = {
   'dependency-chain': {
     makespan: 6,
+    intentionalIdle: 0,
     bubbleRatio: 0.5,
     peakActivationMemoryByRank: [1, 1],
     peakActivationMemory: 1,
   },
   'fill-the-pipe': {
     makespan: 12,
+    intentionalIdle: 0,
     bubbleRatio: 0.25,
     peakActivationMemoryByRank: [3, 3],
     peakActivationMemory: 3,
   },
   'backward-is-heavier': {
     makespan: 15,
+    intentionalIdle: 0,
     bubbleRatio: 0.4,
     peakActivationMemoryByRank: [3, 3, 3],
     peakActivationMemory: 3,
   },
   'memory-wall': {
     makespan: 18,
+    intentionalIdle: 0,
     bubbleRatio: 1 / 3,
     peakActivationMemoryByRank: [3, 2, 1],
     peakActivationMemory: 3,
   },
   'gpipe-afab': {
     makespan: 18,
+    intentionalIdle: 0,
     bubbleRatio: 1 / 3,
     peakActivationMemoryByRank: [4, 4, 4],
     peakActivationMemory: 4,
   },
   'warm-up-then-alternate': {
     makespan: 18,
+    intentionalIdle: 0,
     bubbleRatio: 1 / 3,
     peakActivationMemoryByRank: [3, 2, 1],
     peakActivationMemory: 3,
   },
   'tie-at-the-frontier': {
     makespan: 15,
+    intentionalIdle: 0,
     bubbleRatio: 0.2,
     peakActivationMemoryByRank: [2, 1],
     peakActivationMemory: 2,
   },
   'memory-capped-one-f-one-b': {
     makespan: 21,
+    intentionalIdle: 0,
     bubbleRatio: 2 / 7,
     peakActivationMemoryByRank: [3, 2, 1],
     peakActivationMemory: 3,
+  },
+  'stamp-the-pattern': {
+    makespan: 12,
+    intentionalIdle: 2,
+    bubbleRatio: 0.25,
+    peakActivationMemoryByRank: [2, 1],
+    peakActivationMemory: 2,
   },
 } satisfies Record<
   LevelId,
   {
     makespan: number;
+    intentionalIdle: number;
     bubbleRatio: number;
     peakActivationMemoryByRank: readonly number[];
     peakActivationMemory: number;
@@ -508,6 +577,16 @@ describe('levels public API', () => {
 
     expect(getLevel('memory-wall')).toEqual(EXPECTED_CONFIGS['memory-wall']);
   });
+
+  it('freezes building-block metadata with the level config', () => {
+    const level = getLevel('stamp-the-pattern');
+
+    expect(Object.isFrozen(level.buildingBlock)).toBe(true);
+    expect(Object.isFrozen(level.buildingBlock?.plan)).toBe(true);
+    expect(Object.isFrozen(level.buildingBlock?.plan.trajectory)).toBe(true);
+    expect(Object.isFrozen(level.buildingBlock?.plan.trajectory[0])).toBe(true);
+    expect(getLevel('memory-capped-one-f-one-b').buildingBlock).toBeUndefined();
+  });
 });
 
 describe('golden fixtures', () => {
@@ -516,10 +595,9 @@ describe('golden fixtures', () => {
     expect(Object.keys(LEGAL_ACTIONS)).toEqual(EXPECTED_LEVEL_IDS);
 
     for (const id of EXPECTED_LEVEL_IDS) {
-      const expectedMastered = EXPECTED_MASTERED_IDS[id].map((operationId): Action => ({
-        type: 'place',
-        operationId,
-      }));
+      const expectedMastered = EXPECTED_MASTERED_ACTIONS[id].map((action): Action =>
+        typeof action === 'string' ? { type: 'place', operationId: action } : action,
+      );
 
       expect(MASTERED_ACTIONS[id]).toEqual(expectedMastered);
       expect(LEGAL_ACTIONS[id]).toEqual([{ type: 'wait', rank: 0 }, ...expectedMastered]);
@@ -565,7 +643,7 @@ describe('golden replay outcomes', () => {
       expect(result.mastered).toBe(true);
       expect(result.makespan).toBe(expectedRow.makespan);
       expect(result.bubbleRatio).toBeCloseTo(expectedRow.bubbleRatio, 10);
-      expect(result.intentionalIdle).toBe(0);
+      expect(result.intentionalIdle).toBe(expectedRow.intentionalIdle);
       expect(result.peakActivationMemoryByRank).toEqual(expectedRow.peakActivationMemoryByRank);
       expect(result.peakActivationMemory).toBe(expectedRow.peakActivationMemory);
     }
@@ -594,17 +672,17 @@ describe('golden replay outcomes', () => {
       const actions = MASTERED_ACTIONS[id]!;
       const expectedCount = config.rankCount * config.microbatchCount * 2;
       const inventory = initialState(config).operations.map((operation) => operation.id);
-      const placedIds = actions.map((action) => {
-        expect(action.type).toBe('place');
-        if (action.type !== 'place') {
-          throw new Error('mastered fixtures must be place-only');
-        }
-        return action.operationId;
-      });
+      const placedIds = actions
+        .filter((action): action is Extract<Action, { type: 'place' }> => action.type === 'place')
+        .map((action) => action.operationId);
 
-      expect(actions).toHaveLength(expectedCount);
+      expect(placedIds).toHaveLength(expectedCount);
       expect([...placedIds].sort()).toEqual([...inventory].sort());
       expect(new Set(placedIds).size).toBe(inventory.length);
+
+      if (id !== 'stamp-the-pattern') {
+        expect(actions).toHaveLength(expectedCount);
+      }
     }
   });
 
@@ -626,7 +704,7 @@ describe('golden replay outcomes', () => {
       expect(result.complete).toBe(true);
       expect(result.mastered).toBe(false);
       expect(result.makespan).toBe(goldenRow.makespan + 1);
-      expect(result.intentionalIdle).toBe(1);
+      expect(result.intentionalIdle).toBe(goldenRow.intentionalIdle + 1);
       expect(makespanTarget).toBeDefined();
       expect(idleTarget).toBeDefined();
       expect(result.makespan).toBeGreaterThan(makespanTarget!.value);

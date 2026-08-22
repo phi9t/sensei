@@ -17,6 +17,25 @@ function withLeadingWait(actions: readonly Action[]): readonly Action[] {
   return Object.freeze([wait(0), ...actions]);
 }
 
+function stampedPatternActions(): readonly Action[] {
+  return Object.freeze([
+    place('F:0:0'),
+    place('F:1:0'),
+    place('B:1:0'),
+    wait(0),
+    wait(0),
+    place('F:0:1'),
+    place('B:0:0'),
+    place('F:1:1'),
+    place('B:1:1'),
+    place('F:0:2'),
+    place('B:0:1'),
+    place('F:1:2'),
+    place('B:1:2'),
+    place('B:0:2'),
+  ]);
+}
+
 const masteredActions = {
   'dependency-chain': placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0'),
   'fill-the-pipe': placeIds(
@@ -181,6 +200,7 @@ const masteredActions = {
     'B:1:4',
     'B:0:4',
   ),
+  'stamp-the-pattern': stampedPatternActions(),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const MASTERED_ACTIONS = Object.freeze(masteredActions);
@@ -194,6 +214,7 @@ const legalActions = {
   'warm-up-then-alternate': withLeadingWait(MASTERED_ACTIONS['warm-up-then-alternate']),
   'tie-at-the-frontier': withLeadingWait(MASTERED_ACTIONS['tie-at-the-frontier']),
   'memory-capped-one-f-one-b': withLeadingWait(MASTERED_ACTIONS['memory-capped-one-f-one-b']),
+  'stamp-the-pattern': withLeadingWait(MASTERED_ACTIONS['stamp-the-pattern']),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const LEGAL_ACTIONS = Object.freeze(legalActions);

@@ -9,6 +9,7 @@ export const LEVEL_IDS = [
   'warm-up-then-alternate',
   'tie-at-the-frontier',
   'memory-capped-one-f-one-b',
+  'stamp-the-pattern',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -24,6 +25,24 @@ function freezeAlgorithm(metadata: AlgorithmLevelMetadata): AlgorithmLevelMetada
   });
 }
 
+function freezeBuildingBlock(
+  buildingBlock: LevelConfig['buildingBlock'],
+): LevelConfig['buildingBlock'] {
+  if (!buildingBlock) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    ...buildingBlock,
+    plan: Object.freeze({
+      ...buildingBlock.plan,
+      trajectory: Object.freeze(
+        buildingBlock.plan.trajectory.map((operation) => Object.freeze({ ...operation })),
+      ),
+    }),
+  });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
   const frozen: LevelConfig = {
     ...config,
@@ -32,6 +51,9 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     masteryTargets: freezeTargets(config.masteryTargets),
     coaching: Object.freeze({ ...config.coaching }),
     algorithm: freezeAlgorithm(config.algorithm),
+    ...(config.buildingBlock
+      ? { buildingBlock: freezeBuildingBlock(config.buildingBlock) }
+      : undefined),
   };
 
   return Object.freeze(frozen);
@@ -226,6 +248,42 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Keep the 1F1B rhythm under a tight last-rank cap.',
       patternLabel: '1F1B + cap',
       introducedModel: ['memory-constrained 1F1B', 'admission pressure'],
+    },
+  }),
+  'stamp-the-pattern': freezeLevel({
+    id: 'stamp-the-pattern',
+    version: 1,
+    title: 'Stamp The Pattern',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 3,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 12 },
+      { metric: 'intentionalIdle', op: '<=', value: 2 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'building-block',
+      setTitle: 'Building Blocks',
+      concept: 'Repeat one trajectory across microbatches.',
+      objective: 'Validate the pattern, stamp it, and inspect the completed schedule.',
+      patternLabel: 'Periodic',
+      introducedModel: ['periodic trajectory', 'pattern stamping'],
+    },
+    buildingBlock: {
+      label: 'Two-rank periodic trajectory',
+      plan: {
+        period: 3,
+        trajectory: [
+          { operationId: 'F:0:0', offset: 0 },
+          { operationId: 'F:1:0', offset: 1 },
+          { operationId: 'B:1:0', offset: 2 },
+          { operationId: 'B:0:0', offset: 4 },
+        ],
+      },
     },
   }),
 });
