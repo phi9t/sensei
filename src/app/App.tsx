@@ -217,6 +217,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
               score={game.score}
               currentMemory={game.schedule.currentMemory}
               attemptTuple={game.attemptTuple}
+              policyComparison={game.policyComparison}
             />
           </aside>
         </div>

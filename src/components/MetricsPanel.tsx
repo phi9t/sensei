@@ -1,4 +1,5 @@
 import type { AttemptRankingTuple, ScoreResult } from '../engine/score';
+import type { PolicyComparison } from '../engine/policyComparison';
 import type { LevelConfig } from '../engine/types';
 
 interface MetricsPanelProps {
@@ -6,6 +7,7 @@ interface MetricsPanelProps {
   readonly score: ScoreResult;
   readonly currentMemory: readonly number[];
   readonly attemptTuple: AttemptRankingTuple;
+  readonly policyComparison: PolicyComparison | null;
 }
 
 function formatTuple(tuple: AttemptRankingTuple): string {
@@ -16,6 +18,24 @@ function formatBubbleRatio(value: number): string {
   return `${value.toFixed(3)} (${(value * 100).toFixed(1)}%)`;
 }
 
+function formatDelta(value: number): string {
+  if (value > 0) {
+    return `+${value}`;
+  }
+  return `${value}`;
+}
+
+function formatMatch(match: PolicyComparison['match']): string {
+  switch (match) {
+    case 'exact':
+      return 'Exact reference match';
+    case 'order-only':
+      return 'Same per-rank order';
+    case 'unmatched':
+      return 'Different order';
+  }
+}
+
 function formatMasteryTarget(target: LevelConfig['masteryTargets'][number]): string {
   if ('metric' in target) {
     return `${target.metric} ${target.op} ${target.value}`;
@@ -24,7 +44,13 @@ function formatMasteryTarget(target: LevelConfig['masteryTargets'][number]): str
   return `pattern ${target.pattern.toUpperCase()}`;
 }
 
-export function MetricsPanel({ level, score, currentMemory, attemptTuple }: MetricsPanelProps) {
+export function MetricsPanel({
+  level,
+  score,
+  currentMemory,
+  attemptTuple,
+  policyComparison,
+}: MetricsPanelProps) {
   const masteryTargets =
     level.masteryTargets.length === 0
       ? 'None'
@@ -61,6 +87,40 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
           </strong>
         </div>
       </div>
+      {policyComparison ? (
+        <details className="policy-comparison">
+          <summary>
+            <span>Reference comparison</span>
+            <span className="metrics-summary__value">{policyComparison.label}</span>
+          </summary>
+          <dl className="metrics-grid" role="group" aria-label="Reference comparison">
+            <div>
+              <dt>Policy</dt>
+              <dd>{policyComparison.label} reference</dd>
+            </div>
+            <div>
+              <dt>Match</dt>
+              <dd>{formatMatch(policyComparison.match)}</dd>
+            </div>
+            <div>
+              <dt>Reference makespan</dt>
+              <dd>{policyComparison.reference.makespan}</dd>
+            </div>
+            <div>
+              <dt>Makespan delta</dt>
+              <dd>{formatDelta(policyComparison.delta.makespan)}</dd>
+            </div>
+            <div>
+              <dt>Reference peak memory</dt>
+              <dd>{policyComparison.reference.peakActivationMemory}</dd>
+            </div>
+            <div>
+              <dt>Peak memory delta</dt>
+              <dd>{formatDelta(policyComparison.delta.peakActivationMemory)} memory</dd>
+            </div>
+          </dl>
+        </details>
+      ) : null}
       <details className="metrics-details">
         <summary>
           <span>Metric details</span>

@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../app/App';
 import * as replayModule from '../engine/replay';
+import { MASTERED_ACTIONS } from '../levels/fixtures';
 
 afterEach(() => {
   cleanup();
@@ -48,6 +49,36 @@ function scheduleLabelIn(container: HTMLElement, operationId: string): HTMLEleme
 }
 
 describe('Game shell', () => {
+  it('shows policy-relative comparison behind a compact score detail', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="gpipe-afab" />);
+
+    for (const action of MASTERED_ACTIONS['gpipe-afab']) {
+      if (action.type !== 'place') {
+        throw new Error('expected place-only mastered fixture');
+      }
+      const [kind, stage, microbatch] = action.operationId.split(':');
+      await user.click(
+        screen.getByRole('button', {
+          name: new RegExp(`place ${kind} stage ${stage} microbatch ${microbatch}`, 'i'),
+        }),
+      );
+    }
+
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    expect(within(metrics).getByRole('group', { name: /scoreboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+
+    await user.click(within(metrics).getByText(/^Reference comparison$/i));
+    const comparison = within(metrics).getByRole('group', {
+      name: /reference comparison/i,
+    });
+    expect(within(comparison).getByText(/^GPipe AFAB reference$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Exact reference match$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Makespan delta$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^0$/i)).toBeInTheDocument();
+  });
+
   it('lays out the cockpit around guide, queue, command rail, schedule, and score rail', () => {
     render(<App initialLevelId="backward-is-heavier" />);
 

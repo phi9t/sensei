@@ -16,6 +16,10 @@ import {
   type ScheduleState,
 } from '../engine/replay';
 import { recognizeSchedule } from '../engine/policies';
+import {
+  compareToReferencePolicy,
+  type PolicyComparison,
+} from '../engine/policyComparison';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, Operation, OperationId } from '../engine/types';
@@ -65,6 +69,7 @@ export interface GameViewModel {
   readonly schedule: ScheduleState;
   readonly score: ReturnType<typeof score>;
   readonly attemptTuple: ReturnType<typeof attemptRankingTuple>;
+  readonly policyComparison: PolicyComparison | null;
   readonly moveClassifications: readonly MoveClassification[];
   readonly selectedExplanation: ExplanationResult | null;
   readonly suggestion: Suggestion | null;
@@ -543,6 +548,7 @@ export function useGame(
   const moveClassifications = classifyMoves(schedule);
   const scoreResult = score(schedule);
   const attemptTuple = attemptRankingTuple(schedule);
+  const policyComparison = compareToReferencePolicy(schedule);
   const selectedOperationId = coherentSelection(game.selectedOperationId, schedule.operations);
   const selectedExplanation =
     selectedOperationId === null ? null : explainBlockedMove(schedule, selectedOperationId);
@@ -888,6 +894,7 @@ export function useGame(
     schedule,
     score: scoreResult,
     attemptTuple,
+    policyComparison,
     moveClassifications,
     selectedExplanation,
     suggestion,
