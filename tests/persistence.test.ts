@@ -154,6 +154,32 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('round-trips attempts for the new current-engine curriculum levels', () => {
+    for (const levelId of [
+      'gpipe-afab',
+      'warm-up-then-alternate',
+      'tie-at-the-frontier',
+      'memory-capped-one-f-one-b',
+    ] as const) {
+      const level = getLevel(levelId);
+      const payload: UrlAttemptPayload = {
+        schemaVersion: 1,
+        levelId,
+        levelVersion: level.version,
+        actions: MASTERED_ACTIONS[levelId],
+      };
+
+      const decoded = decodeAttempt(encodeAttempt(payload), getLevel);
+
+      expect(decoded.ok).toBe(true);
+      if (decoded.ok) {
+        expect(decoded.attempt.levelId).toBe(levelId);
+        expect(decoded.attempt.outcome).toBe('mastered');
+        expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS[levelId]);
+      }
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(
@@ -307,6 +333,38 @@ describe('URL attempt codec', () => {
 });
 
 describe('stored progress validation and recovery', () => {
+  it('accepts old progress payloads that only mention the original four levels', () => {
+    const oldProgress = {
+      schemaVersion: 1,
+      unlockedLevelIds: [
+        'dependency-chain',
+        'fill-the-pipe',
+        'backward-is-heavier',
+        'memory-wall',
+      ],
+      bestLegalAttempts: {},
+      bestMasteredAttempts: {},
+      historicalAttempts: [],
+    };
+
+    const decoded = deserializeProgress(JSON.stringify(oldProgress), getLevel);
+
+    expect(decoded).toEqual({
+      ok: true,
+      progress: {
+        unlockedLevelIds: [
+          'dependency-chain',
+          'fill-the-pipe',
+          'backward-is-heavier',
+          'memory-wall',
+        ],
+        bestLegalAttempts: {},
+        bestMasteredAttempts: {},
+        historicalAttempts: [],
+      },
+    });
+  });
+
   it('replays canonical stored actions to recompute outcome and tuple', () => {
     const stored = {
       schemaVersion: 1,

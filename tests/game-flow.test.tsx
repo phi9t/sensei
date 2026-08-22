@@ -184,10 +184,9 @@ describe('game flow', () => {
       });
       const legalProgress = parseProgressFrom(storage);
       expect(legalProgress.unlockedLevelIds).toContain(levelId);
-      if (levelId !== 'memory-wall') {
-        expect(legalProgress.unlockedLevelIds).toContain(
-          LEVEL_IDS[LEVEL_IDS.indexOf(levelId) + 1]!,
-        );
+      const nextLevelId = LEVEL_IDS[LEVEL_IDS.indexOf(levelId) + 1];
+      if (nextLevelId !== undefined) {
+        expect(legalProgress.unlockedLevelIds).toContain(nextLevelId);
       }
 
       const legalSummary = attemptSummary(levelId, legal);
@@ -216,7 +215,7 @@ describe('game flow', () => {
       expect(bestAttempt(afterWorseRetry, levelId)?.tuple).toEqual(masteredSummary.score);
       expect(bestAttempt(afterWorseRetry, levelId)?.actions).toEqual(mastered);
     }
-  }, 20000);
+  }, 40000);
 
   it('restores persisted progress across reload, preserves session progress when storage is unavailable, and surfaces polite fallback notices', async () => {
     const firstUser = userEvent.setup();

@@ -36,6 +36,8 @@ interface OverlayState {
 export interface LevelOptionState {
   readonly levelId: LevelId;
   readonly title: string;
+  readonly setTitle: string;
+  readonly patternLabel: string | null;
   readonly unlocked: boolean;
   readonly reason: string | null;
 }
@@ -138,14 +140,17 @@ function levelUnlockReason(levelId: LevelId): string | null {
 function levelOptions(progress: Progress, currentLevelId: LevelId): readonly LevelOptionState[] {
   const unlocked = unlockedForUi(progress, currentLevelId);
   return Object.freeze(
-    LEVEL_IDS.map((levelId) =>
-      Object.freeze({
+    LEVEL_IDS.map((levelId) => {
+      const level = getLevel(levelId);
+      return Object.freeze({
         levelId,
-        title: getLevel(levelId).title,
+        title: level.title,
+        setTitle: level.algorithm.setTitle,
+        patternLabel: level.algorithm.patternLabel,
         unlocked: unlocked.has(levelId),
         reason: unlocked.has(levelId) ? null : levelUnlockReason(levelId),
-      }),
-    ),
+      });
+    }),
   );
 }
 

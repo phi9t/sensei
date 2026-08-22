@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { MASTERED_ACTIONS } from '../levels/fixtures';
+import { LEVEL_IDS, getLevel } from '../levels/levels';
 import { encodeAttempt } from '../persistence/storage';
 
 function createMemoryStorage(seed: Record<string, string> = {}): Storage {
@@ -64,12 +65,9 @@ describe('App', () => {
     const options = screen.getAllByRole('option');
 
     expect(levelSelector).toBeInTheDocument();
-    expect(options.map((option) => option.textContent)).toEqual([
-      'Dependency Chain',
-      'Fill the Pipe',
-      'Backward Is Heavier',
-      'Memory Wall',
-    ]);
+    expect(options.map((option) => option.textContent)).toEqual(
+      LEVEL_IDS.map((levelId) => getLevel(levelId).title),
+    );
   });
 
   it('persists completed progress across remounts in the default browser-storage app path', async () => {
