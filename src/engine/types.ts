@@ -35,6 +35,7 @@ export interface BuildingBlockPlan {
 
 export type BuildingBlockViolation =
   | { readonly kind: 'invalid-period'; readonly period: number }
+  | { readonly kind: 'invalid-offset'; readonly operationId: OperationId; readonly offset: number }
   | { readonly kind: 'unknown-operation'; readonly operationId: OperationId }
   | { readonly kind: 'duplicate-operation'; readonly operationId: OperationId }
   | { readonly kind: 'missing-operation'; readonly operationId: OperationId }

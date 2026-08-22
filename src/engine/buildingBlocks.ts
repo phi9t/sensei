@@ -28,6 +28,10 @@ function isValidPeriod(period: number): boolean {
   return Number.isFinite(period) && Number.isInteger(period) && period > 0;
 }
 
+function isValidOffset(offset: number): boolean {
+  return Number.isFinite(offset) && Number.isInteger(offset) && offset >= 0;
+}
+
 function residueOf(offset: number, period: number): number {
   return ((offset % period) + period) % period;
 }
@@ -117,6 +121,18 @@ function validateTrajectoryMembership(
   }
 
   return Object.freeze(violations);
+}
+
+function validateOffsets(plan: BuildingBlockPlan): readonly BuildingBlockViolation[] {
+  return Object.freeze(
+    plan.trajectory
+      .filter((entry) => !isValidOffset(entry.offset))
+      .map((entry) => ({
+        kind: 'invalid-offset' as const,
+        operationId: entry.operationId,
+        offset: entry.offset,
+      })),
+  );
 }
 
 function validateRankResidues(
@@ -310,6 +326,10 @@ export function validateBuildingBlockPlan(
   }
 
   violations.push(...validateTrajectoryMembership(representativeOperations, plan));
+  violations.push(...validateOffsets(plan));
+  if (violations.some((violation) => violation.kind === 'invalid-offset')) {
+    return freezeValidation(plan.period, violations, new Array<number>(config.rankCount).fill(0));
+  }
 
   const knownEntries = knownRepresentativeEntries(representativeById, plan);
   const offsetsByRepresentativeId = representativeOffsets(knownEntries);

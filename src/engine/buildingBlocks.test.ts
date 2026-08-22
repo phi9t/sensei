@@ -39,6 +39,23 @@ const VALID_PLAN: BuildingBlockPlan = Object.freeze({
   ]),
 });
 
+function planWithOffset(
+  operationId: BuildingBlockPlan['trajectory'][number]['operationId'],
+  offset: number,
+): BuildingBlockPlan {
+  return Object.freeze({
+    period: VALID_PLAN.period,
+    trajectory: Object.freeze(
+      VALID_PLAN.trajectory.map((entry) =>
+        Object.freeze({
+          ...entry,
+          offset: entry.operationId === operationId ? offset : entry.offset,
+        }),
+      ),
+    ),
+  });
+}
+
 function placementStarts(result: ReturnType<typeof replay>): Record<string, number> {
   expect(result.ok).toBe(true);
   if (!result.ok) {
@@ -97,6 +114,32 @@ describe('building-block plans', () => {
 
     expect(validation.ok).toBe(false);
     expect(validation.violations).toContainEqual({ kind: 'invalid-period', period: 0 });
+  });
+
+  it.each([
+    ['infinite', Infinity],
+    ['NaN', NaN],
+    ['fractional', 1.5],
+    ['negative', -1],
+  ])('reports an invalid %s offset', (_label, offset) => {
+    const validation = validateBuildingBlockPlan(BASE_LEVEL, planWithOffset('B:0:0', offset));
+
+    expect(validation.ok).toBe(false);
+    expect(validation.violations).toContainEqual({
+      kind: 'invalid-offset',
+      operationId: 'B:0:0',
+      offset,
+    });
+  });
+
+  it('refuses to expand a plan with an infinite offset', () => {
+    const invalidPlan = planWithOffset('B:0:0', Infinity);
+    const validation = validateBuildingBlockPlan(BASE_LEVEL, invalidPlan);
+
+    expect(expandBuildingBlockPlan(BASE_LEVEL, invalidPlan)).toEqual({
+      ok: false,
+      validation,
+    });
   });
 
   it('reports unknown operations', () => {
