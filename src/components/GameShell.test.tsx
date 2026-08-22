@@ -156,9 +156,12 @@ describe('Game shell', () => {
     );
     expect(screen.getByText(/Select a block to inspect it/i)).toBeInTheDocument();
     expect(
-      within(screen.getByRole('region', { name: /metrics panel/i })).getByText(
-        /^1 -> 1 -> 0 -> 1$/i,
-      ),
+      within(
+        metricRowIn(
+          screen.getByRole('region', { name: /metrics panel/i }),
+          /current attempt tuple/i,
+        ),
+      ).getByText(/^1 -> 1 -> 0 -> 1$/i),
     ).toBeInTheDocument();
   });
 
@@ -205,7 +208,10 @@ describe('Game shell', () => {
     expect(backward).toHaveAttribute('data-duration', '2');
     expect(forward).toHaveStyle({ '--tile-duration': '1' });
     expect(backward).toHaveStyle({ '--tile-duration': '2' });
-    expect(screen.getByText(/^1 ready$/i)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: /^ready queue$/i })).getAllByText(/^1 ready$/i)
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it('groups compact block tokens by microbatch and pass stack', () => {
@@ -221,6 +227,9 @@ describe('Game shell', () => {
     });
 
     expect(within(batchZero).getByText(/^Batch 0$/i)).toBeInTheDocument();
+    expect(batchZero).toHaveAttribute('data-phase', 'ready');
+    expect(batchZero).toHaveAttribute('data-ready-count', '1');
+    expect(within(batchZero).getByText(/^1 ready$/i)).toBeInTheDocument();
     expect(within(forwardStack).getByText(/^FWD$/i)).toBeInTheDocument();
     expect(within(backwardStack).getByText(/^BWD$/i)).toBeInTheDocument();
     expect(within(forwardStack).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
@@ -251,6 +260,13 @@ describe('Game shell', () => {
     });
 
     await tabUntil(user, tile);
+
+    const inspectorIdentity = screen.getByTestId('inspector-identity-F:0:0');
+    expect(inspectorIdentity).toHaveAttribute('data-operation-visual', 'F-0-0');
+    expect(inspectorIdentity).toHaveStyle({
+      '--operation-hue': '184',
+      '--operation-accent': 'hsl(184 44% 40%)',
+    });
 
     const preview = screen.getByTestId('preview-tile-F:0:0');
     expect(preview).toHaveAttribute('data-operation-visual', 'F-0-0');
@@ -288,7 +304,9 @@ describe('Game shell', () => {
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
 
     expect(
-      screen.getByText(/Rank 0 memory timeline: 0-1 => 0 units; 1-2 => 1 units/i),
+      within(screen.getByRole('region', { name: /schedule board/i })).getByText(
+        /Rank 0 memory timeline: 0-1 => 0 units; 1-2 => 1 units/i,
+      ),
     ).toBeInTheDocument();
     const afterForwardSegments = within(screen.getByTestId('memory-strip-rank-0')).getAllByTestId(
       /memory-segment-rank-0-/,
@@ -328,7 +346,31 @@ describe('Game shell', () => {
 
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
     expect(within(metrics).getByText(/Legal completion/i)).toBeInTheDocument();
-    expect(within(metrics).getByText(/^Mastered$/i)).toBeInTheDocument();
+    expect(within(metricRowIn(metrics, /mastery/i)).getByText(/^Mastered$/i)).toBeInTheDocument();
+    expect(within(metrics).getByRole('group', { name: /scoreboard/i })).toBeInTheDocument();
+    expect(within(metrics).getByText(/^Run state$/i)).toBeInTheDocument();
+    expect(within(metrics).getByText(/^Metric details$/i)).toBeInTheDocument();
+  });
+
+  it('compresses completed and waiting batches into phase-aware lanes', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="fill-the-pipe" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 0 microbatch 0/i }));
+
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks, done/i });
+    const batchOne = within(blocks).getByRole('region', { name: /batch 1 blocks, 1 ready/i });
+    const batchTwo = within(blocks).getByRole('region', { name: /batch 2 blocks, 1 ready/i });
+
+    expect(batchZero).toHaveAttribute('data-phase', 'done');
+    expect(batchZero).toHaveAttribute('data-ready-count', '0');
+    expect(within(batchZero).getByText(/^Done$/i)).toBeInTheDocument();
+    expect(batchOne).toHaveAttribute('data-phase', 'ready');
+    expect(batchTwo).toHaveAttribute('data-phase', 'ready');
   });
 
   it('produces the same placed state from pointer and keyboard placement', async () => {
@@ -390,6 +432,11 @@ describe('Game shell', () => {
     expect(tile).toHaveAttribute('width', '56');
 
     const board = screen.getByRole('region', { name: /schedule board/i });
+    expect(
+      within(board).getByRole('img', { name: /pipeline schedule board/i }),
+    ).toBeInTheDocument();
+    expect(within(board).getByTestId('rank-band-0')).toHaveAttribute('data-rank-parity', 'even');
+    expect(within(board).getByTestId('rank-band-1')).toHaveAttribute('data-rank-parity', 'odd');
     expect(
       within(board).getByText(/dependency-forced gap on rank 1 from 0 to 1/i),
     ).toBeInTheDocument();
@@ -491,12 +538,12 @@ describe('Game shell', () => {
     render(<App initialLevelId="dependency-chain" />);
 
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
-    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /inspect F stage 0 microbatch 0/i }));
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     const board = screen.getByRole('region', { name: /schedule board/i });
     const completed = screen.getByRole('button', {
-      name: /place F stage 0 microbatch 0, 1 tick, completed/i,
+      name: /inspect F stage 0 microbatch 0, 1 tick, completed/i,
     });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();

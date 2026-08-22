@@ -14,7 +14,11 @@ interface OperationTrayProps {
 interface BatchGroup {
   readonly microbatch: number;
   readonly classifications: readonly MoveClassification[];
+  readonly readyCount: number;
+  readonly phase: BatchPhase;
 }
+
+type BatchPhase = 'ready' | 'waiting' | 'done';
 
 function visibleStateLabel(classification: MoveClassification): string {
   switch (classification.status) {
@@ -30,7 +34,7 @@ function visibleStateLabel(classification: MoveClassification): string {
 function accessibleOperationLabel(classification: MoveClassification): string {
   const { operation } = classification;
   const tickLabel = operation.duration === 1 ? '1 tick' : `${operation.duration} ticks`;
-  const verb = classification.status === 'blocked' ? 'Inspect' : 'Place';
+  const verb = classification.status === 'legal' ? 'Place' : 'Inspect';
   return `${verb} ${formatOperationName(operation)}, ${tickLabel}, ${visibleStateLabel(classification)}`;
 }
 
@@ -49,22 +53,49 @@ function groupByMicrobatch(classifications: readonly MoveClassification[]): read
 
   return Array.from(groups.entries())
     .sort(([left], [right]) => left - right)
-    .map(([microbatch, batchClassifications]) =>
-      Object.freeze({
-        microbatch,
-        classifications: Object.freeze(
-          [...batchClassifications].sort(
-            (left, right) =>
-              left.operation.stage - right.operation.stage ||
-              left.operation.kind.localeCompare(right.operation.kind),
-          ),
+    .map(([microbatch, batchClassifications]) => {
+      const sortedClassifications = Object.freeze(
+        [...batchClassifications].sort(
+          (left, right) =>
+            left.operation.stage - right.operation.stage ||
+            left.operation.kind.localeCompare(right.operation.kind),
         ),
-      }),
-    );
+      );
+      const readyCount = sortedClassifications.filter(
+        (classification) => classification.status === 'legal',
+      ).length;
+      const completedCount = sortedClassifications.filter(
+        (classification) => classification.status === 'completed',
+      ).length;
+      const phase: BatchPhase =
+        completedCount === sortedClassifications.length
+          ? 'done'
+          : readyCount > 0
+            ? 'ready'
+            : 'waiting';
+
+      return Object.freeze({
+        microbatch,
+        classifications: sortedClassifications,
+        readyCount,
+        phase,
+      });
+    });
 }
 
 function passLabel(kind: OperationKind): string {
   return kind === 'F' ? 'FWD' : 'BWD';
+}
+
+function batchPhaseLabel(group: BatchGroup): string {
+  switch (group.phase) {
+    case 'ready':
+      return `${group.readyCount} ready`;
+    case 'waiting':
+      return 'Waiting';
+    case 'done':
+      return 'Done';
+  }
 }
 
 export function OperationTray({
@@ -98,10 +129,13 @@ export function OperationTray({
           <section
             key={group.microbatch}
             className="batch-lane"
-            aria-label={`Batch ${group.microbatch} blocks`}
+            aria-label={`Batch ${group.microbatch} blocks, ${batchPhaseLabel(group)}`}
+            data-phase={group.phase}
+            data-ready-count={group.readyCount}
           >
             <div className="batch-lane__heading">
               <h3>Batch {group.microbatch}</h3>
+              <span className="batch-lane__status">{batchPhaseLabel(group)}</span>
             </div>
             <div className="batch-lane__stacks">
               {operationKinds.map((kind) => {

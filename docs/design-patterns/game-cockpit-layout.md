@@ -96,6 +96,7 @@ Rules:
 - show the durable compact code;
 - keep full identity in the accessible button label;
 - keep scroll local to the queue.
+- show lane phase at a glance: ready lanes stay prominent, waiting lanes recede, completed lanes remain inspectable but visually quiet.
 
 For Sensei:
 
@@ -103,6 +104,8 @@ For Sensei:
 - notation key: `(F/B, stage_id, micro_batch_id)`;
 - accessible label: `Place F stage 0 microbatch 1, 1 tick, ready`;
 - secondary metadata can be visually hidden when it makes the token taller than a placed board block.
+
+Completed tokens should stay reachable for inspection and undo reasoning. Do not remove them from the queue unless the board supplies an equally direct way to inspect completed blocks.
 
 ### Command Rail
 
@@ -129,6 +132,7 @@ Rules:
 - board pieces must be larger than inventory tokens;
 - labels must fit without overflow;
 - time/rank axes should be scan-friendly;
+- rank rows can use very subtle alternating bands when the board has several timelines;
 - board horizontal overflow must be contained inside the board region;
 - empty space should support reading the timeline, not decorate the page.
 
@@ -147,6 +151,21 @@ Default contents:
 
 The score rail should support scanning, not teach the formulas by default. Put detailed formula explanation behind disclosure if needed.
 
+Prefer a scoreboard-first rail:
+
+```text
+Score
+Run state
++----------+----------+
+| Makespan | Bubble   |
++----------+----------+
+| Memory   | Status   |
++----------+----------+
+Metric details
+```
+
+The selected-object inspector should repeat the same color cue and compact code used in the ready queue and board. This lets the learner track one block across queue, preview, placement, and explanation without re-parsing a sentence.
+
 ## Visual Language
 
 Use **technical learning cockpit**, not arcade HUD.
@@ -157,6 +176,8 @@ Good qualities:
 - quiet diagnostic surfaces;
 - strong monospaced data typography;
 - stable object colors from inventory to board;
+- selected-object continuity across queue, board, and inspector;
+- phase-aware compression for finished or temporarily unplaceable inventory groups;
 - subtle borders and shadows;
 - minimal motion used only for feedback or state change.
 
@@ -207,6 +228,9 @@ Use these before calling a cockpit layout finished:
 - The board is visually dominant over the inventory.
 - Ready tokens render smaller than placed board blocks.
 - A player can identify the same object in the queue, preview, and board.
+- The selected object uses the same visual identity in the inspector.
+- Completed groups remain inspectable but no longer compete with ready groups.
+- Score rail presents high-signal metrics before the full metric table.
 - The command rail is visible without scrolling on a laptop viewport.
 - Feedback for place, wait, hint, ready, auto, share, reset, undo, and redo is visible.
 - Screen-reader labels carry full object identity even when visible labels are compact.

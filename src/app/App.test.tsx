@@ -30,6 +30,20 @@ function createMemoryStorage(seed: Record<string, string> = {}): Storage {
   };
 }
 
+function metricRowIn(container: HTMLElement, name: RegExp): HTMLElement {
+  const term = within(container)
+    .getAllByText(name)
+    .find((candidate) => candidate.tagName === 'DT');
+  if (!term) {
+    throw new Error(`Metric term not found for ${name.toString()}`);
+  }
+  const row = term.closest('div');
+  if (!row) {
+    throw new Error(`Metric row not found for ${name.toString()}`);
+  }
+  return row;
+}
+
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
@@ -69,7 +83,7 @@ describe('App', () => {
 
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
     expect(within(metrics).getByText(/^Legal completion$/i)).toBeInTheDocument();
-    expect(within(metrics).getByText(/^Mastered$/i)).toBeInTheDocument();
+    expect(within(metricRowIn(metrics, /mastery/i)).getByText(/^Mastered$/i)).toBeInTheDocument();
 
     unmount();
     render(<App />);
@@ -110,7 +124,7 @@ describe('App', () => {
 
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
     expect(within(metrics).getByText(/^Legal completion$/i)).toBeInTheDocument();
-    expect(within(metrics).getByText(/^Mastered$/i)).toBeInTheDocument();
+    expect(within(metricRowIn(metrics, /mastery/i)).getByText(/^Mastered$/i)).toBeInTheDocument();
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
       /Loaded Dependency Chain from a shared attempt/i,
     );

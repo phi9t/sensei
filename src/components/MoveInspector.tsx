@@ -1,7 +1,10 @@
+import type { CSSProperties } from 'react';
 import type { ExplanationResult } from '../coaching/coaching';
 import type { BlockReason } from '../engine/replay';
 import type { OperationId } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
+import { parseOperationId } from '../engine/operations';
+import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 interface MoveInspectorProps {
   readonly operationId: OperationId | null;
@@ -9,6 +12,8 @@ interface MoveInspectorProps {
 }
 
 export function MoveInspector({ operationId, explanation }: MoveInspectorProps) {
+  const operationIdentity = operationId === null ? null : parseOperationId(operationId);
+
   return (
     <section className="panel inspector-panel" aria-labelledby="move-inspector-heading">
       <h2 id="move-inspector-heading">Move inspector</h2>
@@ -16,10 +21,25 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
 
       {operationId !== null && explanation !== null ? (
         <div className="inspector-content">
-          <p className="inspector-operation">
-            <strong>{formatOperationName(operationId)}</strong>{' '}
-            <span className="mono">{formatOperationCode(operationId)}</span>
-          </p>
+          <div className="inspector-operation">
+            <span
+              className="inspector-operation__swatch"
+              data-testid={`inspector-identity-${operationId}`}
+              data-operation-visual={
+                operationIdentity ? operationVisualKey(operationIdentity) : undefined
+              }
+              data-kind={operationIdentity?.kind}
+              aria-hidden="true"
+              style={
+                operationIdentity ? (operationVisualVars(operationIdentity) as CSSProperties) : {}
+              }
+            />
+            <div className="inspector-operation__copy">
+              <strong>{formatOperationName(operationId)}</strong>
+              <span className="mono">{formatOperationCode(operationId)}</span>
+            </div>
+            <span className="inspector-operation__status">{explanation.status}</span>
+          </div>
 
           {explanation.status === 'blocked' ? (
             <>

@@ -23,16 +23,42 @@ export function MetricsPanel({ level, score, currentMemory, attemptTuple }: Metr
       : level.masteryTargets
           .map((target) => `${target.metric} ${target.op} ${target.value}`)
           .join('; ');
+  const memoryCap = level.memoryCaps === null ? null : Math.max(...level.memoryCaps);
+  const memorySummary =
+    memoryCap === null
+      ? `${score.peakActivationMemory} peak`
+      : `${score.peakActivationMemory}/${memoryCap} peak`;
 
   return (
     <section className="panel metrics-panel" aria-labelledby="metrics-panel-heading">
-      <h2 id="metrics-panel-heading" className="sr-only">
-        Metrics panel
+      <p className="panel-kicker">Score</p>
+      <h2 id="metrics-panel-heading" aria-label="Metrics panel">
+        Run state
       </h2>
+      <div className="scoreboard" role="group" aria-label="Scoreboard">
+        <div className="scoreboard-card scoreboard-card--primary">
+          <span className="scoreboard-card__label">Makespan</span>
+          <strong>{score.makespan}</strong>
+        </div>
+        <div className="scoreboard-card">
+          <span className="scoreboard-card__label">Bubble</span>
+          <strong>{(score.bubbleRatio * 100).toFixed(1)}%</strong>
+        </div>
+        <div className="scoreboard-card">
+          <span className="scoreboard-card__label">Memory</span>
+          <strong>{memorySummary}</strong>
+        </div>
+        <div className="scoreboard-card">
+          <span className="scoreboard-card__label">Status</span>
+          <strong>
+            {score.mastered ? 'Mastered' : score.complete ? 'Complete' : 'In progress'}
+          </strong>
+        </div>
+      </div>
       <details className="metrics-details">
         <summary>
-          <span>Metrics</span>
-          <span className="metrics-summary__value">makespan {score.makespan}</span>
+          <span>Metric details</span>
+          <span className="metrics-summary__value">{formatTuple(attemptTuple)}</span>
         </summary>
         <dl className="metrics-grid">
           <div>

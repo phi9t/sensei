@@ -209,6 +209,15 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
             const lineY = y + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 12;
             return (
               <g key={`rank-${rank}`}>
+                <rect
+                  data-testid={`rank-band-${rank}`}
+                  x={LEFT_PADDING}
+                  y={y - 12}
+                  width={timelineEnd * CELL_WIDTH}
+                  height={ROW_HEIGHT - 10}
+                  className="rank-band"
+                  data-rank-parity={rank % 2 === 0 ? 'even' : 'odd'}
+                />
                 <text x="12" y={lineY + 4} className="rank-label">
                   Rank {rank}
                 </text>
