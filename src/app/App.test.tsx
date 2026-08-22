@@ -1,7 +1,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { App } from './App';
+import { App, groupLevelOptions } from './App';
+import type { LevelOptionState } from './useGame';
 import { MASTERED_ACTIONS } from '../levels/fixtures';
 import { LEVEL_IDS, getLevel } from '../levels/levels';
 import { encodeAttempt } from '../persistence/storage';
@@ -58,16 +59,65 @@ describe('App', () => {
     expect(screen.getByText(/pipeline scheduling/i)).toBeInTheDocument();
   });
 
-  it('uses canonical level titles in the level selector options', () => {
+  it('uses curriculum labels and stable level ids in the level selector options', () => {
     render(<App />);
 
     const levelSelector = screen.getByRole('combobox', { name: /choose level/i });
     const options = screen.getAllByRole('option');
 
     expect(levelSelector).toBeInTheDocument();
+    expect(options.map((option) => option.getAttribute('value'))).toEqual(LEVEL_IDS);
     expect(options.map((option) => option.textContent)).toEqual(
-      LEVEL_IDS.map((levelId) => getLevel(levelId).title),
+      LEVEL_IDS.map((levelId) => {
+        const level = getLevel(levelId);
+        return level.algorithm.patternLabel
+          ? `${level.title} (${level.algorithm.patternLabel})`
+          : level.title;
+      }),
     );
+    expect(
+      levelSelector.querySelector('optgroup[label="GPipe"] option[value="gpipe-afab"]'),
+    ).toBeDisabled();
+    expect(
+      levelSelector.querySelector(
+        'optgroup[label="1F1B"] option[value="memory-capped-one-f-one-b"]',
+      ),
+    ).toBeDisabled();
+  });
+
+  it('groups level options by first-seen curriculum set when sets are non-contiguous', () => {
+    const option = (
+      levelId: LevelOptionState['levelId'],
+      title: string,
+      setTitle: string,
+    ): LevelOptionState => ({
+      levelId,
+      title,
+      setTitle,
+      patternLabel: null,
+      unlocked: true,
+      reason: null,
+    });
+
+    expect(
+      groupLevelOptions([
+        option('dependency-chain', 'Dependency Chain', 'Foundations'),
+        option('gpipe-afab', 'GPipe AFAB', 'GPipe'),
+        option('fill-the-pipe', 'Fill the Pipe', 'Foundations'),
+      ]),
+    ).toEqual([
+      {
+        setTitle: 'Foundations',
+        options: [
+          option('dependency-chain', 'Dependency Chain', 'Foundations'),
+          option('fill-the-pipe', 'Fill the Pipe', 'Foundations'),
+        ],
+      },
+      {
+        setTitle: 'GPipe',
+        options: [option('gpipe-afab', 'GPipe AFAB', 'GPipe')],
+      },
+    ]);
   });
 
   it('persists completed progress across remounts in the default browser-storage app path', async () => {
@@ -88,7 +138,7 @@ describe('App', () => {
 
     expect(screen.getByText(/Progress restored\./i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /choose level/i })).toHaveValue('dependency-chain');
-    expect(screen.getByRole('option', { name: 'Fill the Pipe' })).toBeEnabled();
+    expect(screen.getByRole('option', { name: 'Fill the Pipe (Fill/Drain)' })).toBeEnabled();
   });
 
   it('shows a polite session-only notice when browser storage is unavailable in the default app path', () => {

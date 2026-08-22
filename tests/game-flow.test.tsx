@@ -171,8 +171,9 @@ describe('game flow', () => {
       const legal = LEGAL_ACTIONS[levelId];
       const mastered = MASTERED_ACTIONS[levelId];
 
-      await user.selectOptions(levelPicker, levelTitle);
-      expect(screen.getByDisplayValue(levelTitle)).toBeInTheDocument();
+      await user.selectOptions(levelPicker, levelId);
+      expect(levelPicker).toHaveValue(levelId);
+      expect(screen.getByRole('heading', { name: levelTitle })).toBeInTheDocument();
 
       await runJourney(user, legal, 'pointer');
       expect(screen.getAllByText(/legal completion/i).length).toBeGreaterThan(0);
@@ -230,8 +231,11 @@ describe('game flow', () => {
     const secondUser = userEvent.setup();
     render(<App storage={reloadStorage} />);
     const pickerAfterReload = screen.getByRole('combobox', { name: /choose level/i });
-    await secondUser.selectOptions(pickerAfterReload, getLevel('fill-the-pipe').title);
-    expect(screen.getByDisplayValue(getLevel('fill-the-pipe').title)).toBeInTheDocument();
+    await secondUser.selectOptions(pickerAfterReload, 'fill-the-pipe');
+    expect(pickerAfterReload).toHaveValue('fill-the-pipe');
+    expect(
+      screen.getByRole('heading', { name: getLevel('fill-the-pipe').title }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/progress restored/i)).toBeInTheDocument();
     expect(
       screen.getByText(/complete fill the pipe to unlock backward is heavier/i),

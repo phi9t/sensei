@@ -61,6 +61,37 @@ describe('Game shell', () => {
     expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
   });
 
+  it('surfaces the current algorithm set and pattern without adding a rules panel', () => {
+    render(<App initialLevelId="gpipe-afab" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+
+    expect(within(guide).getByText(/^GPipe$/i)).toBeInTheDocument();
+    expect(within(guide).getByRole('heading', { name: /^GPipe AFAB$/i })).toBeInTheDocument();
+    expect(
+      within(guide).getByText(/Run all forward work first, then drain all backward work/i),
+    ).toBeInTheDocument();
+    expect(within(guide).getByText(/^AFAB$/i)).toBeInTheDocument();
+    expect(
+      within(guide).getByText(/Build the AFAB shape and notice the activation memory it holds/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('groups the level picker by curriculum set', () => {
+    render(<App initialLevelId="dependency-chain" />);
+
+    const picker = screen.getByRole('combobox', { name: /choose level/i });
+    const groups = Array.from(picker.querySelectorAll('optgroup')).map((group) =>
+      group.getAttribute('label'),
+    );
+
+    expect(groups).toEqual(['Foundations', 'GPipe', '1F1B']);
+    expect(
+      picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
+    ).not.toBeNull();
+  });
+
   it('keeps core schedule commands in a thin command rail', () => {
     render(<App initialLevelId="dependency-chain" />);
 

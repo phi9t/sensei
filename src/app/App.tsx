@@ -4,7 +4,7 @@ import { MoveInspector } from '../components/MoveInspector';
 import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
 import { LevelGuide } from '../components/LevelGuide';
-import { useGame } from './useGame';
+import { useGame, type LevelOptionState } from './useGame';
 import type { LevelId } from '../levels/levels';
 import type { OfflineStatus } from '../offline/register';
 
@@ -43,6 +43,36 @@ function offlineNoticeFor(status: OfflineStatus | undefined): string | null {
   }
 }
 
+interface LevelOptionGroup {
+  readonly setTitle: string;
+  readonly options: readonly LevelOptionState[];
+}
+
+export function groupLevelOptions(
+  options: readonly LevelOptionState[],
+): readonly LevelOptionGroup[] {
+  const groupsBySet = new Map<string, LevelOptionState[]>();
+
+  for (const option of options) {
+    const group = groupsBySet.get(option.setTitle);
+    if (group) {
+      group.push(option);
+      continue;
+    }
+
+    groupsBySet.set(option.setTitle, [option]);
+  }
+
+  return Object.freeze(
+    Array.from(groupsBySet, ([setTitle, groupOptions]) =>
+      Object.freeze({
+        setTitle,
+        options: Object.freeze([...groupOptions]),
+      }),
+    ),
+  );
+}
+
 export function App({ initialLevelId = 'dependency-chain', storage, offlineStatus }: AppProps) {
   const defaultStorage = storage === undefined ? resolveBrowserStorage() : null;
   const resolvedStorage = defaultStorage?.storage ?? storage ?? null;
@@ -79,10 +109,14 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
               value={game.levelId}
               onChange={(event) => game.changeLevel(event.target.value as LevelId)}
             >
-              {game.levelOptions.map((option) => (
-                <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
-                  {option.title}
-                </option>
+              {groupLevelOptions(game.levelOptions).map((group) => (
+                <optgroup key={group.setTitle} label={group.setTitle}>
+                  {group.options.map((option) => (
+                    <option key={option.levelId} value={option.levelId} disabled={!option.unlocked}>
+                      {option.patternLabel ? `${option.title} (${option.patternLabel})` : option.title}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
