@@ -260,6 +260,7 @@ describe('responsive play surface CSS contract', () => {
     const metricsPanelBlock = extractBlock(css, '.metrics-panel');
     const scoreboardBlock = extractBlock(css, '.scoreboard');
     const scoreboardCardBlock = extractBlock(css, '.scoreboard-card');
+    const policyComparisonBlock = extractBlock(css, '.policy-comparison');
 
     expect(inspectorOperationBlock).toMatch(
       /\.inspector-operation\s*\{[^}]*\bborder:\s*1px solid color-mix\(in srgb,\s*var\(--operation-accent\) 42%,\s*var\(--line\)\)\s*;/,
@@ -275,5 +276,10 @@ describe('responsive play surface CSS contract', () => {
       /\.scoreboard\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
     );
     expect(scoreboardCardBlock).toMatch(/\.scoreboard-card\s*\{[^}]*\bborder-radius:\s*8px\s*;/);
+    expect(policyComparisonBlock).toMatch(
+      /\.policy-comparison\s*\{[^}]*\bborder-radius:\s*8px\s*;/,
+    );
+    expect(policyComparisonBlock).toMatch(/\.policy-comparison\s*\{[^}]*\boverflow:\s*hidden\s*;/);
+    expect(policyComparisonBlock).not.toMatch(/\bposition:\s*absolute\s*;/);
   });
 });

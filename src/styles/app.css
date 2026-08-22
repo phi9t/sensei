@@ -1098,6 +1098,29 @@ summary:focus-visible {
   font-size: 0.72rem;
 }
 
+.policy-comparison {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.policy-comparison summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.62rem 0.72rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.policy-comparison .metrics-grid {
+  border-top: 1px solid var(--line);
+  padding: 0.7rem;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
