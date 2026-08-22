@@ -407,7 +407,7 @@ function completionMessage(levelId: LevelId, actions: readonly Action[]): string
   }
 
   if (comparison.match === 'exact') {
-    return `Completed as ${comparison.label} reference. ${outcome}${suffix}`;
+    return `Completed as ${comparison.label} reference. ${outcome}`;
   }
 
   if (comparison.match === 'order-only') {

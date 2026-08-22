@@ -155,7 +155,7 @@ describe('game flow', () => {
     await runJourney(user, MASTERED_ACTIONS['gpipe-afab'], 'pointer');
 
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
-      /Completed as GPipe AFAB reference\. Mastered\./i,
+      /^Completed as GPipe AFAB reference\. Mastered\.$/,
     );
   }, 10000);
 
@@ -167,7 +167,7 @@ describe('game flow', () => {
     await runJourney(user, LEGAL_ACTIONS['gpipe-afab'], 'pointer');
 
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
-      /Completed with GPipe AFAB order, \+1 makespan vs reference\. Legal completion\. Missed makespan target\./i,
+      /^Completed with GPipe AFAB order, \+1 makespan vs reference\. Legal completion\. Missed makespan target\.$/,
     );
   }, 10000);
 
