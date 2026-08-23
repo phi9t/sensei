@@ -418,6 +418,29 @@ describe('game flow', () => {
     expect(bestAttempt(parseProgressFrom(storage), 'stamp-the-pattern')?.outcome).toBe('mastered');
   });
 
+  it('plays and persists the virtual-stage level as ordinary actions', async () => {
+    const user = userEvent.setup();
+    const storage = createMemoryStorage();
+
+    render(<App storage={storage} initialLevelId="virtual-stages" />);
+
+    await runJourney(user, MASTERED_ACTIONS['virtual-stages'], 'pointer');
+
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+        /^Completed\. Mastered\.$/,
+      );
+    });
+    await waitFor(() => {
+      expect(bestAttempt(parseProgressFrom(storage), 'virtual-stages')?.outcome).toBe('mastered');
+    });
+
+    const stored = storage.snapshot();
+    expect(stored).not.toBeNull();
+    expect(stored).toContain('virtual-stages');
+    expect(stored).not.toContain('topology');
+  }, 10000);
+
   it('persists identical canonical logs for pointer and keyboard journeys', async () => {
     const pointerStorage = createMemoryStorage();
     const keyboardStorage = createMemoryStorage();
