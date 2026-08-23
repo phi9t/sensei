@@ -60,6 +60,7 @@ It does not implement interleaved 1F1B policy recognition, nonuniform duration s
 ## Task 1: Topology Types And Mapping
 
 **Files:**
+
 - Modify: `src/engine/types.ts`
 - Create: `src/engine/topology.ts`
 - Test: `src/engine/topology.test.ts`
@@ -223,6 +224,7 @@ git commit -m "feat: add pipeline topology mapping"
 ## Task 2: Config Validation And Operation Derivation
 
 **Files:**
+
 - Modify: `src/engine/config.ts`
 - Modify: `src/engine/config.test.ts`
 - Modify: `src/engine/operations.ts`
@@ -233,89 +235,89 @@ git commit -m "feat: add pipeline topology mapping"
 In `src/engine/config.test.ts`, replace the existing `rejects stageCount !== rankCount` test with these topology tests:
 
 ```ts
-  it('rejects stageCount different from rankCount without virtual topology', () => {
-    expect(() => validateLevelConfig({ ...makeConfig(), stageCount: 3 })).toThrow(
-      /one-to-one topology requires stageCount to equal rankCount/,
-    );
-  });
+it('rejects stageCount different from rankCount without virtual topology', () => {
+  expect(() => validateLevelConfig({ ...makeConfig(), stageCount: 3 })).toThrow(
+    /one-to-one topology requires stageCount to equal rankCount/,
+  );
+});
 
-  it('accepts wrap topology when stageCount equals rankCount times virtualStagesPerRank', () => {
-    expect(() =>
-      validateLevelConfig(
-        makeConfig({
-          rankCount: 2,
-          stageCount: 4,
-          topology: { placement: 'wrap', virtualStagesPerRank: 2 },
-        }),
-      ),
-    ).not.toThrow();
-  });
+it('accepts wrap topology when stageCount equals rankCount times virtualStagesPerRank', () => {
+  expect(() =>
+    validateLevelConfig(
+      makeConfig({
+        rankCount: 2,
+        stageCount: 4,
+        topology: { placement: 'wrap', virtualStagesPerRank: 2 },
+      }),
+    ),
+  ).not.toThrow();
+});
 
-  it('accepts v-shape topology when stageCount equals rankCount times virtualStagesPerRank', () => {
-    expect(() =>
-      validateLevelConfig(
-        makeConfig({
-          rankCount: 2,
-          stageCount: 4,
-          topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
-        }),
-      ),
-    ).not.toThrow();
-  });
+it('accepts v-shape topology when stageCount equals rankCount times virtualStagesPerRank', () => {
+  expect(() =>
+    validateLevelConfig(
+      makeConfig({
+        rankCount: 2,
+        stageCount: 4,
+        topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+      }),
+    ),
+  ).not.toThrow();
+});
 
-  it('rejects virtual topology stage-count mismatches', () => {
-    expect(() =>
-      validateLevelConfig(
-        makeConfig({
-          rankCount: 2,
-          stageCount: 5,
-          topology: { placement: 'wrap', virtualStagesPerRank: 2 },
-        }),
-      ),
-    ).toThrow(/virtual topology requires stageCount to equal rankCount times virtualStagesPerRank/);
-  });
+it('rejects virtual topology stage-count mismatches', () => {
+  expect(() =>
+    validateLevelConfig(
+      makeConfig({
+        rankCount: 2,
+        stageCount: 5,
+        topology: { placement: 'wrap', virtualStagesPerRank: 2 },
+      }),
+    ),
+  ).toThrow(/virtual topology requires stageCount to equal rankCount times virtualStagesPerRank/);
+});
 
-  it('rejects non-positive virtualStagesPerRank values', () => {
-    expect(() =>
-      validateLevelConfig(
-        makeConfig({
-          rankCount: 2,
-          stageCount: 2,
-          topology: { placement: 'wrap', virtualStagesPerRank: 0 },
-        }),
-      ),
-    ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
-  });
+it('rejects non-positive virtualStagesPerRank values', () => {
+  expect(() =>
+    validateLevelConfig(
+      makeConfig({
+        rankCount: 2,
+        stageCount: 2,
+        topology: { placement: 'wrap', virtualStagesPerRank: 0 },
+      }),
+    ),
+  ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
+});
 
-  it('rejects one-to-one topology with more than one virtual stage per rank', () => {
-    expect(() =>
-      validateLevelConfig(
-        makeConfig({
-          rankCount: 2,
-          stageCount: 4,
-          topology: { placement: 'one-to-one', virtualStagesPerRank: 2 },
-        }),
-      ),
-    ).toThrow(/one-to-one topology requires virtualStagesPerRank to equal 1/);
-  });
+it('rejects one-to-one topology with more than one virtual stage per rank', () => {
+  expect(() =>
+    validateLevelConfig(
+      makeConfig({
+        rankCount: 2,
+        stageCount: 4,
+        topology: { placement: 'one-to-one', virtualStagesPerRank: 2 },
+      }),
+    ),
+  ).toThrow(/one-to-one topology requires virtualStagesPerRank to equal 1/);
+});
 ```
 
 Add `virtualStagesPerRank` to the existing boundary test's integer-count fields:
 
 ```ts
-  it('rejects NaN, Infinity, and fractions for virtualStagesPerRank', () => {
-    for (const value of [NaN, Infinity, -Infinity, 1.5, -1]) {
-      expect(() =>
-        validateLevelConfig(
-          makeConfig({
-            rankCount: 2,
-            stageCount: 4,
-            topology: { placement: 'wrap', virtualStagesPerRank: value },
-          }),
-        ),
-      ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
-    }
-  });
+it('rejects NaN, Infinity, and fractions for virtualStagesPerRank', () => {
+  for (const value of [NaN, Infinity, -Infinity, 1.5, -1]) {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 4,
+          topology: { placement: 'wrap', virtualStagesPerRank: value },
+        }),
+      ),
+    ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
+  }
+});
 ```
 
 - [ ] **Step 2: Write failing operation derivation tests**
@@ -323,65 +325,61 @@ Add `virtualStagesPerRank` to the existing boundary test's integer-count fields:
 In `src/engine/operations.test.ts`, add:
 
 ```ts
-  it('derives wrap topology ranks while preserving logical operation IDs', () => {
-    const config = makeConfig({
-      rankCount: 2,
-      stageCount: 4,
-      microbatchCount: 1,
-      topology: { placement: 'wrap', virtualStagesPerRank: 2 },
-    });
-
-    expect(
-      deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank })),
-    ).toEqual([
-      { id: 'F:0:0', stage: 0, rank: 0 },
-      { id: 'B:0:0', stage: 0, rank: 0 },
-      { id: 'F:1:0', stage: 1, rank: 1 },
-      { id: 'B:1:0', stage: 1, rank: 1 },
-      { id: 'F:2:0', stage: 2, rank: 0 },
-      { id: 'B:2:0', stage: 2, rank: 0 },
-      { id: 'F:3:0', stage: 3, rank: 1 },
-      { id: 'B:3:0', stage: 3, rank: 1 },
-    ]);
+it('derives wrap topology ranks while preserving logical operation IDs', () => {
+  const config = makeConfig({
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 1,
+    topology: { placement: 'wrap', virtualStagesPerRank: 2 },
   });
 
-  it('derives v-shape topology ranks while preserving logical operation IDs', () => {
-    const config = makeConfig({
-      rankCount: 2,
-      stageCount: 4,
-      microbatchCount: 1,
-      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
-    });
+  expect(deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank }))).toEqual([
+    { id: 'F:0:0', stage: 0, rank: 0 },
+    { id: 'B:0:0', stage: 0, rank: 0 },
+    { id: 'F:1:0', stage: 1, rank: 1 },
+    { id: 'B:1:0', stage: 1, rank: 1 },
+    { id: 'F:2:0', stage: 2, rank: 0 },
+    { id: 'B:2:0', stage: 2, rank: 0 },
+    { id: 'F:3:0', stage: 3, rank: 1 },
+    { id: 'B:3:0', stage: 3, rank: 1 },
+  ]);
+});
 
-    expect(
-      deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank })),
-    ).toEqual([
-      { id: 'F:0:0', stage: 0, rank: 0 },
-      { id: 'B:0:0', stage: 0, rank: 0 },
-      { id: 'F:1:0', stage: 1, rank: 1 },
-      { id: 'B:1:0', stage: 1, rank: 1 },
-      { id: 'F:2:0', stage: 2, rank: 1 },
-      { id: 'B:2:0', stage: 2, rank: 1 },
-      { id: 'F:3:0', stage: 3, rank: 0 },
-      { id: 'B:3:0', stage: 3, rank: 0 },
-    ]);
+it('derives v-shape topology ranks while preserving logical operation IDs', () => {
+  const config = makeConfig({
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 1,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
   });
+
+  expect(deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank }))).toEqual([
+    { id: 'F:0:0', stage: 0, rank: 0 },
+    { id: 'B:0:0', stage: 0, rank: 0 },
+    { id: 'F:1:0', stage: 1, rank: 1 },
+    { id: 'B:1:0', stage: 1, rank: 1 },
+    { id: 'F:2:0', stage: 2, rank: 1 },
+    { id: 'B:2:0', stage: 2, rank: 1 },
+    { id: 'F:3:0', stage: 3, rank: 0 },
+    { id: 'B:3:0', stage: 3, rank: 0 },
+  ]);
+});
 ```
 
 In the `predecessorsOf` block, add:
 
 ```ts
-  it('keeps virtual-stage dependencies on logical stage order', () => {
-    const config = makeConfig({
-      rankCount: 2,
-      stageCount: 4,
-      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
-    });
-
-    expect(predecessorsOf('F:2:0', config)).toEqual(['F:1:0']);
-    expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0', 'B:2:0']);
-    expect(predecessorsOf('B:3:0', config)).toEqual(['F:3:0']);
+it('keeps virtual-stage dependencies on logical stage order', () => {
+  const config = makeConfig({
+    rankCount: 2,
+    stageCount: 4,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
   });
+
+  expect(predecessorsOf('F:2:0', config)).toEqual(['F:1:0']);
+  expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0', 'B:2:0']);
+  expect(predecessorsOf('B:3:0', config)).toEqual(['F:3:0']);
+});
 ```
 
 - [ ] **Step 3: Run targeted tests and verify they fail**
@@ -401,11 +399,7 @@ Update `src/engine/config.ts`:
 ```ts
 import type { LevelConfig, PipelineTopologyPlacement } from './types';
 
-const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>([
-  'one-to-one',
-  'wrap',
-  'v-shape',
-]);
+const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
 
 function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
   return TOPOLOGY_PLACEMENTS.has(value as PipelineTopologyPlacement);
@@ -415,31 +409,31 @@ function isTopologyPlacement(value: string): value is PipelineTopologyPlacement 
 Inside `validateLevelConfig`, replace the current `stageCount !== rankCount` check with:
 
 ```ts
-  const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };
+const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };
 
-  if (!isTopologyPlacement(topology.placement)) {
-    throw new Error('topology placement must be one-to-one, wrap, or v-shape');
+if (!isTopologyPlacement(topology.placement)) {
+  throw new Error('topology placement must be one-to-one, wrap, or v-shape');
+}
+if (!isFinitePositiveInteger(topology.virtualStagesPerRank)) {
+  throw new Error('virtualStagesPerRank must be a positive finite integer');
+}
+if (topology.placement === 'one-to-one') {
+  if (topology.virtualStagesPerRank !== 1) {
+    throw new Error('one-to-one topology requires virtualStagesPerRank to equal 1');
   }
-  if (!isFinitePositiveInteger(topology.virtualStagesPerRank)) {
-    throw new Error('virtualStagesPerRank must be a positive finite integer');
+  if (config.stageCount !== config.rankCount) {
+    throw new Error('one-to-one topology requires stageCount to equal rankCount');
   }
-  if (topology.placement === 'one-to-one') {
-    if (topology.virtualStagesPerRank !== 1) {
-      throw new Error('one-to-one topology requires virtualStagesPerRank to equal 1');
-    }
-    if (config.stageCount !== config.rankCount) {
-      throw new Error('one-to-one topology requires stageCount to equal rankCount');
-    }
-  } else {
-    if (topology.virtualStagesPerRank <= 1) {
-      throw new Error('virtual topology requires virtualStagesPerRank greater than 1');
-    }
-    if (config.stageCount !== config.rankCount * topology.virtualStagesPerRank) {
-      throw new Error(
-        'virtual topology requires stageCount to equal rankCount times virtualStagesPerRank',
-      );
-    }
+} else {
+  if (topology.virtualStagesPerRank <= 1) {
+    throw new Error('virtual topology requires virtualStagesPerRank greater than 1');
   }
+  if (config.stageCount !== config.rankCount * topology.virtualStagesPerRank) {
+    throw new Error(
+      'virtual topology requires stageCount to equal rankCount times virtualStagesPerRank',
+    );
+  }
+}
 ```
 
 - [ ] **Step 5: Update operation derivation**
@@ -478,6 +472,7 @@ git commit -m "feat: support virtual-stage topology"
 ## Task 3: Replay Semantics And Fixtures
 
 **Files:**
+
 - Modify: `src/engine/replay.test.ts`
 - Modify: `src/levels/levels.ts`
 - Modify: `src/levels/fixtures.ts`
@@ -497,11 +492,16 @@ describe('virtual-stage replay', () => {
   });
 
   it('places logical stages on their physical owner ranks', () => {
-    const state = expectState(
-      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
-    );
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')));
 
-    expect(state.placements.map(({ operationId, rank, start, end }) => ({ operationId, rank, start, end }))).toEqual([
+    expect(
+      state.placements.map(({ operationId, rank, start, end }) => ({
+        operationId,
+        rank,
+        start,
+        end,
+      })),
+    ).toEqual([
       { operationId: 'F:0:0', rank: 0, start: 0, end: 1 },
       { operationId: 'F:1:0', rank: 1, start: 1, end: 2 },
       { operationId: 'F:2:0', rank: 1, start: 2, end: 3 },
@@ -510,9 +510,7 @@ describe('virtual-stage replay', () => {
   });
 
   it('blocks backward work until the next logical stage backward is complete', () => {
-    const state = expectState(
-      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
-    );
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')));
 
     const result = applyAction(state, { type: 'place', operationId: 'B:1:0' });
 
@@ -539,7 +537,9 @@ Expected before implementation: FAIL because topology config is rejected or stag
 In `src/levels/levels.ts`, add a helper:
 
 ```ts
-function freezeTopology(topology: NonNullable<LevelConfig['topology']>): NonNullable<LevelConfig['topology']> {
+function freezeTopology(
+  topology: NonNullable<LevelConfig['topology']>,
+): NonNullable<LevelConfig['topology']> {
   return Object.freeze({ ...topology });
 }
 ```
@@ -644,24 +644,24 @@ Add the `virtual-stages` expected config matching Step 4.
 Add a topology freezing test:
 
 ```ts
-  it('freezes topology metadata with the level config', () => {
-    const level = getLevel('virtual-stages');
+it('freezes topology metadata with the level config', () => {
+  const level = getLevel('virtual-stages');
 
-    expect(Object.isFrozen(level.topology)).toBe(true);
-    expect(level.topology).toEqual({ placement: 'v-shape', virtualStagesPerRank: 2 });
-  });
+  expect(Object.isFrozen(level.topology)).toBe(true);
+  expect(level.topology).toEqual({ placement: 'v-shape', virtualStagesPerRank: 2 });
+});
 ```
 
 Update expected group assertions that currently list:
 
 ```ts
-['Foundations', 'GPipe', '1F1B', 'Building Blocks']
+['Foundations', 'GPipe', '1F1B', 'Building Blocks'];
 ```
 
 to:
 
 ```ts
-['Foundations', 'GPipe', '1F1B', 'Building Blocks', 'Virtual Stages']
+['Foundations', 'GPipe', '1F1B', 'Building Blocks', 'Virtual Stages'];
 ```
 
 - [ ] **Step 7: Run level and replay tests**
@@ -686,6 +686,7 @@ git commit -m "feat: add virtual-stage curriculum level"
 ## Task 4: Compact Topology UI
 
 **Files:**
+
 - Modify: `src/app/useGame.ts`
 - Modify: `src/components/LevelGuide.tsx`
 - Modify: `src/components/MoveInspector.tsx`
@@ -739,12 +740,12 @@ Use existing test setup/imports in the file. If direct `initialLevelId` renderin
 In `tests/responsive-css.test.mjs`, add assertions:
 
 ```js
-    const topologyChipBlock = extractBlock(css, '.topology-chip');
-    const topologyOwnersBlock = extractBlock(css, '.rank-owner-list');
+const topologyChipBlock = extractBlock(css, '.topology-chip');
+const topologyOwnersBlock = extractBlock(css, '.rank-owner-list');
 
-    expect(topologyChipBlock).toMatch(/\\.topology-chip\\s*\\{[^}]*\\bwhite-space:\\s*nowrap\\s*;/);
-    expect(topologyChipBlock).toMatch(/\\.topology-chip\\s*\\{[^}]*\\bmax-width:\\s*100%\\s*;/);
-    expect(topologyOwnersBlock).toMatch(/\\.rank-owner-list\\s*\\{[^}]*\\boverflow-x:\\s*auto\\s*;/);
+expect(topologyChipBlock).toMatch(/\\.topology-chip\\s*\\{[^}]*\\bwhite-space:\\s*nowrap\\s*;/);
+expect(topologyChipBlock).toMatch(/\\.topology-chip\\s*\\{[^}]*\\bmax-width:\\s*100%\\s*;/);
+expect(topologyOwnersBlock).toMatch(/\\.rank-owner-list\\s*\\{[^}]*\\boverflow-x:\\s*auto\\s*;/);
 ```
 
 - [ ] **Step 3: Run targeted UI tests and verify failure**
@@ -781,7 +782,9 @@ function topologyLabel(level: LevelConfig): string | null {
 Then render it inside `.level-guide-panel__chips` before the pattern label:
 
 ```tsx
-        {topologyLabel(level) ? <span className="topology-chip">{topologyLabel(level)}</span> : null}
+{
+  topologyLabel(level) ? <span className="topology-chip">{topologyLabel(level)}</span> : null;
+}
 ```
 
 - [ ] **Step 6: Add owner-rank copy to the inspector**
@@ -789,9 +792,11 @@ Then render it inside `.level-guide-panel__chips` before the pattern label:
 In `src/components/MoveInspector.tsx`, use the selected explanation operation when available:
 
 ```tsx
-              {explanation.operation.rank !== operationIdentity.stage ? (
-                <span>Owner rank {explanation.operation.rank}</span>
-              ) : null}
+{
+  explanation.operation.rank !== operationIdentity.stage ? (
+    <span>Owner rank {explanation.operation.rank}</span>
+  ) : null;
+}
 ```
 
 Place this next to the compact code in `.inspector-operation__copy`. If the exact object access differs, use the `operation` already carried by every `ExplanationResult` variant rather than re-deriving ownership from the ID.
@@ -818,13 +823,15 @@ function rankOwnerLabel(state: ScheduleState, rank: number): string {
 Render the labels in the timeline details area or just above the board scroll region:
 
 ```tsx
-      {schedule.config.topology && schedule.config.topology.placement !== 'one-to-one' ? (
-        <div className="rank-owner-list" aria-label="Virtual stage ownership">
-          {Array.from({ length: schedule.config.rankCount }, (_, rank) => (
-            <span key={rank}>{rankOwnerLabel(schedule, rank)}</span>
-          ))}
-        </div>
-      ) : null}
+{
+  schedule.config.topology && schedule.config.topology.placement !== 'one-to-one' ? (
+    <div className="rank-owner-list" aria-label="Virtual stage ownership">
+      {Array.from({ length: schedule.config.rankCount }, (_, rank) => (
+        <span key={rank}>{rankOwnerLabel(schedule, rank)}</span>
+      ))}
+    </div>
+  ) : null;
+}
 ```
 
 - [ ] **Step 8: Add CSS for compact topology affordances**
@@ -877,6 +884,7 @@ git commit -m "feat: show compact virtual-stage ownership"
 ## Task 5: Persistence And Full Integration Coverage
 
 **Files:**
+
 - Modify: `tests/game-flow.test.tsx`
 - Modify: `tests/persistence.test.ts`
 - Modify: `src/levels/levels.test.ts`
@@ -914,33 +922,33 @@ Adapt imports to existing helpers in the file.
 In `tests/persistence.test.ts`, add:
 
 ```ts
-  it('encodes and decodes virtual-stage attempts as expanded actions only', () => {
-    const level = getLevel('virtual-stages');
-    const payload: UrlAttemptPayload = {
-      schemaVersion: 1,
-      levelId: 'virtual-stages',
-      levelVersion: level.version,
-      actions: MASTERED_ACTIONS['virtual-stages'],
-    };
+it('encodes and decodes virtual-stage attempts as expanded actions only', () => {
+  const level = getLevel('virtual-stages');
+  const payload: UrlAttemptPayload = {
+    schemaVersion: 1,
+    levelId: 'virtual-stages',
+    levelVersion: level.version,
+    actions: MASTERED_ACTIONS['virtual-stages'],
+  };
 
-    const encoded = encodeAttempt(payload);
-    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+  const encoded = encodeAttempt(payload);
+  const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
 
-    expect(Object.keys(storedPayload).sort()).toEqual(
-      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
-    );
-    expect(storedPayload).not.toHaveProperty('topology');
-    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['virtual-stages']);
+  expect(Object.keys(storedPayload).sort()).toEqual(
+    ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+  );
+  expect(storedPayload).not.toHaveProperty('topology');
+  expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['virtual-stages']);
 
-    const decoded = decodeAttempt(encoded, getLevel);
+  const decoded = decodeAttempt(encoded, getLevel);
 
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) {
-      expect(decoded.attempt.levelId).toBe('virtual-stages');
-      expect(decoded.attempt.outcome).toBe('mastered');
-      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['virtual-stages']);
-    }
-  });
+  expect(decoded.ok).toBe(true);
+  if (decoded.ok) {
+    expect(decoded.attempt.levelId).toBe('virtual-stages');
+    expect(decoded.attempt.outcome).toBe('mastered');
+    expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['virtual-stages']);
+  }
+});
 ```
 
 - [ ] **Step 3: Run integration tests and verify failure if earlier tasks are absent**
@@ -969,6 +977,7 @@ git commit -m "test: cover virtual-stage integration"
 ## Task 6: Review, Verify, Rebase, And Land
 
 **Files:**
+
 - No new planned source files.
 - Do not stage `src/components/PipelineLessonPanel.tsx`.
 

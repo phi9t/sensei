@@ -172,7 +172,7 @@ function ownerRankForStage(config: LevelConfig, stage: number): number;
 4. `one-to-one` requires `virtualStagesPerRank === 1` and
    `stageCount === rankCount`.
 5. `wrap` and `v-shape` require `stageCount === rankCount *
-   virtualStagesPerRank` and `virtualStagesPerRank > 1`.
+virtualStagesPerRank` and `virtualStagesPerRank > 1`.
 6. `memoryCaps`, when present, still has one entry per physical rank.
 
 `deriveOperations` should continue to produce one `F` and one `B` operation for
