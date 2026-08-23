@@ -1,4 +1,10 @@
-import type { LevelConfig } from './types';
+import type { LevelConfig, PipelineTopologyPlacement } from './types';
+
+const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
+
+function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
+  return TOPOLOGY_PLACEMENTS.has(value as PipelineTopologyPlacement);
+}
 
 function isFinitePositiveInteger(value: number): boolean {
   return Number.isInteger(value) && Number.isFinite(value) && value > 0;
@@ -33,8 +39,31 @@ export function validateLevelConfig(config: LevelConfig): void {
   if (config.durations.F !== 1 || config.durations.B !== 2) {
     throw new Error('V1 durations must be F=1 and B=2');
   }
-  if (config.stageCount !== config.rankCount) {
-    throw new Error('stageCount must equal rankCount');
+
+  const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };
+
+  if (!isTopologyPlacement(topology.placement)) {
+    throw new Error('topology placement must be one-to-one, wrap, or v-shape');
+  }
+  if (!isFinitePositiveInteger(topology.virtualStagesPerRank)) {
+    throw new Error('virtualStagesPerRank must be a positive finite integer');
+  }
+  if (topology.placement === 'one-to-one') {
+    if (topology.virtualStagesPerRank !== 1) {
+      throw new Error('one-to-one topology requires virtualStagesPerRank to equal 1');
+    }
+    if (config.stageCount !== config.rankCount) {
+      throw new Error('one-to-one topology requires stageCount to equal rankCount');
+    }
+  } else {
+    if (topology.virtualStagesPerRank <= 1) {
+      throw new Error('virtual topology requires virtualStagesPerRank greater than 1');
+    }
+    if (config.stageCount !== config.rankCount * topology.virtualStagesPerRank) {
+      throw new Error(
+        'virtual topology requires stageCount to equal rankCount times virtualStagesPerRank',
+      );
+    }
   }
   if (config.memoryCaps !== null) {
     if (config.memoryCaps.length !== config.rankCount) {

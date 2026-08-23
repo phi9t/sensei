@@ -1,5 +1,6 @@
 import type { LevelConfig, Operation, OperationId } from './types';
 import { validateLevelConfig } from './config';
+import { ownerRankForStage } from './topology';
 
 export function deriveOperations(config: LevelConfig): readonly Operation[] {
   validateLevelConfig(config);
@@ -13,7 +14,7 @@ export function deriveOperations(config: LevelConfig): readonly Operation[] {
             id: `${kind}:${stage}:${microbatch}`,
             kind,
             stage,
-            rank: stage,
+            rank: ownerRankForStage(config, stage),
             microbatch,
             duration: config.durations[kind],
           }),

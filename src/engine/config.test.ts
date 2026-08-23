@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateLevelConfig } from './config';
+import type { PipelineTopologyPlacement } from './types';
 import { makeConfig } from '../test/factories';
 
 describe('validateLevelConfig', () => {
@@ -37,10 +38,85 @@ describe('validateLevelConfig', () => {
     );
   });
 
-  it('rejects stageCount !== rankCount', () => {
+  it('rejects stageCount different from rankCount without virtual topology', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), stageCount: 3 })).toThrow(
-      /stageCount must equal rankCount/,
+      /one-to-one topology requires stageCount to equal rankCount/,
     );
+  });
+
+  it('accepts wrap topology when stageCount equals rankCount times virtualStagesPerRank', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 4,
+          topology: { placement: 'wrap', virtualStagesPerRank: 2 },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('accepts v-shape topology when stageCount equals rankCount times virtualStagesPerRank', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 4,
+          topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects virtual topology stage-count mismatches', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 5,
+          topology: { placement: 'wrap', virtualStagesPerRank: 2 },
+        }),
+      ),
+    ).toThrow(/virtual topology requires stageCount to equal rankCount times virtualStagesPerRank/);
+  });
+
+  it('rejects non-positive virtualStagesPerRank values', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 2,
+          topology: { placement: 'wrap', virtualStagesPerRank: 0 },
+        }),
+      ),
+    ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
+  });
+
+  it('rejects one-to-one topology with more than one virtual stage per rank', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 4,
+          topology: { placement: 'one-to-one', virtualStagesPerRank: 2 },
+        }),
+      ),
+    ).toThrow(/one-to-one topology requires virtualStagesPerRank to equal 1/);
+  });
+
+  it('rejects unsupported topology placements', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          rankCount: 2,
+          stageCount: 4,
+          topology: {
+            placement: 'diagonal' as unknown as PipelineTopologyPlacement,
+            virtualStagesPerRank: 2,
+          },
+        }),
+      ),
+    ).toThrow(/topology placement must be one-to-one, wrap, or v-shape/);
   });
 
   it('rejects cap length mismatch', () => {
@@ -136,5 +212,19 @@ describe('validateLevelConfig boundary: NaN/Infinity/fractions', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 1, B: 3 } })).toThrow(
       /V1 durations must be F=1 and B=2/,
     );
+  });
+
+  it('rejects NaN, Infinity, and fractions for virtualStagesPerRank', () => {
+    for (const value of [NaN, Infinity, -Infinity, 1.5, -1]) {
+      expect(() =>
+        validateLevelConfig(
+          makeConfig({
+            rankCount: 2,
+            stageCount: 4,
+            topology: { placement: 'wrap', virtualStagesPerRank: value },
+          }),
+        ),
+      ).toThrow(/virtualStagesPerRank must be a positive finite integer/);
+    }
   });
 });

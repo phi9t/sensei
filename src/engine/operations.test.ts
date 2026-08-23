@@ -24,6 +24,46 @@ describe('deriveOperations', () => {
     expect(operations.map((op) => op.rank)).toEqual([0, 0, 1, 1]);
   });
 
+  it('derives wrap topology ranks while preserving logical operation IDs', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 4,
+      microbatchCount: 1,
+      topology: { placement: 'wrap', virtualStagesPerRank: 2 },
+    });
+
+    expect(deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank }))).toEqual([
+      { id: 'F:0:0', stage: 0, rank: 0 },
+      { id: 'B:0:0', stage: 0, rank: 0 },
+      { id: 'F:1:0', stage: 1, rank: 1 },
+      { id: 'B:1:0', stage: 1, rank: 1 },
+      { id: 'F:2:0', stage: 2, rank: 0 },
+      { id: 'B:2:0', stage: 2, rank: 0 },
+      { id: 'F:3:0', stage: 3, rank: 1 },
+      { id: 'B:3:0', stage: 3, rank: 1 },
+    ]);
+  });
+
+  it('derives v-shape topology ranks while preserving logical operation IDs', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 4,
+      microbatchCount: 1,
+      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    });
+
+    expect(deriveOperations(config).map(({ id, stage, rank }) => ({ id, stage, rank }))).toEqual([
+      { id: 'F:0:0', stage: 0, rank: 0 },
+      { id: 'B:0:0', stage: 0, rank: 0 },
+      { id: 'F:1:0', stage: 1, rank: 1 },
+      { id: 'B:1:0', stage: 1, rank: 1 },
+      { id: 'F:2:0', stage: 2, rank: 1 },
+      { id: 'B:2:0', stage: 2, rank: 1 },
+      { id: 'F:3:0', stage: 3, rank: 0 },
+      { id: 'B:3:0', stage: 3, rank: 0 },
+    ]);
+  });
+
   it('uses configured durations', () => {
     const config = makeConfig();
     const operations = deriveOperations(config);
@@ -102,6 +142,18 @@ describe('predecessorsOf', () => {
   it('B:1:1 under 3 stages/2 batches depends on [F:1:1, B:2:1]', () => {
     const config3 = makeConfig({ rankCount: 3, stageCount: 3, microbatchCount: 2 });
     expect(predecessorsOf('B:1:1', config3)).toEqual(['F:1:1', 'B:2:1']);
+  });
+
+  it('keeps virtual-stage dependencies on logical stage order', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 4,
+      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    });
+
+    expect(predecessorsOf('F:2:0', config)).toEqual(['F:1:0']);
+    expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0', 'B:2:0']);
+    expect(predecessorsOf('B:3:0', config)).toEqual(['F:3:0']);
   });
 
   it('produces deterministic order without duplicates', () => {
