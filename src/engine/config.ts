@@ -1,9 +1,13 @@
-import type { LevelConfig, PipelineTopologyPlacement } from './types';
+import type { LevelConfig, OperationKind, PipelineTopologyPlacement } from './types';
 
 const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
 
 function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
   return TOPOLOGY_PLACEMENTS.has(value as PipelineTopologyPlacement);
+}
+
+function isOperationKind(value: string): value is OperationKind {
+  return value === 'F' || value === 'B';
 }
 
 function isFinitePositiveInteger(value: number): boolean {
@@ -37,7 +41,36 @@ export function validateLevelConfig(config: LevelConfig): void {
     throw new Error('B duration must be a positive finite integer');
   }
   if (config.durations.F !== 1 || config.durations.B !== 2) {
-    throw new Error('V1 durations must be F=1 and B=2');
+    throw new Error('V1 base durations must be F=1 and B=2');
+  }
+
+  if (config.durationOverrides) {
+    const seen = new Set<string>();
+    for (const override of config.durationOverrides) {
+      if (!isOperationKind(override.kind)) {
+        throw new Error('duration override kind must be F or B');
+      }
+      if (
+        !Number.isInteger(override.stage) ||
+        !Number.isFinite(override.stage) ||
+        override.stage < 0 ||
+        override.stage >= config.stageCount
+      ) {
+        throw new Error(
+          `duration override stage ${override.stage} out of bounds for stageCount ${config.stageCount}`,
+        );
+      }
+      if (!isFinitePositiveInteger(override.duration)) {
+        throw new Error(
+          `duration override for ${override.kind} stage ${override.stage} must be a positive finite integer`,
+        );
+      }
+      const key = `${override.kind}:${override.stage}`;
+      if (seen.has(key)) {
+        throw new Error(`duplicate duration override for ${override.kind} stage ${override.stage}`);
+      }
+      seen.add(key);
+    }
   }
 
   const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };

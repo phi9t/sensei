@@ -2,6 +2,12 @@ export type OperationKind = 'F' | 'B';
 
 export type OperationId = `${OperationKind}:${number}:${number}`;
 
+export interface OperationDurationOverride {
+  readonly kind: OperationKind;
+  readonly stage: number;
+  readonly duration: number;
+}
+
 export interface Operation {
   id: OperationId;
   kind: OperationKind;
@@ -117,6 +123,7 @@ export interface LevelConfig {
   stageCount: number;
   microbatchCount: number;
   durations: Record<OperationKind, number>;
+  durationOverrides?: readonly OperationDurationOverride[];
   memoryCaps: readonly number[] | null;
   masteryTargets: readonly MasteryTarget[];
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };

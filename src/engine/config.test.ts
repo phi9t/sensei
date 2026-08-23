@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateLevelConfig } from './config';
-import type { PipelineTopologyPlacement } from './types';
+import type { OperationKind, PipelineTopologyPlacement } from './types';
 import { makeConfig } from '../test/factories';
 
 describe('validateLevelConfig', () => {
@@ -36,6 +36,72 @@ describe('validateLevelConfig', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 1, B: 0 } })).toThrow(
       /B duration must be a positive finite number/,
     );
+  });
+
+  it('accepts positive integer stage-specific duration overrides', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('keeps base V1 durations fixed even when duration overrides exist', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durations: { F: 2, B: 2 },
+          durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+        }),
+      ),
+    ).toThrow(/V1 base durations must be F=1 and B=2/);
+  });
+
+  it('rejects duration overrides outside the logical stage range', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durationOverrides: [{ kind: 'B', stage: 2, duration: 4 }],
+        }),
+      ),
+    ).toThrow(/duration override stage 2 out of bounds for stageCount 2/);
+  });
+
+  it('rejects malformed duration override duration values', () => {
+    for (const duration of [0, -1, 1.5, NaN, Infinity]) {
+      expect(() =>
+        validateLevelConfig(
+          makeConfig({
+            durationOverrides: [{ kind: 'B', stage: 0, duration }],
+          }),
+        ),
+      ).toThrow(/duration override for B stage 0 must be a positive finite integer/);
+    }
+  });
+
+  it('rejects duplicate duration overrides for the same kind and stage', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durationOverrides: [
+            { kind: 'B', stage: 0, duration: 4 },
+            { kind: 'B', stage: 0, duration: 3 },
+          ],
+        }),
+      ),
+    ).toThrow(/duplicate duration override for B stage 0/);
+  });
+
+  it('rejects unsupported duration override kinds from untrusted config objects', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durationOverrides: [{ kind: 'X' as OperationKind, stage: 0, duration: 4 }],
+        }),
+      ),
+    ).toThrow(/duration override kind must be F or B/);
   });
 
   it('rejects stageCount different from rankCount without virtual topology', () => {
@@ -207,10 +273,10 @@ describe('validateLevelConfig boundary: NaN/Infinity/fractions', () => {
 
   it('requires the V1 fixed F=1 and B=2 duration model', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 2, B: 2 } })).toThrow(
-      /V1 durations must be F=1 and B=2/,
+      /V1 base durations must be F=1 and B=2/,
     );
     expect(() => validateLevelConfig({ ...makeConfig(), durations: { F: 1, B: 3 } })).toThrow(
-      /V1 durations must be F=1 and B=2/,
+      /V1 base durations must be F=1 and B=2/,
     );
   });
 
