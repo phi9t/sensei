@@ -420,6 +420,51 @@ describe('replay', () => {
   });
 });
 
+describe('virtual-stage replay', () => {
+  const config = makeConfig({
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 1,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+  });
+
+  it('places logical stages on their physical owner ranks', () => {
+    const state = expectState(
+      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
+    );
+
+    expect(
+      state.placements.map(({ operationId, rank, start, end }) => ({
+        operationId,
+        rank,
+        start,
+        end,
+      })),
+    ).toEqual([
+      { operationId: 'F:0:0', rank: 0, start: 0, end: 1 },
+      { operationId: 'F:1:0', rank: 1, start: 1, end: 2 },
+      { operationId: 'F:2:0', rank: 1, start: 2, end: 3 },
+      { operationId: 'F:3:0', rank: 0, start: 3, end: 4 },
+    ]);
+  });
+
+  it('blocks backward work until the next logical stage backward is complete', () => {
+    const state = expectState(
+      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
+    );
+
+    const result = applyAction(state, { type: 'place', operationId: 'B:1:0' });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toEqual({
+        kind: 'dependency-not-finished',
+        operationId: 'B:2:0',
+      });
+    }
+  });
+});
+
 describe('immutability after accepted/rejected actions', () => {
   it('pre-apply state is unchanged after accepted action', () => {
     const config = makeConfig();

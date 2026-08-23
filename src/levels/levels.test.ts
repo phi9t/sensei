@@ -21,6 +21,15 @@ const EXPECTED_LEVEL_IDS = [
   'tie-at-the-frontier',
   'memory-capped-one-f-one-b',
   'stamp-the-pattern',
+  'virtual-stages',
+] as const;
+
+const EXPECTED_LEVEL_GROUPS = [
+  'Foundations',
+  'GPipe',
+  '1F1B',
+  'Building Blocks',
+  'Virtual Stages',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -250,6 +259,31 @@ const EXPECTED_CONFIGS = {
       },
     },
   },
+  'virtual-stages': {
+    id: 'virtual-stages',
+    version: 1,
+    title: 'Virtual Stages',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 2,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 16 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'interleaved-one-f-one-b',
+      setTitle: 'Virtual Stages',
+      concept: 'One physical rank can own multiple logical stages.',
+      objective: 'Follow logical dependencies while placing work on the owning rank lane.',
+      patternLabel: 'V-shape',
+      introducedModel: ['logical stage', 'physical rank ownership', 'virtual pipeline stage'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -432,6 +466,24 @@ const EXPECTED_MASTERED_ACTIONS = {
     'B:1:2',
     'B:0:2',
   ],
+  'virtual-stages': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:2:0',
+    'F:3:0',
+    'B:3:0',
+    'F:1:1',
+    'F:2:1',
+    'F:3:1',
+    'B:3:1',
+    'B:2:0',
+    'B:1:0',
+    'B:0:0',
+    'B:2:1',
+    'B:1:1',
+    'B:0:1',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 const EXPECTED_GOLDEN_ROWS = {
@@ -498,6 +550,13 @@ const EXPECTED_GOLDEN_ROWS = {
     peakActivationMemoryByRank: [2, 1],
     peakActivationMemory: 2,
   },
+  'virtual-stages': {
+    makespan: 16,
+    intentionalIdle: 0,
+    bubbleRatio: 0.25,
+    peakActivationMemoryByRank: [3, 4],
+    peakActivationMemory: 4,
+  },
 } satisfies Record<
   LevelId,
   {
@@ -547,6 +606,15 @@ describe('levels public API', () => {
     }
   });
 
+  it('exports curriculum set groups in first-seen order', () => {
+    const groups = LEVEL_IDS.reduce<string[]>((seen, id) => {
+      const setTitle = getLevel(id).algorithm.setTitle;
+      return seen.includes(setTitle) ? seen : [...seen, setTitle];
+    }, []);
+
+    expect(groups).toEqual(EXPECTED_LEVEL_GROUPS);
+  });
+
   it('returns frozen canonical configs and nested structures', () => {
     const level = getLevel('memory-wall');
 
@@ -586,6 +654,13 @@ describe('levels public API', () => {
     expect(Object.isFrozen(level.buildingBlock?.plan.trajectory)).toBe(true);
     expect(Object.isFrozen(level.buildingBlock?.plan.trajectory[0])).toBe(true);
     expect(getLevel('memory-capped-one-f-one-b').buildingBlock).toBeUndefined();
+  });
+
+  it('freezes topology metadata with the level config', () => {
+    const level = getLevel('virtual-stages');
+
+    expect(Object.isFrozen(level.topology)).toBe(true);
+    expect(level.topology).toEqual({ placement: 'v-shape', virtualStagesPerRank: 2 });
   });
 });
 
@@ -670,7 +745,7 @@ describe('golden replay outcomes', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const config = getLevel(id);
       const actions = MASTERED_ACTIONS[id]!;
-      const expectedCount = config.rankCount * config.microbatchCount * 2;
+      const expectedCount = config.stageCount * config.microbatchCount * 2;
       const inventory = initialState(config).operations.map((operation) => operation.id);
       const placedIds = actions
         .filter((action): action is Extract<Action, { type: 'place' }> => action.type === 'place')

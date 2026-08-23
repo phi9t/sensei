@@ -201,6 +201,24 @@ const masteredActions = {
     'B:0:4',
   ),
   'stamp-the-pattern': stampedPatternActions(),
+  'virtual-stages': placeIds(
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:2:0',
+    'F:3:0',
+    'B:3:0',
+    'F:1:1',
+    'F:2:1',
+    'F:3:1',
+    'B:3:1',
+    'B:2:0',
+    'B:1:0',
+    'B:0:0',
+    'B:2:1',
+    'B:1:1',
+    'B:0:1',
+  ),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const MASTERED_ACTIONS = Object.freeze(masteredActions);
@@ -215,6 +233,7 @@ const legalActions = {
   'tie-at-the-frontier': withLeadingWait(MASTERED_ACTIONS['tie-at-the-frontier']),
   'memory-capped-one-f-one-b': withLeadingWait(MASTERED_ACTIONS['memory-capped-one-f-one-b']),
   'stamp-the-pattern': withLeadingWait(MASTERED_ACTIONS['stamp-the-pattern']),
+  'virtual-stages': withLeadingWait(MASTERED_ACTIONS['virtual-stages']),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const LEGAL_ACTIONS = Object.freeze(legalActions);

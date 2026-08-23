@@ -10,6 +10,7 @@ export const LEVEL_IDS = [
   'tie-at-the-frontier',
   'memory-capped-one-f-one-b',
   'stamp-the-pattern',
+  'virtual-stages',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -39,8 +40,14 @@ function freezeBuildingBlock(
   });
 }
 
+function freezeTopology(
+  topology: NonNullable<LevelConfig['topology']>,
+): NonNullable<LevelConfig['topology']> {
+  return Object.freeze({ ...topology });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
-  const { buildingBlock, ...baseConfig } = config;
+  const { buildingBlock, topology, ...baseConfig } = config;
   const frozen = {
     ...baseConfig,
     durations: Object.freeze({ ...config.durations }),
@@ -49,6 +56,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     coaching: Object.freeze({ ...config.coaching }),
     algorithm: freezeAlgorithm(config.algorithm),
     ...(buildingBlock ? { buildingBlock: freezeBuildingBlock(buildingBlock) } : {}),
+    ...(topology ? { topology: freezeTopology(topology) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -279,6 +287,31 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
           { operationId: 'B:0:0', offset: 4 },
         ],
       },
+    },
+  }),
+  'virtual-stages': freezeLevel({
+    id: 'virtual-stages',
+    version: 1,
+    title: 'Virtual Stages',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 2,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 16 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'interleaved-one-f-one-b',
+      setTitle: 'Virtual Stages',
+      concept: 'One physical rank can own multiple logical stages.',
+      objective: 'Follow logical dependencies while placing work on the owning rank lane.',
+      patternLabel: 'V-shape',
+      introducedModel: ['logical stage', 'physical rank ownership', 'virtual pipeline stage'],
     },
   }),
 });
