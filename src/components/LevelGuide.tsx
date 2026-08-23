@@ -26,8 +26,17 @@ function topologyLabel(level: LevelConfig): string | null {
   return `V-stage x${level.topology.virtualStagesPerRank}`;
 }
 
+function durationOverrideLabels(level: LevelConfig): readonly string[] {
+  return Object.freeze(
+    (level.durationOverrides ?? []).map(
+      (override) => `${override.kind}:S${override.stage} = ${override.duration}t`,
+    ),
+  );
+}
+
 export function LevelGuide({ level, score }: LevelGuideProps) {
   const topology = topologyLabel(level);
+  const durationLabels = durationOverrideLabels(level);
 
   return (
     <section className="panel level-guide-panel" aria-label="Level guide">
@@ -39,6 +48,11 @@ export function LevelGuide({ level, score }: LevelGuideProps) {
       <div className="level-guide-panel__chips" aria-label="Level progress summary">
         <span>{primaryGoal(level)}</span>
         {topology ? <span className="topology-chip">{topology}</span> : null}
+        {durationLabels.map((label) => (
+          <span key={`duration-${label}`} className="duration-chip">
+            {label}
+          </span>
+        ))}
         {level.algorithm.patternLabel ? <span>{level.algorithm.patternLabel}</span> : null}
         <span>{level.algorithm.objective}</span>
         <span>{score.complete ? 'Complete' : 'In progress'}</span>

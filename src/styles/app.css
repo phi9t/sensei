@@ -14,6 +14,7 @@
   --backward: #b55c37;
   --backward-soft: #f4dfd2;
   --accent: #e0a928;
+  --warning: #c07b16;
   --danger: #973f29;
   --ready: #087a68;
   --blocked: #944427;
@@ -365,15 +366,22 @@ summary:focus-visible {
 }
 
 .level-guide-panel__chips span {
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--paper-strong);
   padding: 0.24rem 0.46rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .topology-chip {
   max-width: 100%;
   white-space: nowrap;
+}
+
+.duration-chip {
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
 }
 
 .tray-panel__summary {

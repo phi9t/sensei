@@ -279,6 +279,18 @@ describe('responsive play surface CSS contract', () => {
     expect(topologyOwnersBlock).toMatch(/\.rank-owner-list\s*\{[^}]*\boverflow-x:\s*auto\s*;/);
   });
 
+  it('keeps nonuniform-cost level guide chips compact', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const levelGuideChipBlock = extractBlock(css, '.level-guide-panel__chips span');
+
+    expect(levelGuideChipBlock).toMatch(
+      /\.level-guide-panel__chips span\s*\{[^}]*\bwhite-space:\s*normal\s*;/,
+    );
+    expect(levelGuideChipBlock).toMatch(
+      /\.level-guide-panel__chips span\s*\{[^}]*\boverflow-wrap:\s*anywhere\s*;/,
+    );
+  });
+
   it('keeps selected identity and score summary compact in the right rail', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const inspectorOperationBlock = extractBlock(css, '.inspector-operation');

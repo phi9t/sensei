@@ -65,15 +65,15 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
 
           {explanation.status === 'legal' ? (
             <p>
-              Legal now. Earliest start {explanation.earliestStart}. Memory after:{' '}
-              {explanation.projectedMemory}.
+              Legal now. Earliest start {explanation.earliestStart}. Duration{' '}
+              {explanation.operation?.duration}. Memory after: {explanation.projectedMemory}.
             </p>
           ) : null}
 
           {explanation.status === 'completed' ? (
             <p>
               Placed on rank {explanation.placement?.rank} from {explanation.placement?.start} to{' '}
-              {explanation.placement?.end}.
+              {explanation.placement?.end}. Duration {explanation.operation?.duration}.
             </p>
           ) : null}
         </div>

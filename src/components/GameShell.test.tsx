@@ -120,6 +120,48 @@ describe('Game shell', () => {
     expect(within(guide).getByText(/^V-shape$/i)).toBeInTheDocument();
   });
 
+  it('shows compact nonuniform-cost metadata without adding a rules panel', () => {
+    render(<App initialLevelId="heavy-backward-tail" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+
+    expect(
+      within(guide).getByRole('heading', { name: /^Heavy Backward Tail$/i }),
+    ).toBeInTheDocument();
+    expect(within(guide).getByText(/^Nonuniform Cost$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^B:S0 = 4t$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Cost-aware$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('renders overridden durations in ready queue, inspector, preview, and board geometry', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="heavy-backward-tail" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 2 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 3 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 3 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 2 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+
+    const heavy = screen.getByRole('button', {
+      name: /place B stage 0 microbatch 0, 4 ticks, ready/i,
+    });
+    await user.click(heavy);
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('data-duration', '4');
+    expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('width', '224');
+    expect(scheduleLabelIn(board, 'B:0:0')).toHaveAccessibleName('B0:S0:B0');
+    expect(within(board).getByText(/Rank 0, start 10, end 14, duration 4/i)).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('tile-B:0:0'));
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/Duration 4/i)).toBeInTheDocument();
+  });
+
   it('shows compact code and owner rank when selecting a virtual-stage block', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="virtual-stages" />);
@@ -163,6 +205,7 @@ describe('Game shell', () => {
       'Building Blocks',
       'Virtual Stages',
       'Interleaved 1F1B',
+      'Nonuniform Cost',
     ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
