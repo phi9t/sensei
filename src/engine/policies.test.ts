@@ -58,6 +58,23 @@ describe('reference policy projection', () => {
     }
   });
 
+  it('projects zero-bubble split-backward references over F/B/W operations', () => {
+    for (const [levelId, policyId] of [
+      ['zero-bubble-h1', 'zero-bubble-h1'],
+      ['zero-bubble-h2', 'zero-bubble-h2'],
+      ['zero-bubble-deep', 'zero-bubble-deep'],
+    ] as const) {
+      const projected = projectReferencePolicy(getLevel(levelId), policyId);
+
+      expect(projected.ok).toBe(true);
+      if (projected.ok) {
+        expect(projected.actions).toEqual(MASTERED_ACTIONS[levelId]);
+        expect(projected.state.placements).toHaveLength(projected.state.operations.length);
+        expect(projected.state.operations.some((operation) => operation.kind === 'W')).toBe(true);
+      }
+    }
+  });
+
   it('returns a structured failure when a policy cannot complete a level', () => {
     const projected = projectReferencePolicy(getLevel('memory-wall'), 'gpipe-afab');
 
@@ -169,6 +186,26 @@ describe('reference policy recognition', () => {
         kind: 'unmatched',
         candidatePolicyIds: [],
       });
+    }
+  });
+
+  it('recognizes matched zero-bubble variants by configured candidate order', () => {
+    for (const [levelId, policyId, label] of [
+      ['zero-bubble-h1', 'zero-bubble-h1', 'ZB-H1'],
+      ['zero-bubble-h2', 'zero-bubble-h2', 'ZB-H2'],
+      ['zero-bubble-deep', 'zero-bubble-deep', 'Zero Bubble Deep'],
+    ] as const) {
+      const replayResult = replay(getLevel(levelId), MASTERED_ACTIONS[levelId]);
+
+      expect(replayResult.ok).toBe(true);
+      if (replayResult.ok) {
+        expect(recognizeSchedule(replayResult.state)).toMatchObject({
+          kind: 'matched',
+          policyId,
+          label,
+          exact: true,
+        });
+      }
     }
   });
 });

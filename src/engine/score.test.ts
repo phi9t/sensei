@@ -87,6 +87,36 @@ describe('score', () => {
     });
   });
 
+  it('omits internal bubble unless a level enables the zero-bubble score model', () => {
+    const state = expectState(replay(makeConfig(), placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0')));
+
+    expect(score(state).internalBubbleRatio).toBeUndefined();
+  });
+
+  it('scores internal bubble inside each rank active interval when enabled', () => {
+    const config = makeConfig({
+      microbatchCount: 2,
+      scoreModel: { internalBubble: true },
+      masteryTargets: [{ metric: 'internalBubbleRatio', op: '<=', value: 0 }],
+    });
+    const state = expectState(
+      replay(config, [
+        { type: 'place', operationId: 'F:0:0' },
+        { type: 'wait', rank: 0 },
+        { type: 'place', operationId: 'F:0:1' },
+      ]),
+    );
+
+    expect(score(state)).toMatchObject({
+      makespan: 3,
+      totalWork: 2,
+      capacity: 6,
+      bubbleRatio: 2 / 3,
+      internalBubbleRatio: 1 / 3,
+      intentionalIdle: 1,
+    });
+  });
+
   it('incomplete schedules are never mastered even when current metrics satisfy targets', () => {
     const config = makeConfig({
       masteryTargets: [{ metric: 'makespan', op: '<=', value: 10 }],

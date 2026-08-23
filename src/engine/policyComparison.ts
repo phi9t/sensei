@@ -1,9 +1,5 @@
-import {
-  REFERENCE_POLICIES,
-  projectReferencePolicy,
-  recognizeSchedule,
-  type ReferencePolicyId,
-} from './policies';
+import { REFERENCE_POLICIES, projectReferencePolicy, recognizeSchedule } from './policies';
+import type { ReferencePolicyId } from './types';
 import type { ScheduleState } from './replay';
 import { attemptRankingTuple, type AttemptRankingTuple } from './score';
 
@@ -16,10 +12,6 @@ export interface PolicyComparison {
   readonly current: AttemptRankingTuple;
   readonly reference: AttemptRankingTuple;
   readonly delta: AttemptRankingTuple;
-}
-
-function isComparableFamily(family: ScheduleState['config']['algorithm']['family']): boolean {
-  return family === 'gpipe' || family === 'one-f-one-b' || family === 'interleaved-one-f-one-b';
 }
 
 function subtractTuples(
@@ -35,15 +27,15 @@ function subtractTuples(
 }
 
 export function compareToReferencePolicy(state: ScheduleState): PolicyComparison | null {
-  if (!isComparableFamily(state.config.algorithm.family)) {
-    return null;
-  }
-
   if (state.placements.length !== state.operations.length) {
     return null;
   }
 
   const recognition = recognizeSchedule(state);
+  if (recognition.candidatePolicyIds.length === 0) {
+    return null;
+  }
+
   const policyId =
     recognition.kind === 'matched'
       ? recognition.policyId

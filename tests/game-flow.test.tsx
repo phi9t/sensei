@@ -195,7 +195,7 @@ describe('game flow', () => {
     );
   }, 10000);
 
-  it('plays every legal and mastered fixture journey through public controls, unlocks by completion, and keeps the better persisted attempt', async () => {
+  it('unlocks the ladder through legal fixture journeys using public controls', async () => {
     const user = userEvent.setup();
     const storage = createMemoryStorage();
 
@@ -217,7 +217,6 @@ describe('game flow', () => {
       const level = getLevel(levelId);
       const levelTitle = level.title;
       const legal = LEGAL_ACTIONS[levelId];
-      const mastered = MASTERED_ACTIONS[levelId];
 
       await user.selectOptions(levelPicker, levelId);
       expect(levelPicker).toHaveValue(levelId);
@@ -239,6 +238,29 @@ describe('game flow', () => {
       }
 
       const legalSummary = attemptSummary(levelId, legal);
+      expect(bestAttempt(legalProgress, levelId)?.tuple).toEqual(legalSummary.score);
+      expect(bestAttempt(legalProgress, levelId)?.actions).toEqual(legal);
+    }
+  }, 90000);
+
+  it.each(LEVEL_IDS)(
+    'keeps the better persisted attempt for %s through public controls',
+    async (levelId) => {
+      const user = userEvent.setup();
+      const storage = createProgressStorageThrough(levelId);
+      const legal = LEGAL_ACTIONS[levelId];
+      const mastered = MASTERED_ACTIONS[levelId];
+
+      render(<App storage={storage} initialLevelId={levelId} />);
+
+      await runJourney(user, legal, 'pointer');
+      expect(screen.getAllByText(/legal completion/i).length).toBeGreaterThan(0);
+
+      const legalSummary = attemptSummary(levelId, legal);
+      await waitFor(() => {
+        expect(bestAttempt(parseProgressFrom(storage), levelId)?.tuple).toEqual(legalSummary.score);
+      });
+      const legalProgress = parseProgressFrom(storage);
       expect(bestAttempt(legalProgress, levelId)?.tuple).toEqual(legalSummary.score);
       expect(bestAttempt(legalProgress, levelId)?.actions).toEqual(legal);
 
@@ -263,8 +285,9 @@ describe('game flow', () => {
       const afterWorseRetry = parseProgressFrom(storage);
       expect(bestAttempt(afterWorseRetry, levelId)?.tuple).toEqual(masteredSummary.score);
       expect(bestAttempt(afterWorseRetry, levelId)?.actions).toEqual(mastered);
-    }
-  }, 60000);
+    },
+    20000,
+  );
 
   it('restores persisted progress across reload, preserves session progress when storage is unavailable, and surfaces polite fallback notices', async () => {
     const firstUser = userEvent.setup();

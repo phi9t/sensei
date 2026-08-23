@@ -153,6 +153,45 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
+  it('shows zero-bubble guidance and internal-bubble scoring only where enabled', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="zero-bubble-h1" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    expect(within(guide).getByRole('heading', { name: /^ZB-H1 Window$/i })).toBeInTheDocument();
+    expect(within(guide).getByText(/^Zero Bubble$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^ZB-H1$/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(F\/B\/W, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+
+    for (const action of MASTERED_ACTIONS['zero-bubble-h1']) {
+      if (action.type !== 'place') {
+        throw new Error('expected place-only mastered fixture');
+      }
+      const [kind, stage, microbatch] = action.operationId.split(':');
+      await user.click(
+        screen.getByRole('button', {
+          name: new RegExp(`place ${kind} stage ${stage} microbatch ${microbatch}`, 'i'),
+        }),
+      );
+    }
+
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    const scoreboard = within(metrics).getByRole('group', { name: /scoreboard/i });
+    expect(within(scoreboard).getByText(/^Internal bubble$/i)).toBeInTheDocument();
+    expect(within(scoreboard).getByText(/^0.0%$/i)).toBeInTheDocument();
+
+    await user.click(within(metrics).getByText(/^Reference comparison$/i));
+    const comparison = within(metrics).getByRole('group', {
+      name: /reference comparison/i,
+    });
+    expect(within(comparison).getByText(/^ZB-H1 reference$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Exact reference match$/i)).toBeInTheDocument();
+
+    cleanup();
+    render(<App initialLevelId="split-backward" />);
+    expect(screen.queryByText(/^Internal bubble$/i)).not.toBeInTheDocument();
+  });
+
   it('renders split-backward memory release on W in the schedule board', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="split-backward" />);

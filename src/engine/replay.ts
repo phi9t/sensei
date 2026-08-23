@@ -138,6 +138,14 @@ function cloneConfig(config: LevelConfig): LevelConfig {
     ...(config.operationModel
       ? { operationModel: Object.freeze({ ...config.operationModel }) }
       : {}),
+    ...(config.scoreModel ? { scoreModel: Object.freeze({ ...config.scoreModel }) } : {}),
+    ...(config.referencePolicy
+      ? {
+          referencePolicy: Object.freeze({
+            candidatePolicyIds: Object.freeze([...config.referencePolicy.candidatePolicyIds]),
+          }),
+        }
+      : {}),
     ...(config.durationOverrides
       ? {
           durationOverrides: Object.freeze(

@@ -15,6 +15,9 @@ export const LEVEL_IDS = [
   'ragged-rounds',
   'heavy-backward-tail',
   'split-backward',
+  'zero-bubble-h1',
+  'zero-bubble-h2',
+  'zero-bubble-deep',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -62,8 +65,30 @@ function freezeOperationModel(
   return Object.freeze({ ...operationModel });
 }
 
+function freezeScoreModel(
+  scoreModel: NonNullable<LevelConfig['scoreModel']>,
+): NonNullable<LevelConfig['scoreModel']> {
+  return Object.freeze({ ...scoreModel });
+}
+
+function freezeReferencePolicy(
+  referencePolicy: NonNullable<LevelConfig['referencePolicy']>,
+): NonNullable<LevelConfig['referencePolicy']> {
+  return Object.freeze({
+    candidatePolicyIds: Object.freeze([...referencePolicy.candidatePolicyIds]),
+  });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
-  const { buildingBlock, topology, durationOverrides, operationModel, ...baseConfig } = config;
+  const {
+    buildingBlock,
+    topology,
+    durationOverrides,
+    operationModel,
+    scoreModel,
+    referencePolicy,
+    ...baseConfig
+  } = config;
   const frozen = {
     ...baseConfig,
     durations: Object.freeze({ ...config.durations }),
@@ -75,6 +100,8 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     ...(topology ? { topology: freezeTopology(topology) } : {}),
     ...(durationOverrides ? { durationOverrides: freezeDurationOverrides(durationOverrides) } : {}),
     ...(operationModel ? { operationModel: freezeOperationModel(operationModel) } : {}),
+    ...(scoreModel ? { scoreModel: freezeScoreModel(scoreModel) } : {}),
+    ...(referencePolicy ? { referencePolicy: freezeReferencePolicy(referencePolicy) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -436,6 +463,96 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Place W after B and watch activation memory release at weight-gradient time.',
       patternLabel: 'Split B/W',
       introducedModel: ['input-gradient work', 'weight-gradient work', 'release on W'],
+    },
+  }),
+  'zero-bubble-h1': freezeLevel({
+    id: 'zero-bubble-h1',
+    version: 1,
+    title: 'ZB-H1 Window',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 3,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-h1', 'zero-bubble-h2', 'zero-bubble-deep'],
+    },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 10 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 3 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Keep W blocks available so local idle can be filled after input gradients clear.',
+      objective: 'Use a short warmup, then drain B and W without leaving internal gaps.',
+      patternLabel: 'ZB-H1',
+      introducedModel: ['zero-bubble warmup', 'internal bubble', 'W fill'],
+    },
+  }),
+  'zero-bubble-h2': freezeLevel({
+    id: 'zero-bubble-h2',
+    version: 1,
+    title: 'ZB-H2 Window',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 4,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-h2', 'zero-bubble-h1', 'zero-bubble-deep'],
+    },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 14 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0.03 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'A wider warmup changes which W blocks are useful bubble fillers.',
+      objective: 'Compare the H2 reference order against H1 while keeping internal bubble low.',
+      patternLabel: 'ZB-H2',
+      introducedModel: ['warmup window', 'variant comparison', 'bubble filling'],
+    },
+  }),
+  'zero-bubble-deep': freezeLevel({
+    id: 'zero-bubble-deep',
+    version: 1,
+    title: 'Deep Zero Bubble',
+    rankCount: 4,
+    stageCount: 4,
+    microbatchCount: 5,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-deep', 'zero-bubble-h2', 'zero-bubble-h1'],
+    },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 18 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0.04 },
+      { metric: 'peakActivationMemory', op: '<=', value: 5 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Deeper pipelines expose more tail work, so W placement decides where gaps remain.',
+      objective: 'Hold the low-bubble reference shape while draining a longer split-backward tail.',
+      patternLabel: 'Zero Bubble Deep',
+      introducedModel: ['deep warmup', 'tail drain', 'variant trade-off'],
     },
   }),
 });

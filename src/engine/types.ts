@@ -79,8 +79,13 @@ export interface BuildingBlockLevelMetadata {
   readonly plan: BuildingBlockPlan;
 }
 
+export interface ScoreModel {
+  readonly internalBubble?: boolean;
+}
+
 export interface MetricMasteryTarget {
-  metric: 'makespan' | 'bubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
+  metric:
+    'makespan' | 'bubbleRatio' | 'internalBubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
   op: '<=';
   value: number;
 }
@@ -119,6 +124,18 @@ export interface AlgorithmLevelMetadata {
   readonly introducedModel: readonly string[];
 }
 
+export type ReferencePolicyId =
+  | 'gpipe-afab'
+  | 'one-f-one-b'
+  | 'interleaved-one-f-one-b'
+  | 'zero-bubble-h1'
+  | 'zero-bubble-h2'
+  | 'zero-bubble-deep';
+
+export interface ReferencePolicyModel {
+  readonly candidatePolicyIds: readonly ReferencePolicyId[];
+}
+
 export interface LevelConfig {
   id: string;
   version: number;
@@ -133,6 +150,8 @@ export interface LevelConfig {
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
   algorithm: AlgorithmLevelMetadata;
   buildingBlock?: BuildingBlockLevelMetadata;
+  scoreModel?: ScoreModel;
   topology?: PipelineTopology;
   operationModel?: OperationModel;
+  referencePolicy?: ReferencePolicyModel;
 }

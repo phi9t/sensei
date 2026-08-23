@@ -19,7 +19,7 @@ import { expandBuildingBlockPlan, validateBuildingBlockPlan } from '../engine/bu
 import { compareToReferencePolicy, type PolicyComparison } from '../engine/policyComparison';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
-import type { Action, Operation, OperationId } from '../engine/types';
+import type { Action, MetricMasteryTarget, Operation, OperationId } from '../engine/types';
 import type { PatternCheckModel } from '../components/PatternCheck';
 import { LEVEL_IDS, getLevel, type LevelId } from '../levels/levels';
 import {
@@ -381,6 +381,21 @@ function formatSignedDelta(value: number): string {
   return `${value}`;
 }
 
+function masteryMetricLabel(metric: MetricMasteryTarget['metric']): string {
+  switch (metric) {
+    case 'makespan':
+      return 'makespan';
+    case 'bubbleRatio':
+      return 'bubble';
+    case 'internalBubbleRatio':
+      return 'internal bubble';
+    case 'intentionalIdle':
+      return 'intentional idle';
+    case 'peakActivationMemory':
+      return 'peak activation memory';
+  }
+}
+
 function missedMasteryReason(
   level: ReturnType<typeof getLevel>,
   scoreResult: ReturnType<typeof score>,
@@ -395,12 +410,14 @@ function missedMasteryReason(
         ? scoreResult.makespan
         : target.metric === 'bubbleRatio'
           ? scoreResult.bubbleRatio
-          : target.metric === 'intentionalIdle'
-            ? scoreResult.intentionalIdle
-            : scoreResult.peakActivationMemory;
+          : target.metric === 'internalBubbleRatio'
+            ? (scoreResult.internalBubbleRatio ?? Number.POSITIVE_INFINITY)
+            : target.metric === 'intentionalIdle'
+              ? scoreResult.intentionalIdle
+              : scoreResult.peakActivationMemory;
 
     if (actual > target.value) {
-      return `Missed ${target.metric} target.`;
+      return `Missed ${masteryMetricLabel(target.metric)} target.`;
     }
   }
 

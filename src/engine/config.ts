@@ -1,7 +1,20 @@
-import type { LevelConfig, OperationKind, PipelineTopologyPlacement } from './types';
+import type {
+  LevelConfig,
+  OperationKind,
+  PipelineTopologyPlacement,
+  ReferencePolicyId,
+} from './types';
 
 const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
 const BACKWARD_MODELS = new Set(['fused', 'split']);
+const REFERENCE_POLICY_IDS = new Set<ReferencePolicyId>([
+  'gpipe-afab',
+  'one-f-one-b',
+  'interleaved-one-f-one-b',
+  'zero-bubble-h1',
+  'zero-bubble-h2',
+  'zero-bubble-deep',
+]);
 
 function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
   return TOPOLOGY_PLACEMENTS.has(value as PipelineTopologyPlacement);
@@ -28,6 +41,12 @@ export function validateLevelConfig(config: LevelConfig): void {
   }
   if (!isFinitePositiveInteger(config.microbatchCount)) {
     throw new Error('microbatchCount must be a positive finite integer');
+  }
+  if (
+    config.scoreModel?.internalBubble !== undefined &&
+    typeof config.scoreModel.internalBubble !== 'boolean'
+  ) {
+    throw new Error('scoreModel internalBubble must be boolean');
   }
   if (!isFinitePositive(config.durations.F)) {
     throw new Error('F duration must be a positive finite number');
@@ -102,6 +121,17 @@ export function validateLevelConfig(config: LevelConfig): void {
     }
   }
 
+  const seenReferencePolicies = new Set<ReferencePolicyId>();
+  for (const policyId of config.referencePolicy?.candidatePolicyIds ?? []) {
+    if (!REFERENCE_POLICY_IDS.has(policyId)) {
+      throw new Error('reference policy id is not supported');
+    }
+    if (seenReferencePolicies.has(policyId)) {
+      throw new Error(`duplicate reference policy id ${policyId}`);
+    }
+    seenReferencePolicies.add(policyId);
+  }
+
   const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };
 
   if (!isTopologyPlacement(topology.placement)) {
@@ -134,6 +164,14 @@ export function validateLevelConfig(config: LevelConfig): void {
     for (const cap of config.memoryCaps) {
       if (!isFinitePositiveInteger(cap)) {
         throw new Error('memoryCaps values must be positive finite integers');
+      }
+    }
+  }
+
+  for (const target of config.masteryTargets) {
+    if ('metric' in target && target.metric === 'internalBubbleRatio') {
+      if (config.scoreModel?.internalBubble !== true) {
+        throw new Error('internalBubbleRatio targets require internal bubble scoring');
       }
     }
   }

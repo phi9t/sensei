@@ -13,6 +13,7 @@ export interface ScoreResult {
   totalWork: number;
   capacity: number;
   bubbleRatio: number;
+  internalBubbleRatio?: number;
   intentionalIdle: number;
   peakActivationMemoryByRank: readonly number[];
   peakActivationMemory: number;
@@ -57,6 +58,34 @@ function isComplete(state: ScheduleState): boolean {
   return remaining.size === 0;
 }
 
+function internalBubbleRatio(state: ScheduleState): number {
+  let internalIdle = 0;
+  let internalCapacity = 0;
+
+  for (let rank = 0; rank < state.config.rankCount; rank += 1) {
+    const placements = state.placements.filter((placement) => placement.rank === rank);
+    if (placements.length === 0) {
+      continue;
+    }
+
+    const firstStart = placements.reduce(
+      (min, placement) => Math.min(min, placement.start),
+      Number.POSITIVE_INFINITY,
+    );
+    const lastEnd = placements.reduce((max, placement) => Math.max(max, placement.end), 0);
+    const work = placements.reduce(
+      (total, placement) => total + (placement.end - placement.start),
+      0,
+    );
+    const capacity = lastEnd - firstStart;
+
+    internalCapacity += capacity;
+    internalIdle += capacity - work;
+  }
+
+  return internalCapacity === 0 ? 0 : internalIdle / internalCapacity;
+}
+
 function masteryMetricValue(scoreResult: ScoreResult, target: MasteryTarget): number {
   if (!('metric' in target)) {
     throw new Error(`unsupported non-metric mastery target: ${target.kind}`);
@@ -67,6 +96,8 @@ function masteryMetricValue(scoreResult: ScoreResult, target: MasteryTarget): nu
       return scoreResult.makespan;
     case 'bubbleRatio':
       return scoreResult.bubbleRatio;
+    case 'internalBubbleRatio':
+      return scoreResult.internalBubbleRatio ?? Number.POSITIVE_INFINITY;
     case 'intentionalIdle':
       return scoreResult.intentionalIdle;
     case 'peakActivationMemory':
@@ -135,6 +166,9 @@ export function score(state: ScheduleState): ScoreResult {
     totalWork,
     capacity,
     bubbleRatio,
+    ...(state.config.scoreModel?.internalBubble === true
+      ? { internalBubbleRatio: internalBubbleRatio(state) }
+      : {}),
     intentionalIdle,
     peakActivationMemoryByRank: Object.freeze(peakActivationMemoryByRank),
     peakActivationMemory,

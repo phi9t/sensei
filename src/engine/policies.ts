@@ -6,10 +6,8 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from './replay';
-import type { Action, LevelConfig, Operation, OperationId } from './types';
+import type { Action, LevelConfig, Operation, OperationId, ReferencePolicyId } from './types';
 import { topologyForLevel } from './topology';
-
-export type ReferencePolicyId = 'gpipe-afab' | 'one-f-one-b' | 'interleaved-one-f-one-b';
 
 export interface ReferencePolicy {
   readonly id: ReferencePolicyId;
@@ -23,6 +21,12 @@ export const REFERENCE_POLICIES: Readonly<Record<ReferencePolicyId, ReferencePol
     'interleaved-one-f-one-b': Object.freeze({
       id: 'interleaved-one-f-one-b',
       label: 'Interleaved 1F1B',
+    }),
+    'zero-bubble-h1': Object.freeze({ id: 'zero-bubble-h1', label: 'ZB-H1' }),
+    'zero-bubble-h2': Object.freeze({ id: 'zero-bubble-h2', label: 'ZB-H2' }),
+    'zero-bubble-deep': Object.freeze({
+      id: 'zero-bubble-deep',
+      label: 'Zero Bubble Deep',
     }),
   });
 
@@ -60,6 +64,7 @@ export type RecognitionResult =
       readonly policyId: ReferencePolicyId;
       readonly label: string;
       readonly exact: boolean;
+      readonly candidatePolicyIds: readonly ReferencePolicyId[];
     }
   | {
       readonly kind: 'unmatched';
@@ -267,6 +272,72 @@ function selectInterleavedOneFOneBMove(
   return backward[0] ?? null;
 }
 
+function zeroBubbleStageKey(operation: Operation): number {
+  return operation.kind === 'F' ? operation.stage : -operation.stage;
+}
+
+function compareZeroBubbleKind(left: Operation, right: Operation): number {
+  const order: Record<Operation['kind'], number> = { B: 0, F: 1, W: 2 };
+  return order[left.kind] - order[right.kind];
+}
+
+function compareZeroBubbleMove(left: LegalMove, right: LegalMove): number {
+  if (left.operation.kind !== right.operation.kind) {
+    return compareZeroBubbleKind(left.operation, right.operation);
+  }
+  if (left.operation.microbatch !== right.operation.microbatch) {
+    return left.operation.microbatch - right.operation.microbatch;
+  }
+  const leftStage = zeroBubbleStageKey(left.operation);
+  const rightStage = zeroBubbleStageKey(right.operation);
+  if (leftStage !== rightStage) {
+    return leftStage - rightStage;
+  }
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function selectZeroBubbleWarmupMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+  warmupLimit: number,
+): LegalMove | null {
+  const placed = state.placements.filter((placement) => {
+    const operation = state.operations.find((candidate) => candidate.id === placement.operationId);
+    return operation?.kind === 'F' && operation.stage === 0;
+  }).length;
+
+  if (placed >= Math.min(warmupLimit, state.config.microbatchCount)) {
+    return null;
+  }
+
+  return (
+    legalMoves
+      .filter((move) => move.operation.kind === 'F' && move.operation.stage === 0)
+      .sort((left, right) => left.operation.microbatch - right.operation.microbatch)[0] ?? null
+  );
+}
+
+function selectZeroBubbleMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+  warmupLimit: number,
+): LegalMove | null {
+  const warmup = selectZeroBubbleWarmupMove(state, legalMoves, warmupLimit);
+  if (warmup) {
+    return warmup;
+  }
+
+  const earliestStart = Math.min(...legalMoves.map((move) => move.earliestStart));
+  return (
+    legalMoves
+      .filter((move) => move.earliestStart === earliestStart)
+      .sort(compareZeroBubbleMove)[0] ?? null
+  );
+}
+
 function blockedPolicyOperation(
   state: ScheduleState,
   policyId: ReferencePolicyId,
@@ -312,6 +383,12 @@ function selectMove(
       return selectOneFOneBMove(state, legalMoves);
     case 'interleaved-one-f-one-b':
       return selectInterleavedOneFOneBMove(state, legalMoves);
+    case 'zero-bubble-h1':
+      return selectZeroBubbleMove(state, legalMoves, state.config.stageCount - 1);
+    case 'zero-bubble-h2':
+      return selectZeroBubbleMove(state, legalMoves, state.config.stageCount);
+    case 'zero-bubble-deep':
+      return selectZeroBubbleMove(state, legalMoves, state.config.stageCount + 1);
   }
 }
 
@@ -446,6 +523,10 @@ function sameExactPlacement(left: ScheduleState, right: ScheduleState): boolean 
 }
 
 function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[] {
+  if (config.referencePolicy) {
+    return Object.freeze([...config.referencePolicy.candidatePolicyIds]);
+  }
+
   switch (config.algorithm.family) {
     case 'gpipe':
       return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
@@ -483,6 +564,7 @@ export function recognizeSchedule(state: ScheduleState): RecognitionResult {
         policyId,
         label: REFERENCE_POLICIES[policyId].label,
         exact: sameExactPlacement(state, projected.state),
+        candidatePolicyIds,
       });
     }
   }

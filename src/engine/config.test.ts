@@ -167,6 +167,56 @@ describe('validateLevelConfig', () => {
     ).toThrow(/operationModel backward must be fused or split/);
   });
 
+  it('accepts internal bubble scoring and known reference policies', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          scoreModel: { internalBubble: true },
+          referencePolicy: { candidatePolicyIds: ['zero-bubble-h1', 'zero-bubble-h2'] },
+          masteryTargets: [{ metric: 'internalBubbleRatio', op: '<=', value: 0 }],
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects malformed internal bubble score flags', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          scoreModel: { internalBubble: 'yes' as unknown as boolean },
+        }),
+      ),
+    ).toThrow(/scoreModel internalBubble must be boolean/);
+  });
+
+  it('rejects internal bubble targets when the metric is not enabled', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          masteryTargets: [{ metric: 'internalBubbleRatio', op: '<=', value: 0 }],
+        }),
+      ),
+    ).toThrow(/internalBubbleRatio targets require internal bubble scoring/);
+  });
+
+  it('rejects unknown and duplicate reference policy ids', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          referencePolicy: { candidatePolicyIds: ['unknown-policy' as 'gpipe-afab'] },
+        }),
+      ),
+    ).toThrow(/reference policy id is not supported/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          referencePolicy: { candidatePolicyIds: ['gpipe-afab', 'gpipe-afab'] },
+        }),
+      ),
+    ).toThrow(/duplicate reference policy id gpipe-afab/);
+  });
+
   it('rejects stageCount different from rankCount without virtual topology', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), stageCount: 3 })).toThrow(
       /one-to-one topology requires stageCount to equal rankCount/,

@@ -330,6 +330,36 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes zero-bubble attempts as canonical actions only', () => {
+    const level = getLevel('zero-bubble-h1');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'zero-bubble-h1',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['zero-bubble-h1'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('operationModel');
+    expect(storedPayload).not.toHaveProperty('scoreModel');
+    expect(storedPayload).not.toHaveProperty('referencePolicy');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['zero-bubble-h1']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('zero-bubble-h1');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['zero-bubble-h1']);
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

@@ -26,6 +26,9 @@ const EXPECTED_LEVEL_IDS = [
   'ragged-rounds',
   'heavy-backward-tail',
   'split-backward',
+  'zero-bubble-h1',
+  'zero-bubble-h2',
+  'zero-bubble-deep',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -397,6 +400,96 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['input-gradient work', 'weight-gradient work', 'release on W'],
     },
   },
+  'zero-bubble-h1': {
+    id: 'zero-bubble-h1',
+    version: 1,
+    title: 'ZB-H1 Window',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 3,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-h1', 'zero-bubble-h2', 'zero-bubble-deep'],
+    },
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 10 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 3 },
+    ],
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Keep W blocks available so local idle can be filled after input gradients clear.',
+      objective: 'Use a short warmup, then drain B and W without leaving internal gaps.',
+      patternLabel: 'ZB-H1',
+      introducedModel: ['zero-bubble warmup', 'internal bubble', 'W fill'],
+    },
+  },
+  'zero-bubble-h2': {
+    id: 'zero-bubble-h2',
+    version: 1,
+    title: 'ZB-H2 Window',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 4,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-h2', 'zero-bubble-h1', 'zero-bubble-deep'],
+    },
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 14 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0.03 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'A wider warmup changes which W blocks are useful bubble fillers.',
+      objective: 'Compare the H2 reference order against H1 while keeping internal bubble low.',
+      patternLabel: 'ZB-H2',
+      introducedModel: ['warmup window', 'variant comparison', 'bubble filling'],
+    },
+  },
+  'zero-bubble-deep': {
+    id: 'zero-bubble-deep',
+    version: 1,
+    title: 'Deep Zero Bubble',
+    rankCount: 4,
+    stageCount: 4,
+    microbatchCount: 5,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    scoreModel: { internalBubble: true },
+    referencePolicy: {
+      candidatePolicyIds: ['zero-bubble-deep', 'zero-bubble-h2', 'zero-bubble-h1'],
+    },
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 18 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'internalBubbleRatio', op: '<=', value: 0.04 },
+      { metric: 'peakActivationMemory', op: '<=', value: 5 },
+    ],
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Deeper pipelines expose more tail work, so W placement decides where gaps remain.',
+      objective: 'Hold the low-bubble reference shape while draining a longer split-backward tail.',
+      patternLabel: 'Zero Bubble Deep',
+      introducedModel: ['deep warmup', 'tail drain', 'variant trade-off'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -705,9 +798,138 @@ const EXPECTED_MASTERED_ACTIONS = {
     'W:0:1',
     'W:1:1',
   ],
+  'zero-bubble-h1': [
+    'F:0:0',
+    'F:1:0',
+    'F:0:1',
+    'B:1:0',
+    'F:0:2',
+    'B:0:0',
+    'F:1:1',
+    'B:1:1',
+    'W:0:0',
+    'B:0:1',
+    'F:1:2',
+    'B:1:2',
+    'W:0:1',
+    'B:0:2',
+    'W:1:0',
+    'W:1:1',
+    'W:0:2',
+    'W:1:2',
+  ],
+  'zero-bubble-h2': [
+    'F:0:0',
+    'F:0:1',
+    'F:0:2',
+    'F:1:0',
+    'F:2:0',
+    'F:1:1',
+    'B:2:0',
+    'F:1:2',
+    'F:0:3',
+    'B:1:0',
+    'F:2:1',
+    'B:0:0',
+    'B:2:1',
+    'F:1:3',
+    'B:1:1',
+    'F:2:2',
+    'W:0:0',
+    'B:0:1',
+    'B:2:2',
+    'W:1:0',
+    'B:1:2',
+    'F:2:3',
+    'W:0:1',
+    'B:0:2',
+    'B:2:3',
+    'W:1:1',
+    'B:1:3',
+    'W:2:0',
+    'W:0:2',
+    'B:0:3',
+    'W:2:1',
+    'W:1:2',
+    'W:2:2',
+    'W:1:3',
+    'W:0:3',
+    'W:2:3',
+  ],
+  'zero-bubble-deep': [
+    'F:0:0',
+    'F:0:1',
+    'F:0:2',
+    'F:0:3',
+    'F:0:4',
+    'F:1:0',
+    'F:2:0',
+    'F:1:1',
+    'F:3:0',
+    'F:2:1',
+    'F:1:2',
+    'B:3:0',
+    'F:2:2',
+    'F:1:3',
+    'B:2:0',
+    'F:3:1',
+    'F:1:4',
+    'B:1:0',
+    'B:3:1',
+    'F:2:3',
+    'B:0:0',
+    'B:2:1',
+    'F:3:2',
+    'W:1:0',
+    'B:1:1',
+    'B:3:2',
+    'F:2:4',
+    'W:0:0',
+    'B:0:1',
+    'B:2:2',
+    'F:3:3',
+    'W:1:1',
+    'B:1:2',
+    'B:3:3',
+    'W:2:0',
+    'W:0:1',
+    'B:0:2',
+    'B:2:3',
+    'F:3:4',
+    'W:1:2',
+    'B:1:3',
+    'B:3:4',
+    'W:2:1',
+    'W:0:2',
+    'B:0:3',
+    'B:2:4',
+    'W:3:0',
+    'W:1:3',
+    'B:1:4',
+    'W:3:1',
+    'W:2:2',
+    'W:0:3',
+    'B:0:4',
+    'W:3:2',
+    'W:2:3',
+    'W:1:4',
+    'W:3:3',
+    'W:2:4',
+    'W:0:4',
+    'W:3:4',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
-const EXPECTED_GOLDEN_ROWS = {
+interface ExpectedGoldenRow {
+  readonly makespan: number;
+  readonly intentionalIdle: number;
+  readonly bubbleRatio: number;
+  readonly internalBubbleRatio?: number;
+  readonly peakActivationMemoryByRank: readonly number[];
+  readonly peakActivationMemory: number;
+}
+
+const EXPECTED_GOLDEN_ROWS: Record<LevelId, ExpectedGoldenRow> = {
   'dependency-chain': {
     makespan: 6,
     intentionalIdle: 0,
@@ -806,16 +1028,31 @@ const EXPECTED_GOLDEN_ROWS = {
     peakActivationMemoryByRank: [2, 2],
     peakActivationMemory: 2,
   },
-} satisfies Record<
-  LevelId,
-  {
-    makespan: number;
-    intentionalIdle: number;
-    bubbleRatio: number;
-    peakActivationMemoryByRank: readonly number[];
-    peakActivationMemory: number;
-  }
->;
+  'zero-bubble-h1': {
+    makespan: 10,
+    intentionalIdle: 0,
+    bubbleRatio: 0.1,
+    internalBubbleRatio: 0,
+    peakActivationMemoryByRank: [3, 3],
+    peakActivationMemory: 3,
+  },
+  'zero-bubble-h2': {
+    makespan: 14,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 7,
+    internalBubbleRatio: 1 / 37,
+    peakActivationMemoryByRank: [4, 4, 4],
+    peakActivationMemory: 4,
+  },
+  'zero-bubble-deep': {
+    makespan: 18,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 6,
+    internalBubbleRatio: 1 / 31,
+    peakActivationMemoryByRank: [5, 5, 5, 5],
+    peakActivationMemory: 5,
+  },
+};
 
 function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
   return 'metric' in target;
@@ -928,6 +1165,18 @@ describe('levels public API', () => {
     expect(level.operationModel).toEqual({ backward: 'split' });
     expect(getLevel('heavy-backward-tail').operationModel).toBeUndefined();
   });
+
+  it('freezes zero-bubble score and reference policy metadata with the level config', () => {
+    const level = getLevel('zero-bubble-h2');
+
+    expect(Object.isFrozen(level.scoreModel)).toBe(true);
+    expect(Object.isFrozen(level.referencePolicy)).toBe(true);
+    expect(Object.isFrozen(level.referencePolicy?.candidatePolicyIds)).toBe(true);
+    expect(level.scoreModel).toEqual({ internalBubble: true });
+    expect(level.referencePolicy).toEqual({
+      candidatePolicyIds: ['zero-bubble-h2', 'zero-bubble-h1', 'zero-bubble-deep'],
+    });
+  });
 });
 
 describe('golden fixtures', () => {
@@ -984,6 +1233,11 @@ describe('golden replay outcomes', () => {
       expect(result.mastered).toBe(true);
       expect(result.makespan).toBe(expectedRow.makespan);
       expect(result.bubbleRatio).toBeCloseTo(expectedRow.bubbleRatio, 10);
+      if (expectedRow.internalBubbleRatio === undefined) {
+        expect(result.internalBubbleRatio).toBeUndefined();
+      } else {
+        expect(result.internalBubbleRatio).toBeCloseTo(expectedRow.internalBubbleRatio, 10);
+      }
       expect(result.intentionalIdle).toBe(expectedRow.intentionalIdle);
       expect(result.peakActivationMemoryByRank).toEqual(expectedRow.peakActivationMemoryByRank);
       expect(result.peakActivationMemory).toBe(expectedRow.peakActivationMemory);

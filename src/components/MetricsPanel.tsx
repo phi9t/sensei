@@ -1,6 +1,6 @@
 import type { AttemptRankingTuple, ScoreResult } from '../engine/score';
 import type { PolicyComparison } from '../engine/policyComparison';
-import type { LevelConfig } from '../engine/types';
+import type { LevelConfig, MetricMasteryTarget } from '../engine/types';
 
 interface MetricsPanelProps {
   readonly level: LevelConfig;
@@ -36,9 +36,24 @@ function formatMatch(match: PolicyComparison['match']): string {
   }
 }
 
+function metricLabel(metric: MetricMasteryTarget['metric']): string {
+  switch (metric) {
+    case 'makespan':
+      return 'makespan';
+    case 'bubbleRatio':
+      return 'bubble';
+    case 'internalBubbleRatio':
+      return 'internal bubble';
+    case 'intentionalIdle':
+      return 'intentional idle';
+    case 'peakActivationMemory':
+      return 'peak activation memory';
+  }
+}
+
 function formatMasteryTarget(target: LevelConfig['masteryTargets'][number]): string {
   if ('metric' in target) {
-    return `${target.metric} ${target.op} ${target.value}`;
+    return `${metricLabel(target.metric)} ${target.op} ${target.value}`;
   }
 
   return `pattern ${target.pattern.toUpperCase()}`;
@@ -76,6 +91,12 @@ export function MetricsPanel({
           <span className="scoreboard-card__label">Bubble</span>
           <strong>{(score.bubbleRatio * 100).toFixed(1)}%</strong>
         </div>
+        {score.internalBubbleRatio !== undefined ? (
+          <div className="scoreboard-card">
+            <span className="scoreboard-card__label">Internal bubble</span>
+            <strong>{(score.internalBubbleRatio * 100).toFixed(1)}%</strong>
+          </div>
+        ) : null}
         <div className="scoreboard-card">
           <span className="scoreboard-card__label">Memory</span>
           <strong>{memorySummary}</strong>
@@ -151,6 +172,12 @@ export function MetricsPanel({
             <dt>Bubble</dt>
             <dd>1 - work/capacity = {formatBubbleRatio(score.bubbleRatio)}</dd>
           </div>
+          {score.internalBubbleRatio !== undefined ? (
+            <div>
+              <dt>Internal bubble</dt>
+              <dd>{formatBubbleRatio(score.internalBubbleRatio)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Intentional idle</dt>
             <dd>{score.intentionalIdle}</dd>
