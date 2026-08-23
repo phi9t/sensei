@@ -82,6 +82,13 @@ export interface SchedulePatternMasteryTarget {
 
 export type MasteryTarget = MetricMasteryTarget | SchedulePatternMasteryTarget;
 
+export type PipelineTopologyPlacement = 'one-to-one' | 'wrap' | 'v-shape';
+
+export interface PipelineTopology {
+  readonly placement: PipelineTopologyPlacement;
+  readonly virtualStagesPerRank: number;
+}
+
 export type AlgorithmFamily =
   | 'foundations'
   | 'gpipe'
@@ -115,4 +122,5 @@ export interface LevelConfig {
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
   algorithm: AlgorithmLevelMetadata;
   buildingBlock?: BuildingBlockLevelMetadata;
+  topology?: PipelineTopology;
 }
