@@ -69,7 +69,7 @@ export interface GameViewModel {
   readonly attemptTuple: ReturnType<typeof attemptRankingTuple>;
   readonly policyComparison: PolicyComparison | null;
   readonly moveClassifications: readonly MoveClassification[];
-  readonly selectedExplanation: ExplanationResult | null;
+  readonly selectedExplanation: SelectedExplanation | null;
   readonly suggestion: Suggestion | null;
   readonly readySet: ReturnType<typeof revealReadySet>;
   readonly persistenceNotice: string | null;
@@ -94,6 +94,8 @@ export interface GameViewModel {
   readonly automate: () => void;
   readonly stampBuildingBlockPlan: () => void;
 }
+
+type SelectedExplanation = ExplanationResult & { readonly operation: Operation };
 
 const DEFAULT_LEVEL_ID: LevelId = 'dependency-chain';
 const READY_MESSAGE = 'Ready to place operations.';
@@ -268,6 +270,25 @@ function coherentSelection(
   return operations.some((operation) => operation.id === selectedOperationId)
     ? selectedOperationId
     : null;
+}
+
+function selectedExplanationFor(
+  schedule: ScheduleState,
+  operationId: OperationId | null,
+): SelectedExplanation | null {
+  if (operationId === null) {
+    return null;
+  }
+
+  const operation = schedule.operations.find((candidate) => candidate.id === operationId);
+  if (!operation) {
+    return null;
+  }
+
+  return Object.freeze({
+    ...explainBlockedMove(schedule, operationId),
+    operation,
+  });
 }
 
 function formatBlockedSummary(operationId: OperationId, count: number): string {
@@ -595,8 +616,7 @@ export function useGame(
   const attemptTuple = attemptRankingTuple(schedule);
   const policyComparison = compareToReferencePolicy(schedule);
   const selectedOperationId = coherentSelection(game.selectedOperationId, schedule.operations);
-  const selectedExplanation =
-    selectedOperationId === null ? null : explainBlockedMove(schedule, selectedOperationId);
+  const selectedExplanation = selectedExplanationFor(schedule, selectedOperationId);
   const suggestion = level.coaching.suggest ? suggestMove(schedule) : null;
   const canReadySet = canUseReadySet(game.progress, game.levelId);
   const readySet = canReadySet ? revealReadySet(schedule) : [];

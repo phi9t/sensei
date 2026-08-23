@@ -2,6 +2,7 @@
   --ink: #172123;
   --muted: #667375;
   --paper: #f6f7f2;
+  --panel: var(--paper);
   --paper-strong: #ffffff;
   --paper-soft: #edf0ea;
   --backdrop: #11191b;
@@ -370,6 +371,11 @@ summary:focus-visible {
   padding: 0.24rem 0.46rem;
 }
 
+.topology-chip {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 .tray-panel__summary {
   display: grid;
   justify-items: end;
@@ -672,6 +678,23 @@ summary:focus-visible {
   padding: 1.15rem;
 }
 
+.rank-owner-list {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.rank-owner-list span {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  background: color-mix(in srgb, var(--panel) 84%, white);
+}
+
 .board-scroll-region {
   overflow-x: auto;
   margin-top: 0.8rem;
@@ -920,6 +943,13 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 850;
+}
+
+.inspector-operation__owner {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 800;
 }
 
 .inspector-operation__status {

@@ -130,6 +130,7 @@ function cloneConfig(config: LevelConfig): LevelConfig {
       ...config.algorithm,
       introducedModel: Object.freeze([...config.algorithm.introducedModel]),
     }),
+    ...(config.topology ? { topology: Object.freeze({ ...config.topology }) } : {}),
   };
   if (config.memoryCaps) {
     cloned.memoryCaps = Object.freeze([...config.memoryCaps]);

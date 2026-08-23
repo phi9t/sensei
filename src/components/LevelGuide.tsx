@@ -19,7 +19,16 @@ function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
   return 'metric' in target;
 }
 
+function topologyLabel(level: LevelConfig): string | null {
+  if (!level.topology || level.topology.placement === 'one-to-one') {
+    return null;
+  }
+  return `V-stage x${level.topology.virtualStagesPerRank}`;
+}
+
 export function LevelGuide({ level, score }: LevelGuideProps) {
+  const topology = topologyLabel(level);
+
   return (
     <section className="panel level-guide-panel" aria-label="Level guide">
       <div>
@@ -29,6 +38,7 @@ export function LevelGuide({ level, score }: LevelGuideProps) {
       </div>
       <div className="level-guide-panel__chips" aria-label="Level progress summary">
         <span>{primaryGoal(level)}</span>
+        {topology ? <span className="topology-chip">{topology}</span> : null}
         {level.algorithm.patternLabel ? <span>{level.algorithm.patternLabel}</span> : null}
         <span>{level.algorithm.objective}</span>
         <span>{score.complete ? 'Complete' : 'In progress'}</span>

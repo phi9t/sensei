@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { Operation, OperationId } from '../engine/types';
+import { topologyForLevel } from '../engine/topology';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 export const CELL_WIDTH = 56;
@@ -31,6 +32,11 @@ interface MemorySegment {
   readonly start: number;
   readonly end: number;
   readonly value: number;
+}
+
+interface RankOwnerLabel {
+  readonly rank: number;
+  readonly stages: readonly number[];
 }
 
 function operationById(state: ScheduleState, operationId: OperationId) {
@@ -106,6 +112,36 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
     .join('; ')}`;
 }
 
+function rankOwnersForSchedule(state: ScheduleState): readonly RankOwnerLabel[] {
+  const topology = topologyForLevel(state.config);
+  if (topology.placement === 'one-to-one') {
+    return [];
+  }
+
+  const stagesByRank = new Map<number, Set<number>>();
+  for (const operation of state.operations) {
+    let stages = stagesByRank.get(operation.rank);
+    if (!stages) {
+      stages = new Set<number>();
+      stagesByRank.set(operation.rank, stages);
+    }
+    stages.add(operation.stage);
+  }
+
+  return Object.freeze(
+    Array.from({ length: state.config.rankCount }, (_, rank) =>
+      Object.freeze({
+        rank,
+        stages: Object.freeze([...(stagesByRank.get(rank) ?? [])].sort((left, right) => left - right)),
+      }),
+    ),
+  );
+}
+
+function rankOwnerText(owner: RankOwnerLabel): string {
+  return `Rank ${owner.rank} owns ${owner.stages.map((stage) => `S${stage}`).join(', ')}`;
+}
+
 function splitOperationCode(operation: Operation): readonly [string, string] {
   const [pass, stage, batch] = formatOperationCode(operation).split(':') as [
     string,
@@ -152,6 +188,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
   const previewOperation = preview ? operationById(schedule, preview.operationId) : null;
   const previewStart = preview?.earliestStart ?? 0;
   const previewEnd = previewOperation ? previewStart + previewOperation.duration : 0;
+  const rankOwners = rankOwnersForSchedule(schedule);
   const svgWidth = Math.max(
     timelineExtent(schedule),
     MIN_BOARD_WIDTH,
@@ -164,6 +201,13 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
       <h2 id="schedule-board-heading">Schedule board</h2>
       <p className="panel-intro">Your pipeline, one move at a time.</p>
+      {rankOwners.length > 0 ? (
+        <div className="rank-owner-list" aria-label="Rank stage ownership">
+          {rankOwners.map((owner) => (
+            <span key={`rank-owner-${owner.rank}`}>{rankOwnerText(owner)}</span>
+          ))}
+        </div>
+      ) : null}
       <div
         className="board-scroll-region"
         role="group"

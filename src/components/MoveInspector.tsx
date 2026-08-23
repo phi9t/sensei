@@ -1,18 +1,23 @@
 import type { CSSProperties } from 'react';
 import type { ExplanationResult } from '../coaching/coaching';
 import type { BlockReason } from '../engine/replay';
-import type { OperationId } from '../engine/types';
+import type { Operation, OperationId } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { parseOperationId } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
+type InspectorExplanation = ExplanationResult & { readonly operation?: Operation };
+
 interface MoveInspectorProps {
   readonly operationId: OperationId | null;
-  readonly explanation: ExplanationResult | null;
+  readonly explanation: InspectorExplanation | null;
 }
 
 export function MoveInspector({ operationId, explanation }: MoveInspectorProps) {
   const operationIdentity = operationId === null ? null : parseOperationId(operationId);
+  const ownerRank = ownerRankForExplanation(explanation);
+  const showOwnerRank =
+    operationIdentity !== null && ownerRank !== null && ownerRank !== operationIdentity.stage;
 
   return (
     <section className="panel inspector-panel" aria-labelledby="move-inspector-heading">
@@ -37,6 +42,9 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
             <div className="inspector-operation__copy">
               <strong>{formatOperationName(operationId)}</strong>
               <span className="mono">{formatOperationCode(operationId)}</span>
+              {showOwnerRank ? (
+                <span className="inspector-operation__owner">Owner rank {ownerRank}</span>
+              ) : null}
             </div>
             <span className="inspector-operation__status">{explanation.status}</span>
           </div>
@@ -72,6 +80,19 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
       ) : null}
     </section>
   );
+}
+
+function ownerRankForExplanation(explanation: InspectorExplanation | null): number | null {
+  if (explanation === null) {
+    return null;
+  }
+  if (explanation.operation) {
+    return explanation.operation.rank;
+  }
+  if (explanation.status === 'completed') {
+    return explanation.placement?.rank ?? null;
+  }
+  return null;
 }
 
 function humanBlockedMessage(reason: BlockReason): string {

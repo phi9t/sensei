@@ -269,6 +269,18 @@ describe('responsive play surface CSS contract', () => {
     expect(memoryLabelBlock).toMatch(/\.memory-strip__label\s*\{[^}]*\bfont-size:\s*0\.625rem\s*;/);
   });
 
+  it('keeps virtual-stage topology copy compact and horizontally scrollable', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const topologyChipBlock = extractBlock(css, '.topology-chip');
+    const topologyOwnersBlock = extractBlock(css, '.rank-owner-list');
+
+    expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bwhite-space:\s*nowrap\s*;/);
+    expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bmax-width:\s*100%\s*;/);
+    expect(topologyOwnersBlock).toMatch(
+      /\.rank-owner-list\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
+    );
+  });
+
   it('keeps selected identity and score summary compact in the right rail', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const inspectorOperationBlock = extractBlock(css, '.inspector-operation');

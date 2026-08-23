@@ -109,6 +109,45 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
+  it('shows compact virtual-stage topology metadata in the guide', () => {
+    render(<App initialLevelId="virtual-stages" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+
+    expect(within(guide).getByRole('heading', { name: /^Virtual Stages$/i })).toBeInTheDocument();
+    expect(within(guide).getAllByText(/^Virtual Stages$/i)).toHaveLength(2);
+    expect(within(guide).getByText(/^V-stage x2$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^V-shape$/i)).toBeInTheDocument();
+  });
+
+  it('shows compact code and owner rank when selecting a virtual-stage block', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="virtual-stages" />);
+
+    await user.click(screen.getByTestId('tile-F:2:0'));
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/^F2:S2:B0$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Owner rank 1$/i)).toBeInTheDocument();
+  });
+
+  it('renders virtual-stage schedule tiles with compact rank ownership text', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="virtual-stages" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 2 microbatch 0/i }));
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+
+    expect(scheduleLabelIn(board, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
+    expect(scheduleLabelIn(board, 'F:1:0')).toHaveAccessibleName('F1:S1:B0');
+    expect(scheduleLabelIn(board, 'F:2:0')).toHaveAccessibleName('F2:S2:B0');
+    expect(within(board).getByText(/^Rank 0 owns S0, S3$/i)).toBeInTheDocument();
+    expect(within(board).getByText(/^Rank 1 owns S1, S2$/i)).toBeInTheDocument();
+  });
+
   it('groups the level picker by curriculum set', () => {
     render(<App initialLevelId="dependency-chain" />);
 
