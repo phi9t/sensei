@@ -270,6 +270,36 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes nonuniform-duration attempts as expanded actions only', () => {
+    const level = getLevel('heavy-backward-tail');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'heavy-backward-tail',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['heavy-backward-tail'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('durationOverrides');
+    expect(storedPayload).not.toHaveProperty('durations');
+    expect(storedPayload).not.toHaveProperty('topology');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['heavy-backward-tail']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('heavy-backward-tail');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['heavy-backward-tail']);
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

@@ -171,6 +171,18 @@ describe('game flow', () => {
     );
   }, 10000);
 
+  it('names the interleaved reference for the nonuniform-cost level completion', async () => {
+    const user = userEvent.setup();
+
+    render(<App initialLevelId="heavy-backward-tail" />);
+
+    await runJourney(user, MASTERED_ACTIONS['heavy-backward-tail'], 'pointer');
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /^Completed as Interleaved 1F1B reference\. Mastered\.$/,
+    );
+  }, 10000);
+
   it('summarizes policy-relative deltas for non-exact reference completions', async () => {
     const user = userEvent.setup();
 
