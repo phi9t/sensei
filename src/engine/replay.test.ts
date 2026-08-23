@@ -52,6 +52,22 @@ describe('initialState', () => {
     expect(state.config.algorithm.setTitle).toBe('Original Set');
     expect(state.config.algorithm.introducedModel).toEqual(['original model']);
   });
+
+  it('deep-freezes cloned duration override metadata independently of the input config', () => {
+    const config = makeConfig({
+      durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+    });
+
+    const state = initialState(config);
+
+    expect(Object.isFrozen(state.config.durationOverrides)).toBe(true);
+    expect(Object.isFrozen(state.config.durationOverrides?.[0])).toBe(true);
+
+    (config.durationOverrides as unknown as Array<{ duration: number }>)[0]!.duration = 9;
+
+    expect(state.config.durationOverrides).toEqual([{ kind: 'B', stage: 0, duration: 4 }]);
+    expect(state.operations.find((operation) => operation.id === 'B:0:0')?.duration).toBe(4);
+  });
 });
 
 describe('classifyOperation / classifyMoves', () => {

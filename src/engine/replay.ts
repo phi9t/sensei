@@ -130,6 +130,13 @@ function cloneConfig(config: LevelConfig): LevelConfig {
       ...config.algorithm,
       introducedModel: Object.freeze([...config.algorithm.introducedModel]),
     }),
+    ...(config.durationOverrides
+      ? {
+          durationOverrides: Object.freeze(
+            config.durationOverrides.map((override) => Object.freeze({ ...override })),
+          ),
+        }
+      : {}),
     ...(config.topology ? { topology: Object.freeze({ ...config.topology }) } : {}),
   };
   if (config.memoryCaps) {

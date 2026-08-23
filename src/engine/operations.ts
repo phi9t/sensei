@@ -1,6 +1,17 @@
-import type { LevelConfig, Operation, OperationId } from './types';
+import type { LevelConfig, Operation, OperationId, OperationKind } from './types';
 import { validateLevelConfig } from './config';
 import { ownerRankForStage } from './topology';
+
+export function durationForOperation(
+  config: LevelConfig,
+  kind: OperationKind,
+  stage: number,
+): number {
+  const override = config.durationOverrides?.find(
+    (candidate) => candidate.kind === kind && candidate.stage === stage,
+  );
+  return override?.duration ?? config.durations[kind];
+}
 
 export function deriveOperations(config: LevelConfig): readonly Operation[] {
   validateLevelConfig(config);
@@ -16,7 +27,7 @@ export function deriveOperations(config: LevelConfig): readonly Operation[] {
             stage,
             rank: ownerRankForStage(config, stage),
             microbatch,
-            duration: config.durations[kind],
+            duration: durationForOperation(config, kind, stage),
           }),
         );
       }

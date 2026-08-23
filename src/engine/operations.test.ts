@@ -70,6 +70,51 @@ describe('deriveOperations', () => {
     expect(operations.map((op) => op.duration)).toEqual([1, 2, 1, 2]);
   });
 
+  it('uses stage-specific duration overrides before base durations', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 2,
+      microbatchCount: 2,
+      durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+    });
+
+    const durationsById = Object.fromEntries(
+      deriveOperations(config).map((operation) => [operation.id, operation.duration]),
+    );
+
+    expect(durationsById).toMatchObject({
+      'F:0:0': 1,
+      'F:0:1': 1,
+      'B:0:0': 4,
+      'B:0:1': 4,
+      'F:1:0': 1,
+      'B:1:0': 2,
+    });
+  });
+
+  it('applies duration overrides by logical stage, not physical rank', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 4,
+      microbatchCount: 1,
+      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+      durationOverrides: [{ kind: 'B', stage: 3, duration: 5 }],
+    });
+
+    expect(
+      deriveOperations(config).map(({ id, rank, duration }) => ({ id, rank, duration })),
+    ).toEqual([
+      { id: 'F:0:0', rank: 0, duration: 1 },
+      { id: 'B:0:0', rank: 0, duration: 2 },
+      { id: 'F:1:0', rank: 1, duration: 1 },
+      { id: 'B:1:0', rank: 1, duration: 2 },
+      { id: 'F:2:0', rank: 1, duration: 1 },
+      { id: 'B:2:0', rank: 1, duration: 2 },
+      { id: 'F:3:0', rank: 0, duration: 1 },
+      { id: 'B:3:0', rank: 0, duration: 5 },
+    ]);
+  });
+
   it('handles multi-rank ordering', () => {
     const config = makeConfig({ rankCount: 3, stageCount: 3 });
     const operations = deriveOperations(config);

@@ -28,6 +28,26 @@ describe('score', () => {
     });
   });
 
+  it('scores total work and bubble ratio from operation duration overrides', () => {
+    const config = makeConfig({
+      durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+      masteryTargets: [{ metric: 'makespan', op: '<=', value: 8 }],
+    });
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0')));
+
+    expect(score(state)).toEqual({
+      makespan: 8,
+      totalWork: 8,
+      capacity: 16,
+      bubbleRatio: 0.5,
+      intentionalIdle: 0,
+      peakActivationMemoryByRank: [1, 1],
+      peakActivationMemory: 1,
+      complete: true,
+      mastered: true,
+    });
+  });
+
   it('scores the empty state as zero with complete false and mastered false', () => {
     const state = expectState(replay(makeConfig(), []));
 
