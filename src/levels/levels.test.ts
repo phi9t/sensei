@@ -29,6 +29,8 @@ const EXPECTED_LEVEL_IDS = [
   'zero-bubble-h1',
   'zero-bubble-h2',
   'zero-bubble-deep',
+  'group-the-pipe',
+  'bf-pp-pressure',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -40,6 +42,7 @@ const EXPECTED_LEVEL_GROUPS = [
   'Interleaved 1F1B',
   'Nonuniform Cost',
   'Zero Bubble',
+  'Grouped',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -490,6 +493,68 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['deep warmup', 'tail drain', 'variant trade-off'],
     },
   },
+  'group-the-pipe': {
+    id: 'group-the-pipe',
+    version: 1,
+    title: 'Group The Pipe',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 4,
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1'],
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['group-major', 'one-f-one-b'],
+    },
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 24 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    algorithm: {
+      family: 'grouped',
+      setTitle: 'Grouped',
+      concept: 'Group-major scheduling drains a small batch group before admitting the next one.',
+      objective: 'Finish G0 before G1 while watching bubble and activation memory.',
+      patternLabel: 'Group major',
+      introducedModel: ['microbatch group', 'group-major order', 'group boundary'],
+    },
+  },
+  'bf-pp-pressure': {
+    id: 'bf-pp-pressure',
+    version: 1,
+    title: 'BF-PP Pressure',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 6,
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1', 'G2'],
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['group-major', 'one-f-one-b'],
+    },
+    memoryCaps: [2, 2, 2],
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 36 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    algorithm: {
+      family: 'grouped',
+      setTitle: 'Grouped',
+      concept: 'Small groups keep activation pressure bounded while preserving a repeatable order.',
+      objective: 'Use group-major placement to stay under the memory cap without FSDP claims.',
+      patternLabel: 'BF-PP',
+      introducedModel: ['bounded group', 'activation pressure', 'policy-relative comparison'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -918,6 +983,70 @@ const EXPECTED_MASTERED_ACTIONS = {
     'W:0:4',
     'W:3:4',
   ],
+  'group-the-pipe': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:1:1',
+    'F:2:0',
+    'F:2:1',
+    'B:2:0',
+    'B:2:1',
+    'B:1:0',
+    'B:1:1',
+    'B:0:0',
+    'B:0:1',
+    'F:0:2',
+    'F:0:3',
+    'F:1:2',
+    'F:1:3',
+    'F:2:2',
+    'F:2:3',
+    'B:2:2',
+    'B:2:3',
+    'B:1:2',
+    'B:1:3',
+    'B:0:2',
+    'B:0:3',
+  ],
+  'bf-pp-pressure': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:1:1',
+    'F:2:0',
+    'F:2:1',
+    'B:2:0',
+    'B:2:1',
+    'B:1:0',
+    'B:1:1',
+    'B:0:0',
+    'B:0:1',
+    'F:0:2',
+    'F:0:3',
+    'F:1:2',
+    'F:1:3',
+    'F:2:2',
+    'F:2:3',
+    'B:2:2',
+    'B:2:3',
+    'B:1:2',
+    'B:1:3',
+    'B:0:2',
+    'B:0:3',
+    'F:0:4',
+    'F:0:5',
+    'F:1:4',
+    'F:1:5',
+    'F:2:4',
+    'F:2:5',
+    'B:2:4',
+    'B:2:5',
+    'B:1:4',
+    'B:1:5',
+    'B:0:4',
+    'B:0:5',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 interface ExpectedGoldenRow {
@@ -1052,6 +1181,20 @@ const EXPECTED_GOLDEN_ROWS: Record<LevelId, ExpectedGoldenRow> = {
     peakActivationMemoryByRank: [5, 5, 5, 5],
     peakActivationMemory: 5,
   },
+  'group-the-pipe': {
+    makespan: 24,
+    intentionalIdle: 0,
+    bubbleRatio: 0.5,
+    peakActivationMemoryByRank: [2, 2, 2],
+    peakActivationMemory: 2,
+  },
+  'bf-pp-pressure': {
+    makespan: 36,
+    intentionalIdle: 0,
+    bubbleRatio: 0.5,
+    peakActivationMemoryByRank: [2, 2, 2],
+    peakActivationMemory: 2,
+  },
 };
 
 function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
@@ -1175,6 +1318,17 @@ describe('levels public API', () => {
     expect(level.scoreModel).toEqual({ internalBubble: true });
     expect(level.referencePolicy).toEqual({
       candidatePolicyIds: ['zero-bubble-h2', 'zero-bubble-h1', 'zero-bubble-deep'],
+    });
+  });
+
+  it('freezes grouped microbatch metadata with the level config', () => {
+    const level = getLevel('group-the-pipe');
+
+    expect(Object.isFrozen(level.microbatchGrouping)).toBe(true);
+    expect(Object.isFrozen(level.microbatchGrouping?.groupLabels)).toBe(true);
+    expect(level.microbatchGrouping).toEqual({ groupSize: 2, groupLabels: ['G0', 'G1'] });
+    expect(level.referencePolicy).toEqual({
+      candidatePolicyIds: ['group-major', 'one-f-one-b'],
     });
   });
 });

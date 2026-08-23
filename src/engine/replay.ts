@@ -138,6 +138,16 @@ function cloneConfig(config: LevelConfig): LevelConfig {
     ...(config.operationModel
       ? { operationModel: Object.freeze({ ...config.operationModel }) }
       : {}),
+    ...(config.microbatchGrouping
+      ? {
+          microbatchGrouping: Object.freeze({
+            groupSize: config.microbatchGrouping.groupSize,
+            ...(config.microbatchGrouping.groupLabels
+              ? { groupLabels: Object.freeze([...config.microbatchGrouping.groupLabels]) }
+              : {}),
+          }),
+        }
+      : {}),
     ...(config.scoreModel ? { scoreModel: Object.freeze({ ...config.scoreModel }) } : {}),
     ...(config.referencePolicy
       ? {

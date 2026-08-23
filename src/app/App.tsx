@@ -165,6 +165,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           <LevelGuide level={game.level} score={game.score} />
 
           <OperationTray
+            level={game.level}
             classifications={game.moveClassifications}
             selectedOperationId={game.selectedOperationId}
             onActivate={game.activateOperation}

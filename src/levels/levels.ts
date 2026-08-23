@@ -18,6 +18,8 @@ export const LEVEL_IDS = [
   'zero-bubble-h1',
   'zero-bubble-h2',
   'zero-bubble-deep',
+  'group-the-pipe',
+  'bf-pp-pressure',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -65,6 +67,17 @@ function freezeOperationModel(
   return Object.freeze({ ...operationModel });
 }
 
+function freezeMicrobatchGrouping(
+  microbatchGrouping: NonNullable<LevelConfig['microbatchGrouping']>,
+): NonNullable<LevelConfig['microbatchGrouping']> {
+  return Object.freeze({
+    groupSize: microbatchGrouping.groupSize,
+    ...(microbatchGrouping.groupLabels
+      ? { groupLabels: Object.freeze([...microbatchGrouping.groupLabels]) }
+      : {}),
+  });
+}
+
 function freezeScoreModel(
   scoreModel: NonNullable<LevelConfig['scoreModel']>,
 ): NonNullable<LevelConfig['scoreModel']> {
@@ -85,6 +98,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     topology,
     durationOverrides,
     operationModel,
+    microbatchGrouping,
     scoreModel,
     referencePolicy,
     ...baseConfig
@@ -100,6 +114,9 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     ...(topology ? { topology: freezeTopology(topology) } : {}),
     ...(durationOverrides ? { durationOverrides: freezeDurationOverrides(durationOverrides) } : {}),
     ...(operationModel ? { operationModel: freezeOperationModel(operationModel) } : {}),
+    ...(microbatchGrouping
+      ? { microbatchGrouping: freezeMicrobatchGrouping(microbatchGrouping) }
+      : {}),
     ...(scoreModel ? { scoreModel: freezeScoreModel(scoreModel) } : {}),
     ...(referencePolicy ? { referencePolicy: freezeReferencePolicy(referencePolicy) } : {}),
   } satisfies LevelConfig;
@@ -553,6 +570,68 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Hold the low-bubble reference shape while draining a longer split-backward tail.',
       patternLabel: 'Zero Bubble Deep',
       introducedModel: ['deep warmup', 'tail drain', 'variant trade-off'],
+    },
+  }),
+  'group-the-pipe': freezeLevel({
+    id: 'group-the-pipe',
+    version: 1,
+    title: 'Group The Pipe',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 4,
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1'],
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['group-major', 'one-f-one-b'],
+    },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 24 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'grouped',
+      setTitle: 'Grouped',
+      concept: 'Group-major scheduling drains a small batch group before admitting the next one.',
+      objective: 'Finish G0 before G1 while watching bubble and activation memory.',
+      patternLabel: 'Group major',
+      introducedModel: ['microbatch group', 'group-major order', 'group boundary'],
+    },
+  }),
+  'bf-pp-pressure': freezeLevel({
+    id: 'bf-pp-pressure',
+    version: 1,
+    title: 'BF-PP Pressure',
+    rankCount: 3,
+    stageCount: 3,
+    microbatchCount: 6,
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1', 'G2'],
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['group-major', 'one-f-one-b'],
+    },
+    memoryCaps: [2, 2, 2],
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 36 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'grouped',
+      setTitle: 'Grouped',
+      concept: 'Small groups keep activation pressure bounded while preserving a repeatable order.',
+      objective: 'Use group-major placement to stay under the memory cap without FSDP claims.',
+      patternLabel: 'BF-PP',
+      introducedModel: ['bounded group', 'activation pressure', 'policy-relative comparison'],
     },
   }),
 });

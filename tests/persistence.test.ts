@@ -360,6 +360,36 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes grouped attempts as canonical actions only', () => {
+    const level = getLevel('group-the-pipe');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'group-the-pipe',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['group-the-pipe'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('microbatchGrouping');
+    expect(storedPayload).not.toHaveProperty('groupSize');
+    expect(storedPayload).not.toHaveProperty('referencePolicy');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['group-the-pipe']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('group-the-pipe');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['group-the-pipe']);
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

@@ -83,6 +83,11 @@ export interface ScoreModel {
   readonly internalBubble?: boolean;
 }
 
+export interface MicrobatchGrouping {
+  readonly groupSize: number;
+  readonly groupLabels?: readonly string[];
+}
+
 export interface MetricMasteryTarget {
   metric:
     'makespan' | 'bubbleRatio' | 'internalBubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
@@ -128,6 +133,7 @@ export type ReferencePolicyId =
   | 'gpipe-afab'
   | 'one-f-one-b'
   | 'interleaved-one-f-one-b'
+  | 'group-major'
   | 'zero-bubble-h1'
   | 'zero-bubble-h2'
   | 'zero-bubble-deep';
@@ -150,6 +156,7 @@ export interface LevelConfig {
   coaching: { readySet: boolean; suggest: boolean; auto: boolean };
   algorithm: AlgorithmLevelMetadata;
   buildingBlock?: BuildingBlockLevelMetadata;
+  microbatchGrouping?: MicrobatchGrouping;
   scoreModel?: ScoreModel;
   topology?: PipelineTopology;
   operationModel?: OperationModel;

@@ -34,9 +34,14 @@ function durationOverrideLabels(level: LevelConfig): readonly string[] {
   );
 }
 
+function groupLabel(level: LevelConfig): string | null {
+  return level.microbatchGrouping ? `Group x${level.microbatchGrouping.groupSize}` : null;
+}
+
 export function LevelGuide({ level, score }: LevelGuideProps) {
   const topology = topologyLabel(level);
   const durationLabels = durationOverrideLabels(level);
+  const grouping = groupLabel(level);
 
   return (
     <section className="panel level-guide-panel" aria-label="Level guide">
@@ -48,6 +53,7 @@ export function LevelGuide({ level, score }: LevelGuideProps) {
       <div className="level-guide-panel__chips" aria-label="Level progress summary">
         <span>{primaryGoal(level)}</span>
         {topology ? <span className="topology-chip">{topology}</span> : null}
+        {grouping ? <span className="group-chip">{grouping}</span> : null}
         {durationLabels.map((label) => (
           <span key={`duration-${label}`} className="duration-chip">
             {label}

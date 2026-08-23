@@ -75,6 +75,18 @@ describe('reference policy projection', () => {
     }
   });
 
+  it('projects group-major references over grouped microbatch metadata', () => {
+    for (const levelId of ['group-the-pipe', 'bf-pp-pressure'] as const) {
+      const projected = projectReferencePolicy(getLevel(levelId), 'group-major');
+
+      expect(projected.ok).toBe(true);
+      if (projected.ok) {
+        expect(projected.actions).toEqual(MASTERED_ACTIONS[levelId]);
+        expect(projected.state.placements).toHaveLength(projected.state.operations.length);
+      }
+    }
+  });
+
   it('returns a structured failure when a policy cannot complete a level', () => {
     const projected = projectReferencePolicy(getLevel('memory-wall'), 'gpipe-afab');
 
@@ -207,5 +219,31 @@ describe('reference policy recognition', () => {
         });
       }
     }
+  });
+
+  it('distinguishes grouped order from 1F1B when configured candidates differ by rank order', () => {
+    const level = getLevel('group-the-pipe');
+    const grouped = replay(level, MASTERED_ACTIONS['group-the-pipe']);
+    const oneFOneB = projectReferencePolicy(level, 'one-f-one-b');
+
+    expect(grouped.ok).toBe(true);
+    expect(oneFOneB.ok).toBe(true);
+    if (!grouped.ok || !oneFOneB.ok) {
+      return;
+    }
+
+    expect(oneFOneB.actions).not.toEqual(MASTERED_ACTIONS['group-the-pipe']);
+    expect(recognizeSchedule(grouped.state)).toMatchObject({
+      kind: 'matched',
+      policyId: 'group-major',
+      label: 'Group Major',
+      exact: true,
+    });
+    expect(recognizeSchedule(oneFOneB.state)).toMatchObject({
+      kind: 'matched',
+      policyId: 'one-f-one-b',
+      label: '1F1B',
+      exact: true,
+    });
   });
 });

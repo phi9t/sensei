@@ -11,6 +11,7 @@ const REFERENCE_POLICY_IDS = new Set<ReferencePolicyId>([
   'gpipe-afab',
   'one-f-one-b',
   'interleaved-one-f-one-b',
+  'group-major',
   'zero-bubble-h1',
   'zero-bubble-h2',
   'zero-bubble-deep',
@@ -41,6 +42,28 @@ export function validateLevelConfig(config: LevelConfig): void {
   }
   if (!isFinitePositiveInteger(config.microbatchCount)) {
     throw new Error('microbatchCount must be a positive finite integer');
+  }
+  if (config.microbatchGrouping) {
+    if (!isFinitePositiveInteger(config.microbatchGrouping.groupSize)) {
+      throw new Error('microbatchGrouping groupSize must be a positive finite integer');
+    }
+    if (config.microbatchGrouping.groupSize > config.microbatchCount) {
+      throw new Error('microbatchGrouping groupSize must not exceed microbatchCount');
+    }
+    const groupCount = Math.ceil(config.microbatchCount / config.microbatchGrouping.groupSize);
+    if (config.microbatchGrouping.groupLabels !== undefined) {
+      if (!Array.isArray(config.microbatchGrouping.groupLabels)) {
+        throw new Error('microbatchGrouping groupLabels must be an array');
+      }
+      if (config.microbatchGrouping.groupLabels.length !== groupCount) {
+        throw new Error('microbatchGrouping groupLabels length must match group count');
+      }
+    }
+    for (const label of config.microbatchGrouping.groupLabels ?? []) {
+      if (typeof label !== 'string' || label.trim().length === 0) {
+        throw new Error('microbatchGrouping groupLabels must be non-empty');
+      }
+    }
   }
   if (
     config.scoreModel?.internalBubble !== undefined &&

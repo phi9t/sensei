@@ -1,12 +1,14 @@
 import type { CSSProperties } from 'react';
 import type { MoveClassification } from '../engine/replay';
-import type { OperationId, OperationKind } from '../engine/types';
+import type { LevelConfig, OperationId, OperationKind } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
+import { microbatchGroupLabel } from '../engine/microbatchGroups';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 const OPERATION_KIND_ORDER: readonly OperationKind[] = ['F', 'B', 'W'];
 
 interface OperationTrayProps {
+  readonly level: LevelConfig;
   readonly classifications: readonly MoveClassification[];
   readonly selectedOperationId: OperationId | null;
   readonly onActivate: (operationId: OperationId) => void;
@@ -120,6 +122,7 @@ function batchPhaseLabel(group: BatchGroup): string {
 }
 
 export function OperationTray({
+  level,
   classifications,
   selectedOperationId,
   onActivate,
@@ -152,77 +155,108 @@ export function OperationTray({
       </div>
       <div className="operation-tray-grid" aria-label="Blocks grouped by microbatch">
         {batchGroups.map((group) => (
-          <section
+          <BatchLane
             key={group.microbatch}
-            className="batch-lane"
-            aria-label={`Batch ${group.microbatch} blocks, ${batchPhaseLabel(group)}`}
-            data-phase={group.phase}
-            data-ready-count={group.readyCount}
-          >
-            <div className="batch-lane__heading">
-              <h3>Batch {group.microbatch}</h3>
-              <span className="batch-lane__status">{batchPhaseLabel(group)}</span>
-            </div>
-            <div className="batch-lane__stacks" data-stack-count={operationKinds.length}>
-              {operationKinds.map((kind) => {
-                const stackClassifications = group.classifications.filter(
-                  (classification) => classification.operation.kind === kind,
-                );
-
-                return (
-                  <div
-                    key={`${group.microbatch}-${kind}`}
-                    className="batch-stack"
-                    role="group"
-                    aria-label={`Batch ${group.microbatch} ${passAriaLabel(kind)} blocks`}
-                    data-kind={kind}
-                  >
-                    <p className="batch-stack__label">{passLabel(kind)}</p>
-                    <div className="batch-stack__tokens">
-                      {stackClassifications.map((classification) => {
-                        const { operation } = classification;
-                        const stateLabel = visibleStateLabel(classification);
-                        const isSelected = selectedOperationId === operation.id;
-
-                        return (
-                          <button
-                            key={operation.id}
-                            type="button"
-                            className="operation-button"
-                            data-testid={`tile-${operation.id}`}
-                            data-operation-visual={operationVisualKey(operation)}
-                            data-duration={operation.duration}
-                            data-kind={operation.kind}
-                            data-state={classification.status}
-                            data-selected={isSelected ? 'true' : 'false'}
-                            aria-label={accessibleOperationLabel(classification)}
-                            aria-current={isSelected ? 'true' : undefined}
-                            onClick={() => onActivate(operation.id)}
-                            onFocus={() => onInspect(operation.id)}
-                            style={
-                              {
-                                ...operationVisualVars(operation),
-                                '--tile-duration': String(operation.duration),
-                              } as CSSProperties
-                            }
-                          >
-                            <span className="operation-button__code">
-                              {formatOperationCode(operation)}
-                            </span>
-                            <span className="operation-button__meta">
-                              R{operation.rank} - {operation.duration}t
-                            </span>
-                            <span className="operation-button__state">{stateLabel}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+            group={group}
+            groupLabel={microbatchGroupLabel(level, group.microbatch)}
+            operationKinds={operationKinds}
+            selectedOperationId={selectedOperationId}
+            onActivate={onActivate}
+            onInspect={onInspect}
+          />
         ))}
+      </div>
+    </section>
+  );
+}
+
+function BatchLane({
+  group,
+  groupLabel,
+  operationKinds,
+  selectedOperationId,
+  onActivate,
+  onInspect,
+}: {
+  readonly group: BatchGroup;
+  readonly groupLabel: string | null;
+  readonly operationKinds: readonly OperationKind[];
+  readonly selectedOperationId: OperationId | null;
+  readonly onActivate: (operationId: OperationId) => void;
+  readonly onInspect: (operationId: OperationId) => void;
+}) {
+  return (
+    <section
+      className="batch-lane"
+      aria-label={`Batch ${group.microbatch} blocks, ${batchPhaseLabel(group)}`}
+      data-phase={group.phase}
+      data-ready-count={group.readyCount}
+      data-group={groupLabel ?? undefined}
+    >
+      <div className="batch-lane__heading">
+        <h3>Batch {group.microbatch}</h3>
+        <span className="batch-lane__markers">
+          {groupLabel ? <span className="batch-lane__group">{groupLabel}</span> : null}
+          <span className="batch-lane__status">{batchPhaseLabel(group)}</span>
+        </span>
+      </div>
+      <div className="batch-lane__stacks" data-stack-count={operationKinds.length}>
+        {operationKinds.map((kind) => {
+          const stackClassifications = group.classifications.filter(
+            (classification) => classification.operation.kind === kind,
+          );
+
+          return (
+            <div
+              key={`${group.microbatch}-${kind}`}
+              className="batch-stack"
+              role="group"
+              aria-label={`Batch ${group.microbatch} ${passAriaLabel(kind)} blocks`}
+              data-kind={kind}
+            >
+              <p className="batch-stack__label">{passLabel(kind)}</p>
+              <div className="batch-stack__tokens">
+                {stackClassifications.map((classification) => {
+                  const { operation } = classification;
+                  const stateLabel = visibleStateLabel(classification);
+                  const isSelected = selectedOperationId === operation.id;
+
+                  return (
+                    <button
+                      key={operation.id}
+                      type="button"
+                      className="operation-button"
+                      data-testid={`tile-${operation.id}`}
+                      data-operation-visual={operationVisualKey(operation)}
+                      data-duration={operation.duration}
+                      data-kind={operation.kind}
+                      data-state={classification.status}
+                      data-selected={isSelected ? 'true' : 'false'}
+                      aria-label={accessibleOperationLabel(classification)}
+                      aria-current={isSelected ? 'true' : undefined}
+                      onClick={() => onActivate(operation.id)}
+                      onFocus={() => onInspect(operation.id)}
+                      style={
+                        {
+                          ...operationVisualVars(operation),
+                          '--tile-duration': String(operation.duration),
+                        } as CSSProperties
+                      }
+                    >
+                      <span className="operation-button__code">
+                        {formatOperationCode(operation)}
+                      </span>
+                      <span className="operation-button__meta">
+                        R{operation.rank} - {operation.duration}t
+                      </span>
+                      <span className="operation-button__state">{stateLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

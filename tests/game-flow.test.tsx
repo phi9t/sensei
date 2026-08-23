@@ -286,7 +286,7 @@ describe('game flow', () => {
       expect(bestAttempt(afterWorseRetry, levelId)?.tuple).toEqual(masteredSummary.score);
       expect(bestAttempt(afterWorseRetry, levelId)?.actions).toEqual(mastered);
     },
-    20000,
+    30000,
   );
 
   it('restores persisted progress across reload, preserves session progress when storage is unavailable, and surfaces polite fallback notices', async () => {

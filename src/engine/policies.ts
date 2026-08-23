@@ -7,6 +7,7 @@ import {
   type ScheduleState,
 } from './replay';
 import type { Action, LevelConfig, Operation, OperationId, ReferencePolicyId } from './types';
+import { microbatchGroupIndex } from './microbatchGroups';
 import { topologyForLevel } from './topology';
 
 export interface ReferencePolicy {
@@ -22,6 +23,7 @@ export const REFERENCE_POLICIES: Readonly<Record<ReferencePolicyId, ReferencePol
       id: 'interleaved-one-f-one-b',
       label: 'Interleaved 1F1B',
     }),
+    'group-major': Object.freeze({ id: 'group-major', label: 'Group Major' }),
     'zero-bubble-h1': Object.freeze({ id: 'zero-bubble-h1', label: 'ZB-H1' }),
     'zero-bubble-h2': Object.freeze({ id: 'zero-bubble-h2', label: 'ZB-H2' }),
     'zero-bubble-deep': Object.freeze({
@@ -272,6 +274,44 @@ function selectInterleavedOneFOneBMove(
   return backward[0] ?? null;
 }
 
+function groupMajorKindOrder(kind: Operation['kind']): number {
+  return kind === 'F' ? 0 : kind === 'B' ? 1 : 2;
+}
+
+function compareGroupMajorMove(config: LevelConfig, left: LegalMove, right: LegalMove): number {
+  const leftGroup = microbatchGroupIndex(config, left.operation.microbatch);
+  const rightGroup = microbatchGroupIndex(config, right.operation.microbatch);
+  if (leftGroup !== rightGroup) {
+    return leftGroup - rightGroup;
+  }
+  if (left.operation.kind !== right.operation.kind) {
+    return groupMajorKindOrder(left.operation.kind) - groupMajorKindOrder(right.operation.kind);
+  }
+  if (left.operation.kind === 'B' && left.operation.stage !== right.operation.stage) {
+    return right.operation.stage - left.operation.stage;
+  }
+  if (left.operation.stage !== right.operation.stage) {
+    return left.operation.stage - right.operation.stage;
+  }
+  if (left.operation.microbatch !== right.operation.microbatch) {
+    return left.operation.microbatch - right.operation.microbatch;
+  }
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function selectGroupMajorMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  return (
+    [...legalMoves].sort((left, right) => compareGroupMajorMove(state.config, left, right))[0] ??
+    null
+  );
+}
+
 function zeroBubbleStageKey(operation: Operation): number {
   return operation.kind === 'F' ? operation.stage : -operation.stage;
 }
@@ -383,6 +423,8 @@ function selectMove(
       return selectOneFOneBMove(state, legalMoves);
     case 'interleaved-one-f-one-b':
       return selectInterleavedOneFOneBMove(state, legalMoves);
+    case 'group-major':
+      return selectGroupMajorMove(state, legalMoves);
     case 'zero-bubble-h1':
       return selectZeroBubbleMove(state, legalMoves, state.config.stageCount - 1);
     case 'zero-bubble-h2':
@@ -534,10 +576,11 @@ function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[]
       return Object.freeze(['one-f-one-b', 'gpipe-afab'] as const);
     case 'interleaved-one-f-one-b':
       return Object.freeze(['interleaved-one-f-one-b', 'one-f-one-b', 'gpipe-afab'] as const);
+    case 'grouped':
+      return Object.freeze(['group-major', 'one-f-one-b'] as const);
     case 'foundations':
     case 'building-block':
     case 'zero-bubble':
-    case 'grouped':
     case 'fsdp-residency':
     case 'dualpipe':
       return Object.freeze([]);

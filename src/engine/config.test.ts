@@ -217,6 +217,64 @@ describe('validateLevelConfig', () => {
     ).toThrow(/duplicate reference policy id gpipe-afab/);
   });
 
+  it('accepts grouped microbatch metadata and group-major reference policies', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          microbatchCount: 4,
+          microbatchGrouping: { groupSize: 2, groupLabels: ['G0', 'G1'] },
+          referencePolicy: { candidatePolicyIds: ['group-major', 'one-f-one-b'] },
+          algorithm: {
+            family: 'grouped',
+            setTitle: 'Grouped',
+            concept: 'Group test.',
+            objective: 'Group objective.',
+            patternLabel: 'Group major',
+            introducedModel: ['microbatch group'],
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects malformed grouped microbatch metadata', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          microbatchCount: 4,
+          microbatchGrouping: { groupSize: 0 },
+        }),
+      ),
+    ).toThrow(/microbatchGrouping groupSize must be a positive finite integer/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          microbatchCount: 4,
+          microbatchGrouping: { groupSize: 5 },
+        }),
+      ),
+    ).toThrow(/microbatchGrouping groupSize must not exceed microbatchCount/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          microbatchCount: 4,
+          microbatchGrouping: { groupSize: 2, groupLabels: ['Only one'] },
+        }),
+      ),
+    ).toThrow(/microbatchGrouping groupLabels length must match group count/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          microbatchCount: 4,
+          microbatchGrouping: { groupSize: 2, groupLabels: ['G0', ' '] },
+        }),
+      ),
+    ).toThrow(/microbatchGrouping groupLabels must be non-empty/);
+  });
+
   it('rejects stageCount different from rankCount without virtual topology', () => {
     expect(() => validateLevelConfig({ ...makeConfig(), stageCount: 3 })).toThrow(
       /one-to-one topology requires stageCount to equal rankCount/,

@@ -286,6 +286,7 @@ describe('Game shell', () => {
       'Interleaved 1F1B',
       'Nonuniform Cost',
       'Zero Bubble',
+      'Grouped',
     ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
@@ -294,6 +295,9 @@ describe('Game shell', () => {
       picker.querySelector(
         'optgroup[label="Interleaved 1F1B"] option[value="interleaved-one-f-one-b"]',
       ),
+    ).not.toBeNull();
+    expect(
+      picker.querySelector('optgroup[label="Grouped"] option[value="group-the-pipe"]'),
     ).not.toBeNull();
   });
 
@@ -532,6 +536,26 @@ describe('Game shell', () => {
         name: /place F stage 0 microbatch 0, 1 tick, ready/i,
       }),
     ).toBeInTheDocument();
+  });
+
+  it('shows grouped schedule metadata as compact guide and batch markers', () => {
+    render(<App initialLevelId="group-the-pipe" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
+    const batchTwo = within(blocks).getByRole('region', { name: /batch 2 blocks/i });
+
+    expect(within(guide).getByRole('heading', { name: /^Group The Pipe$/i })).toBeInTheDocument();
+    expect(within(guide).getByText(/^Grouped$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Group x2$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Group major$/i)).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^G0$/i)).toBeInTheDocument();
+    expect(within(batchTwo).getByText(/^G1$/i)).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^B2:S2:B0$/i)).toBeInTheDocument();
+    expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
   it('keeps operation visual identity consistent from selector to preview and board', async () => {

@@ -384,6 +384,10 @@ summary:focus-visible {
   border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
 }
 
+.group-chip {
+  border-color: color-mix(in srgb, var(--backward) 32%, var(--line));
+}
+
 .tray-panel__summary {
   display: grid;
   justify-items: end;
@@ -454,6 +458,24 @@ summary:focus-visible {
   font-weight: 850;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.batch-lane__markers {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: max-content;
+}
+
+.batch-lane__group {
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper-soft));
+  color: var(--ink);
+  padding: 0.12rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  font-weight: 900;
 }
 
 .batch-lane__status {
