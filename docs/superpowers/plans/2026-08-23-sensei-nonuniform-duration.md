@@ -111,7 +111,7 @@ export interface OperationDurationOverride {
 - Modify: `src/engine/config.ts`
 - Modify: `src/engine/config.test.ts`
 
-- [ ] **Step 1: Write failing config tests**
+- [x] **Step 1: Write failing config tests**
 
 Add these tests to `src/engine/config.test.ts` near the duration validation tests:
 
@@ -183,7 +183,7 @@ it('rejects unsupported duration override kinds from untrusted config objects', 
 });
 ```
 
-- [ ] **Step 2: Run the config tests and verify they fail**
+- [x] **Step 2: Run the config tests and verify they fail**
 
 Run:
 
@@ -193,7 +193,7 @@ npm test -- src/engine/config.test.ts
 
 Expected: FAIL because `durationOverrides` is not typed or validated yet.
 
-- [ ] **Step 3: Add the type**
+- [x] **Step 3: Add the type**
 
 Update `src/engine/types.ts`:
 
@@ -211,7 +211,7 @@ Add the optional field to `LevelConfig`:
   durationOverrides?: readonly OperationDurationOverride[];
 ```
 
-- [ ] **Step 4: Validate duration overrides**
+- [x] **Step 4: Validate duration overrides**
 
 Update `src/engine/config.ts`:
 
@@ -270,7 +270,7 @@ if (config.durationOverrides) {
 }
 ```
 
-- [ ] **Step 5: Run focused validation**
+- [x] **Step 5: Run focused validation**
 
 Run:
 
@@ -281,7 +281,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -300,7 +300,7 @@ git commit -m "feat: validate stage duration overrides"
 - Modify: `src/engine/replay.test.ts`
 - Modify: `src/engine/score.test.ts`
 
-- [ ] **Step 1: Write failing operation derivation tests**
+- [x] **Step 1: Write failing operation derivation tests**
 
 Add these tests to `src/engine/operations.test.ts` inside `describe('deriveOperations', ...)`:
 
@@ -351,7 +351,7 @@ it('applies duration overrides by logical stage, not physical rank', () => {
 });
 ```
 
-- [ ] **Step 2: Run operation tests and verify they fail**
+- [x] **Step 2: Run operation tests and verify they fail**
 
 Run:
 
@@ -361,7 +361,7 @@ npm test -- src/engine/operations.test.ts
 
 Expected: FAIL because all operations still use only `config.durations[kind]`.
 
-- [ ] **Step 3: Add one duration resolver**
+- [x] **Step 3: Add one duration resolver**
 
 Update `src/engine/operations.ts`:
 
@@ -390,7 +390,7 @@ Change the operation object inside `deriveOperations`:
 duration: durationForOperation(config, kind, stage),
 ```
 
-- [ ] **Step 4: Preserve override metadata through replay cloning**
+- [x] **Step 4: Preserve override metadata through replay cloning**
 
 Add a replay test in `src/engine/replay.test.ts` near the config-freeze tests:
 
@@ -424,7 +424,7 @@ Update `cloneConfig()` in `src/engine/replay.ts`:
       : {}),
 ```
 
-- [ ] **Step 5: Add score coverage for overridden work**
+- [x] **Step 5: Add score coverage for overridden work**
 
 Add this test to `src/engine/score.test.ts`:
 
@@ -450,7 +450,7 @@ it('scores total work and bubble ratio from operation duration overrides', () =>
 });
 ```
 
-- [ ] **Step 6: Run focused engine verification**
+- [x] **Step 6: Run focused engine verification**
 
 Run:
 
@@ -461,7 +461,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -478,7 +478,7 @@ git commit -m "feat: derive operation duration overrides"
 - Modify: `src/levels/fixtures.ts`
 - Modify: `src/levels/levels.test.ts`
 
-- [ ] **Step 1: Add failing level catalog tests**
+- [x] **Step 1: Add failing level catalog tests**
 
 Update `EXPECTED_LEVEL_IDS` in `src/levels/levels.test.ts` by appending:
 
@@ -536,7 +536,7 @@ it('freezes duration override metadata with the level config', () => {
 });
 ```
 
-- [ ] **Step 2: Run level tests and verify they fail**
+- [x] **Step 2: Run level tests and verify they fail**
 
 Run:
 
@@ -546,7 +546,7 @@ npm test -- src/levels/levels.test.ts
 
 Expected: FAIL because the level and fixtures do not exist yet.
 
-- [ ] **Step 3: Add the level**
+- [x] **Step 3: Add the level**
 
 Update `LEVEL_IDS` in `src/levels/levels.ts` by appending:
 
@@ -607,7 +607,7 @@ Add the `heavy-backward-tail` level object after `ragged-rounds`:
 }),
 ```
 
-- [ ] **Step 4: Add mastered and legal fixture actions**
+- [x] **Step 4: Add mastered and legal fixture actions**
 
 Add `heavy-backward-tail` to `MASTERED_ACTIONS` in `src/levels/fixtures.ts`:
 
@@ -717,7 +717,7 @@ Add the mastered score to `EXPECTED_GOLDEN_ROWS` in `src/levels/levels.test.ts`:
 },
 ```
 
-- [ ] **Step 5: Run level tests**
+- [x] **Step 5: Run level tests**
 
 Run:
 
@@ -727,7 +727,7 @@ npm test -- src/levels/levels.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -746,7 +746,7 @@ git commit -m "feat: add heavy backward tail level"
 - Modify: `tests/responsive-css.test.mjs`
 - Modify: `src/styles/app.css`
 
-- [ ] **Step 1: Write failing UI tests**
+- [x] **Step 1: Write failing UI tests**
 
 Add these tests to `src/components/GameShell.test.tsx`:
 
@@ -808,7 +808,7 @@ it('keeps nonuniform-cost level guide chips compact', async () => {
 });
 ```
 
-- [ ] **Step 2: Run UI tests and verify they fail**
+- [x] **Step 2: Run UI tests and verify they fail**
 
 Run:
 
@@ -818,7 +818,7 @@ npm test -- src/components/GameShell.test.tsx tests/responsive-css.test.mjs
 
 Expected: FAIL because the new level and cost chip are not rendered yet, and the inspector does not explicitly include duration.
 
-- [ ] **Step 3: Add the compact cost chip**
+- [x] **Step 3: Add the compact cost chip**
 
 Update `src/components/LevelGuide.tsx`:
 
@@ -850,7 +850,7 @@ Render after the topology chip:
 }
 ```
 
-- [ ] **Step 4: Add duration to inspector copy**
+- [x] **Step 4: Add duration to inspector copy**
 
 Update the legal and completed paragraphs in `src/components/MoveInspector.tsx` so selected operations include duration:
 
@@ -874,7 +874,7 @@ Update the legal and completed paragraphs in `src/components/MoveInspector.tsx` 
 }
 ```
 
-- [ ] **Step 5: Add compact chip CSS**
+- [x] **Step 5: Add compact chip CSS**
 
 Update `src/styles/app.css` so level-guide chip text can wrap inside compact panels:
 
@@ -896,7 +896,7 @@ Add duration-chip contrast:
 
 Do not add a new full-width section or rules panel.
 
-- [ ] **Step 6: Run focused UI verification**
+- [x] **Step 6: Run focused UI verification**
 
 Run:
 
@@ -907,7 +907,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -923,7 +923,7 @@ git commit -m "feat: surface nonuniform duration cues"
 - Modify: `tests/persistence.test.ts`
 - Modify: `tests/game-flow.test.tsx`
 
-- [ ] **Step 1: Add persistence tests for duration metadata exclusion**
+- [x] **Step 1: Add persistence tests for duration metadata exclusion**
 
 Add this test to `tests/persistence.test.ts` near the existing topology persistence tests:
 
@@ -959,7 +959,7 @@ it('encodes and decodes nonuniform-duration attempts as expanded actions only', 
 });
 ```
 
-- [ ] **Step 2: Add public-flow expectations**
+- [x] **Step 2: Add public-flow expectations**
 
 Confirm the existing `tests/game-flow.test.tsx` journey test iterates `LEVEL_IDS`; after Task 3 adds `heavy-backward-tail` to `LEVEL_IDS`, that journey test must include the new level automatically without a hard-coded level list.
 
@@ -979,7 +979,7 @@ it('names the interleaved reference for the nonuniform-cost level completion', a
 });
 ```
 
-- [ ] **Step 3: Run public-flow tests**
+- [x] **Step 3: Run public-flow tests**
 
 Run:
 
@@ -989,7 +989,7 @@ npm test -- tests/persistence.test.ts tests/game-flow.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -1004,7 +1004,7 @@ git commit -m "test: guard nonuniform duration persistence"
 
 - No source edits expected.
 
-- [ ] **Step 1: Run the full verifier**
+- [x] **Step 1: Run the full verifier**
 
 Run:
 
@@ -1022,7 +1022,7 @@ Not implemented: HTMLCanvasElement's getContext() method: without installing the
 
 No TypeScript, ESLint, Prettier, unit, integration, or build failures are acceptable.
 
-- [ ] **Step 2: Check git state**
+- [x] **Step 2: Check git state**
 
 Run:
 
@@ -1050,7 +1050,7 @@ Do not add it unless a later approved plan explicitly owns it.
 
 - Modify: `docs/superpowers/plans/2026-08-23-sensei-nonuniform-duration.md`
 
-- [ ] **Step 1: Self-review the implementation against this plan**
+- [x] **Step 1: Self-review the implementation against this plan**
 
 Read the final diff and answer these questions in the plan's `Post-Execution Review` section:
 
@@ -1061,7 +1061,7 @@ Read the final diff and answer these questions in the plan's `Post-Execution Rev
 - Did `durationOverrides` stay out of URL and local-storage payloads?
 - Did the verifier pass, and was the known jsdom canvas warning the only acceptable warning?
 
-- [ ] **Step 2: Improve this plan from the review**
+- [x] **Step 2: Improve this plan from the review**
 
 Append a dated note under `Plan Corrections From Execution` with exact corrections. Use this format:
 
@@ -1080,7 +1080,7 @@ Date: 2026-08-23
 
 If a correction requires changing earlier task instructions, edit those instructions in this file before committing the plan update.
 
-- [ ] **Step 3: Commit the post-execution plan update**
+- [x] **Step 3: Commit the post-execution plan update**
 
 Run:
 
@@ -1096,3 +1096,18 @@ Use this exact goal prompt for the coding agent:
 ```text
 Implement the plan in docs/superpowers/plans/2026-08-23-sensei-nonuniform-duration.md to completion. Use superpowers:subagent-driven-development or superpowers:executing-plans as required by the plan. Do not touch src/components/PipelineLessonPanel.tsx. Complete every task checkbox, run npm run verify, append the post-execution review and plan corrections to the plan file, and commit the implementation plus the final plan update as focused commits.
 ```
+
+## Post-Execution Review
+
+Date: 2026-08-23
+
+- Verifier: `npm run verify` passed with 20 test files and 315 tests passing, followed by a successful production build.
+- Known warning: the jsdom `HTMLCanvasElement.getContext()` warning appeared during accessibility tests and was the only accepted warning observed.
+- Invariants: all preserved. Base V1 durations remain `F=1` and `B=2`; operation IDs remain `F:stage:microbatch` / `B:stage:microbatch`; visible compact notation remains `F0:S0:B1` style with the `(F/B, stage_id, micro_batch_id)` key.
+- Level scope: `heavy-backward-tail` teaches stage-specific cost through one `B:S0 = 4t` override, a cost-aware fixture, and compact guide/inspector cues without introducing split backward, zero-bubble, DualPipe, FSDP residency, dynamic durations, per-microbatch overrides, or a rules panel.
+- Persistence: URL and local attempts remain canonical `Action[]`; `durationOverrides`, `durations`, and `topology` are not serialized into attempt payloads.
+- Plan corrections:
+  - The existing level picker test needed its expected optgroup list updated to include `Nonuniform Cost` after adding the new catalog entry.
+  - `src/styles/app.css` did not already define `--warning`; the compact duration chip required adding `--warning: #c07b16` before using it in `.duration-chip`.
+  - `src/components/MoveInspector.tsx` already had access to `explanation.operation.duration`; no new prop or state shape was needed.
+  - Fixture makespan target remained `28`; the legal fixture with one leading wait produced `29`, `totalWork` `42`, `capacity` `58`, and `bubbleRatio` `16 / 58`.
