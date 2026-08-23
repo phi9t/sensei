@@ -114,6 +114,22 @@ describe('responsive play surface CSS contract', () => {
     expect(commandFeedbackBlock).not.toMatch(/\bwidth:\s*1px\s*;/);
     expect(commandFeedbackBlock).not.toMatch(/\boverflow:\s*hidden\s*;/);
     expect(commandFeedbackBlock).not.toMatch(/\bclip:\s*rect\(0,\s*0,\s*0,\s*0\)\s*;/);
+    const patternCheckBlock = extractBlock(css, '.pattern-check');
+    const patternCheckStatusBlock = extractBlock(css, '.pattern-check__copy,');
+    expect(patternCheckBlock).toMatch(/\.pattern-check\s*\{[^}]*\bdisplay:\s*grid\s*;/);
+    expect(patternCheckBlock).toMatch(
+      /grid-template-columns:\s*auto minmax\(8rem,\s*1fr\) minmax\(9rem,\s*1\.2fr\) auto\s*;/,
+    );
+    expect(patternCheckBlock).toMatch(/\.pattern-check\s*\{[^}]*\bborder-radius:\s*7px\s*;/);
+    expect(patternCheckStatusBlock).toMatch(
+      /\.pattern-check__copy,\s*\.pattern-check__status\s*\{[^}]*\boverflow:\s*hidden\s*;/,
+    );
+    expect(patternCheckStatusBlock).toMatch(
+      /\.pattern-check__copy,\s*\.pattern-check__status\s*\{[^}]*\btext-overflow:\s*ellipsis\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*48rem\)[\s\S]*?\.pattern-check\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto\s*;/,
+    );
     expect(trayPanelBlock).toMatch(/\.tray-panel\s*\{[^}]*\boverflow:\s*hidden\s*;/);
     expect(operationTrayGridBlock).toMatch(
       /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-flow:\s*column\s*;/,

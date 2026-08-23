@@ -396,6 +396,28 @@ describe('game flow', () => {
     expect(screen.getByRole('button', { name: /redo next action/i })).toBeDisabled();
   });
 
+  it('stamps the building-block pattern through public controls and persists expanded mastered actions', async () => {
+    const user = userEvent.setup();
+    const storage = createProgressStorageThrough('stamp-the-pattern');
+
+    render(<App storage={storage} initialLevelId="stamp-the-pattern" />);
+
+    await user.click(screen.getByRole('button', { name: /stamp building-block pattern/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+        /^Completed\. Mastered\.$/,
+      );
+    });
+
+    await waitFor(() => {
+      expect(bestAttempt(parseProgressFrom(storage), 'stamp-the-pattern')?.actions).toEqual(
+        MASTERED_ACTIONS['stamp-the-pattern'],
+      );
+    });
+    expect(bestAttempt(parseProgressFrom(storage), 'stamp-the-pattern')?.outcome).toBe('mastered');
+  });
+
   it('persists identical canonical logs for pointer and keyboard journeys', async () => {
     const pointerStorage = createMemoryStorage();
     const keyboardStorage = createMemoryStorage();

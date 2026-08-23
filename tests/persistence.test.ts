@@ -180,6 +180,39 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes the stamped building-block attempt as expanded actions only', () => {
+    const level = getLevel('stamp-the-pattern');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'stamp-the-pattern',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['stamp-the-pattern'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('buildingBlock');
+    expect(storedPayload).not.toHaveProperty('trajectory');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['stamp-the-pattern']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('stamp-the-pattern');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['stamp-the-pattern']);
+      for (const action of decoded.attempt.actions) {
+        expect(action).not.toHaveProperty('buildingBlock');
+        expect(action).not.toHaveProperty('trajectory');
+      }
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

@@ -1216,6 +1216,16 @@ summary:focus-visible {
   }
 }
 
+@media (max-width: 48rem) {
+  .pattern-check {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .pattern-check__status {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 40rem) {
   .app-shell {
     gap: 0.65rem;
@@ -1242,14 +1252,6 @@ summary:focus-visible {
   .level-picker label,
   .level-picker select {
     width: 100%;
-  }
-
-  .pattern-check {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .pattern-check__status {
-    grid-column: 1 / -1;
   }
 
   .panel {
