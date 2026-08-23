@@ -18,6 +18,14 @@ function formatBubbleRatio(value: number): string {
   return `${value.toFixed(3)} (${(value * 100).toFixed(1)}%)`;
 }
 
+function formatPercentageDelta(value: number): string {
+  const percentage = value * 100;
+  if (percentage > 0) {
+    return `+${percentage.toFixed(1)} pp`;
+  }
+  return `${percentage.toFixed(1)} pp`;
+}
+
 function formatDelta(value: number): string {
   if (value > 0) {
     return `+${value}`;
@@ -31,6 +39,24 @@ function formatMatch(match: PolicyComparison['match']): string {
       return 'Exact reference match';
     case 'order-only':
       return 'Same per-rank order';
+    case 'unmatched':
+      return 'Different order';
+  }
+}
+
+function formatRecognizedPolicy(policyComparison: PolicyComparison): string {
+  if (
+    !policyComparison.matchedLabel ||
+    policyComparison.matchedPolicyId === policyComparison.policyId
+  ) {
+    return formatMatch(policyComparison.match);
+  }
+
+  switch (policyComparison.match) {
+    case 'exact':
+      return `${policyComparison.matchedLabel} exact`;
+    case 'order-only':
+      return `${policyComparison.matchedLabel} order`;
     case 'unmatched':
       return 'Different order';
   }
@@ -120,8 +146,8 @@ export function MetricsPanel({
               <dd>{policyComparison.label} reference</dd>
             </div>
             <div>
-              <dt>Match</dt>
-              <dd>{formatMatch(policyComparison.match)}</dd>
+              <dt>Recognized</dt>
+              <dd>{formatRecognizedPolicy(policyComparison)}</dd>
             </div>
             <div>
               <dt>Reference makespan</dt>
@@ -130,6 +156,14 @@ export function MetricsPanel({
             <div>
               <dt>Makespan delta</dt>
               <dd>{formatDelta(policyComparison.delta.makespan)}</dd>
+            </div>
+            <div>
+              <dt>Reference bubble</dt>
+              <dd>{formatBubbleRatio(policyComparison.reference.bubbleRatio)}</dd>
+            </div>
+            <div>
+              <dt>Bubble delta</dt>
+              <dd>{formatPercentageDelta(policyComparison.delta.bubbleRatio)}</dd>
             </div>
             <div>
               <dt>Reference peak memory</dt>

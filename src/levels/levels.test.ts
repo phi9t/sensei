@@ -507,6 +507,7 @@ const EXPECTED_CONFIGS = {
     },
     referencePolicy: {
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
+      comparisonPolicyId: 'one-f-one-b',
     },
     memoryCaps: null,
     coaching: { readySet: true, suggest: true, auto: true },
@@ -538,6 +539,7 @@ const EXPECTED_CONFIGS = {
     },
     referencePolicy: {
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
+      comparisonPolicyId: 'one-f-one-b',
     },
     memoryCaps: [2, 2, 2],
     coaching: { readySet: true, suggest: true, auto: true },
@@ -1329,6 +1331,7 @@ describe('levels public API', () => {
     expect(level.microbatchGrouping).toEqual({ groupSize: 2, groupLabels: ['G0', 'G1'] });
     expect(level.referencePolicy).toEqual({
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
+      comparisonPolicyId: 'one-f-one-b',
     });
   });
 });

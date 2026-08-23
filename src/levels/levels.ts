@@ -89,6 +89,9 @@ function freezeReferencePolicy(
 ): NonNullable<LevelConfig['referencePolicy']> {
   return Object.freeze({
     candidatePolicyIds: Object.freeze([...referencePolicy.candidatePolicyIds]),
+    ...(referencePolicy.comparisonPolicyId
+      ? { comparisonPolicyId: referencePolicy.comparisonPolicyId }
+      : {}),
   });
 }
 
@@ -586,6 +589,7 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
     },
     referencePolicy: {
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
+      comparisonPolicyId: 'one-f-one-b',
     },
     memoryCaps: null,
     masteryTargets: [
@@ -617,6 +621,7 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
     },
     referencePolicy: {
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
+      comparisonPolicyId: 'one-f-one-b',
     },
     memoryCaps: [2, 2, 2],
     masteryTargets: [

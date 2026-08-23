@@ -558,6 +558,43 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
+  it('compares grouped completion against the configured 1F1B reference', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="group-the-pipe" />);
+
+    for (const action of MASTERED_ACTIONS['group-the-pipe']) {
+      if (action.type !== 'place') {
+        throw new Error('expected place-only mastered fixture');
+      }
+      const [kind, stage, microbatch] = action.operationId.split(':');
+      await user.click(
+        screen.getByRole('button', {
+          name: new RegExp(`place ${kind} stage ${stage} microbatch ${microbatch}`, 'i'),
+        }),
+      );
+    }
+
+    expect(
+      screen.getByText(
+        /^Completed with Group Major order, \+6 makespan vs 1F1B reference\. Mastered\.$/i,
+      ),
+    ).toBeInTheDocument();
+
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    await user.click(within(metrics).getByText(/^Reference comparison$/i));
+    const comparison = within(metrics).getByRole('group', {
+      name: /reference comparison/i,
+    });
+
+    expect(within(comparison).getByText(/^1F1B reference$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Group Major exact$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Reference bubble$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^0\.333 \(33\.3%\)$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^Bubble delta$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^\+16\.7 pp$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^-1 memory$/i)).toBeInTheDocument();
+  });
+
   it('keeps operation visual identity consistent from selector to preview and board', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);

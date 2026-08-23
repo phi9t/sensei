@@ -21,21 +21,26 @@ describe('policy comparison', () => {
     expect(compareToReferencePolicy(state)).toEqual({
       policyId: 'gpipe-afab',
       label: 'GPipe AFAB',
+      matchedPolicyId: 'gpipe-afab',
+      matchedLabel: 'GPipe AFAB',
       match: 'exact',
       current: {
         makespan: 18,
+        bubbleRatio: 1 / 3,
         peakActivationMemory: 4,
         intentionalIdle: 0,
         actionCount: 24,
       },
       reference: {
         makespan: 18,
+        bubbleRatio: 1 / 3,
         peakActivationMemory: 4,
         intentionalIdle: 0,
         actionCount: 24,
       },
       delta: {
         makespan: 0,
+        bubbleRatio: 0,
         peakActivationMemory: 0,
         intentionalIdle: 0,
         actionCount: 0,
@@ -69,9 +74,12 @@ describe('policy comparison', () => {
     expect(compareToReferencePolicy(exact)).toMatchObject({
       policyId: 'interleaved-one-f-one-b',
       label: 'Interleaved 1F1B',
+      matchedPolicyId: 'interleaved-one-f-one-b',
+      matchedLabel: 'Interleaved 1F1B',
       match: 'exact',
       delta: {
         makespan: 0,
+        bubbleRatio: 0,
         peakActivationMemory: 0,
         intentionalIdle: 0,
         actionCount: 0,
@@ -80,6 +88,8 @@ describe('policy comparison', () => {
     expect(compareToReferencePolicy(delayed)).toMatchObject({
       policyId: 'interleaved-one-f-one-b',
       label: 'Interleaved 1F1B',
+      matchedPolicyId: 'interleaved-one-f-one-b',
+      matchedLabel: 'Interleaved 1F1B',
       match: 'order-only',
       delta: {
         makespan: 1,
@@ -88,6 +98,7 @@ describe('policy comparison', () => {
         actionCount: 1,
       },
     });
+    expect(compareToReferencePolicy(delayed)?.delta.bubbleRatio).toBeCloseTo(1 / 39);
   });
 
   it('compares unmatched complete schedules against the family reference', () => {
@@ -123,5 +134,41 @@ describe('policy comparison', () => {
     const state = replayComplete('dependency-chain', MASTERED_ACTIONS['dependency-chain']);
 
     expect(compareToReferencePolicy(state)).toBeNull();
+  });
+
+  it('recognizes grouped order while comparing against the configured 1F1B baseline', () => {
+    const state = replayComplete('group-the-pipe', MASTERED_ACTIONS['group-the-pipe']);
+
+    const comparison = compareToReferencePolicy(state);
+
+    expect(comparison).toMatchObject({
+      policyId: 'one-f-one-b',
+      label: '1F1B',
+      matchedPolicyId: 'group-major',
+      matchedLabel: 'Group Major',
+      match: 'exact',
+      current: {
+        makespan: 24,
+        bubbleRatio: 0.5,
+        peakActivationMemory: 2,
+        intentionalIdle: 0,
+        actionCount: 24,
+      },
+      reference: {
+        makespan: 18,
+        bubbleRatio: 1 / 3,
+        peakActivationMemory: 3,
+        intentionalIdle: 0,
+        actionCount: 24,
+      },
+      delta: {
+        makespan: 6,
+        peakActivationMemory: -1,
+        intentionalIdle: 0,
+        actionCount: 0,
+      },
+    });
+    expect(comparison?.reference.bubbleRatio).toBeCloseTo(1 / 3);
+    expect(comparison?.delta.bubbleRatio).toBeCloseTo(1 / 6);
   });
 });

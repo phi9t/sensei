@@ -217,13 +217,42 @@ describe('validateLevelConfig', () => {
     ).toThrow(/duplicate reference policy id gpipe-afab/);
   });
 
+  it('rejects unknown comparison reference policy ids', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          referencePolicy: {
+            candidatePolicyIds: ['gpipe-afab'],
+            comparisonPolicyId: 'unknown-policy' as 'gpipe-afab',
+          },
+        }),
+      ),
+    ).toThrow(/comparison reference policy id is not supported/);
+  });
+
+  it('requires comparison reference policies to be listed as candidates', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          referencePolicy: {
+            candidatePolicyIds: ['group-major'],
+            comparisonPolicyId: 'one-f-one-b',
+          },
+        }),
+      ),
+    ).toThrow(/comparison reference policy id must be a candidate policy/);
+  });
+
   it('accepts grouped microbatch metadata and group-major reference policies', () => {
     expect(() =>
       validateLevelConfig(
         makeConfig({
           microbatchCount: 4,
           microbatchGrouping: { groupSize: 2, groupLabels: ['G0', 'G1'] },
-          referencePolicy: { candidatePolicyIds: ['group-major', 'one-f-one-b'] },
+          referencePolicy: {
+            candidatePolicyIds: ['group-major', 'one-f-one-b'],
+            comparisonPolicyId: 'one-f-one-b',
+          },
           algorithm: {
             family: 'grouped',
             setTitle: 'Grouped',

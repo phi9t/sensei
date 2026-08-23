@@ -153,6 +153,9 @@ function cloneConfig(config: LevelConfig): LevelConfig {
       ? {
           referencePolicy: Object.freeze({
             candidatePolicyIds: Object.freeze([...config.referencePolicy.candidatePolicyIds]),
+            ...(config.referencePolicy.comparisonPolicyId
+              ? { comparisonPolicyId: config.referencePolicy.comparisonPolicyId }
+              : {}),
           }),
         }
       : {}),

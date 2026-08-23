@@ -154,6 +154,14 @@ export function validateLevelConfig(config: LevelConfig): void {
     }
     seenReferencePolicies.add(policyId);
   }
+  if (config.referencePolicy?.comparisonPolicyId !== undefined) {
+    if (!REFERENCE_POLICY_IDS.has(config.referencePolicy.comparisonPolicyId)) {
+      throw new Error('comparison reference policy id is not supported');
+    }
+    if (!seenReferencePolicies.has(config.referencePolicy.comparisonPolicyId)) {
+      throw new Error('comparison reference policy id must be a candidate policy');
+    }
+  }
 
   const topology = config.topology ?? { placement: 'one-to-one' as const, virtualStagesPerRank: 1 };
 

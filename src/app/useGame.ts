@@ -445,19 +445,31 @@ function completionMessage(levelId: LevelId, actions: readonly Action[]): string
     return `Completed. ${outcome}${suffix}`;
   }
 
-  if (comparison.match === 'exact') {
+  const recognizedLabel = comparison.matchedLabel ?? comparison.label;
+  const referenceText =
+    comparison.matchedPolicyId === null || comparison.matchedPolicyId === comparison.policyId
+      ? 'reference'
+      : `${comparison.label} reference`;
+
+  if (comparison.match === 'exact' && comparison.matchedPolicyId === comparison.policyId) {
     return `Completed as ${comparison.label} reference. ${outcome}`;
   }
 
   if (comparison.match === 'order-only') {
-    return `Completed with ${comparison.label} order, ${formatSignedDelta(
+    return `Completed with ${recognizedLabel} order, ${formatSignedDelta(
       comparison.delta.makespan,
-    )} makespan vs reference. ${outcome}${suffix}`;
+    )} makespan vs ${referenceText}. ${outcome}${suffix}`;
+  }
+
+  if (comparison.match === 'exact') {
+    return `Completed with ${recognizedLabel} order, ${formatSignedDelta(
+      comparison.delta.makespan,
+    )} makespan vs ${referenceText}. ${outcome}${suffix}`;
   }
 
   return `Completed against ${comparison.label} reference, ${formatSignedDelta(
     comparison.delta.makespan,
-  )} makespan vs reference. ${outcome}${suffix}`;
+  )} makespan vs ${referenceText}. ${outcome}${suffix}`;
 }
 
 function buildUrlAttempt(levelId: LevelId, actions: readonly Action[]): UrlAttemptPayload {

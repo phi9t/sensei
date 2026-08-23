@@ -140,6 +140,7 @@ export type ReferencePolicyId =
 
 export interface ReferencePolicyModel {
   readonly candidatePolicyIds: readonly ReferencePolicyId[];
+  readonly comparisonPolicyId?: ReferencePolicyId;
 }
 
 export interface LevelConfig {
