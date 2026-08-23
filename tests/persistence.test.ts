@@ -241,6 +241,35 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes interleaved 1F1B attempts as expanded actions only', () => {
+    const level = getLevel('interleaved-one-f-one-b');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'interleaved-one-f-one-b',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['interleaved-one-f-one-b'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('topology');
+    expect(storedPayload).not.toHaveProperty('policy');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['interleaved-one-f-one-b']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('interleaved-one-f-one-b');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['interleaved-one-f-one-b']);
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

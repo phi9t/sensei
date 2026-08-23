@@ -19,7 +19,7 @@ export interface PolicyComparison {
 }
 
 function isComparableFamily(family: ScheduleState['config']['algorithm']['family']): boolean {
-  return family === 'gpipe' || family === 'one-f-one-b';
+  return family === 'gpipe' || family === 'one-f-one-b' || family === 'interleaved-one-f-one-b';
 }
 
 function subtractTuples(

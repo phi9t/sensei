@@ -159,6 +159,18 @@ describe('game flow', () => {
     );
   }, 10000);
 
+  it('names the interleaved 1F1B reference when a virtual-stage schedule completes', async () => {
+    const user = userEvent.setup();
+
+    render(<App initialLevelId="interleaved-one-f-one-b" />);
+
+    await runJourney(user, MASTERED_ACTIONS['interleaved-one-f-one-b'], 'pointer');
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /^Completed as Interleaved 1F1B reference\. Mastered\.$/,
+    );
+  }, 10000);
+
   it('summarizes policy-relative deltas for non-exact reference completions', async () => {
     const user = userEvent.setup();
 
@@ -240,7 +252,7 @@ describe('game flow', () => {
       expect(bestAttempt(afterWorseRetry, levelId)?.tuple).toEqual(masteredSummary.score);
       expect(bestAttempt(afterWorseRetry, levelId)?.actions).toEqual(mastered);
     }
-  }, 40000);
+  }, 60000);
 
   it('restores persisted progress across reload, preserves session progress when storage is unavailable, and surfaces polite fallback notices', async () => {
     const firstUser = userEvent.setup();
@@ -428,7 +440,7 @@ describe('game flow', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
-        /^Completed\. Mastered\.$/,
+        /^Completed as Interleaved 1F1B reference\. Mastered\.$/,
       );
     });
     await waitFor(() => {

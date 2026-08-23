@@ -56,6 +56,40 @@ describe('policy comparison', () => {
     expect(comparison?.delta.intentionalIdle).toBe(1);
   });
 
+  it('compares interleaved 1F1B levels against the interleaved reference', () => {
+    const exact = replayComplete(
+      'interleaved-one-f-one-b',
+      MASTERED_ACTIONS['interleaved-one-f-one-b'],
+    );
+    const delayed = replayComplete(
+      'interleaved-one-f-one-b',
+      LEGAL_ACTIONS['interleaved-one-f-one-b'],
+    );
+
+    expect(compareToReferencePolicy(exact)).toMatchObject({
+      policyId: 'interleaved-one-f-one-b',
+      label: 'Interleaved 1F1B',
+      match: 'exact',
+      delta: {
+        makespan: 0,
+        peakActivationMemory: 0,
+        intentionalIdle: 0,
+        actionCount: 0,
+      },
+    });
+    expect(compareToReferencePolicy(delayed)).toMatchObject({
+      policyId: 'interleaved-one-f-one-b',
+      label: 'Interleaved 1F1B',
+      match: 'order-only',
+      delta: {
+        makespan: 1,
+        peakActivationMemory: 0,
+        intentionalIdle: 1,
+        actionCount: 1,
+      },
+    });
+  });
+
   it('compares unmatched complete schedules against the family reference', () => {
     const state = replayComplete('gpipe-afab', [
       ...MASTERED_ACTIONS['gpipe-afab'].slice(0, 12),

@@ -156,9 +156,21 @@ describe('Game shell', () => {
       group.getAttribute('label'),
     );
 
-    expect(groups).toEqual(['Foundations', 'GPipe', '1F1B', 'Building Blocks', 'Virtual Stages']);
+    expect(groups).toEqual([
+      'Foundations',
+      'GPipe',
+      '1F1B',
+      'Building Blocks',
+      'Virtual Stages',
+      'Interleaved 1F1B',
+    ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
+    ).not.toBeNull();
+    expect(
+      picker.querySelector(
+        'optgroup[label="Interleaved 1F1B"] option[value="interleaved-one-f-one-b"]',
+      ),
     ).not.toBeNull();
   });
 

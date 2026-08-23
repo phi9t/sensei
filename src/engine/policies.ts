@@ -7,8 +7,9 @@ import {
   type ScheduleState,
 } from './replay';
 import type { Action, LevelConfig, Operation, OperationId } from './types';
+import { topologyForLevel } from './topology';
 
-export type ReferencePolicyId = 'gpipe-afab' | 'one-f-one-b';
+export type ReferencePolicyId = 'gpipe-afab' | 'one-f-one-b' | 'interleaved-one-f-one-b';
 
 export interface ReferencePolicy {
   readonly id: ReferencePolicyId;
@@ -19,6 +20,10 @@ export const REFERENCE_POLICIES: Readonly<Record<ReferencePolicyId, ReferencePol
   Object.freeze({
     'gpipe-afab': Object.freeze({ id: 'gpipe-afab', label: 'GPipe AFAB' }),
     'one-f-one-b': Object.freeze({ id: 'one-f-one-b', label: '1F1B' }),
+    'interleaved-one-f-one-b': Object.freeze({
+      id: 'interleaved-one-f-one-b',
+      label: 'Interleaved 1F1B',
+    }),
   });
 
 type LegalMove = Extract<MoveClassification, { status: 'legal' }>;
@@ -184,6 +189,84 @@ function selectOneFOneBMove(
   return sorted[0] ?? null;
 }
 
+function selectFirstStageWarmupMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  const topology = topologyForLevel(state.config);
+  const warmupQuota = Math.min(
+    state.config.microbatchCount,
+    Math.max(1, topology.virtualStagesPerRank),
+  );
+
+  if (placedForwardCount(state, 0) >= warmupQuota) {
+    return null;
+  }
+
+  const candidates = legalMoves
+    .filter((move) => move.operation.kind === 'F' && move.operation.stage === 0)
+    .sort((left, right) => left.operation.microbatch - right.operation.microbatch);
+
+  return candidates[0] ?? null;
+}
+
+function compareForwardInterleaved(left: LegalMove, right: LegalMove): number {
+  if (left.operation.microbatch !== right.operation.microbatch) {
+    return left.operation.microbatch - right.operation.microbatch;
+  }
+  if (left.operation.stage !== right.operation.stage) {
+    return right.operation.stage - left.operation.stage;
+  }
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function compareBackwardInterleaved(left: LegalMove, right: LegalMove): number {
+  if (left.operation.microbatch !== right.operation.microbatch) {
+    return left.operation.microbatch - right.operation.microbatch;
+  }
+  if (left.operation.stage !== right.operation.stage) {
+    return right.operation.stage - left.operation.stage;
+  }
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function selectInterleavedOneFOneBMove(
+  state: ScheduleState,
+  legalMoves: readonly LegalMove[],
+): LegalMove | null {
+  const warmupMove = selectFirstStageWarmupMove(state, legalMoves);
+  if (warmupMove) {
+    return warmupMove;
+  }
+
+  const finalStage = state.config.stageCount - 1;
+  const finalStageBackward = legalMoves
+    .filter((move) => move.operation.kind === 'B' && move.operation.stage === finalStage)
+    .sort(compareBackwardInterleaved);
+  if (finalStageBackward[0]) {
+    return finalStageBackward[0];
+  }
+
+  const forward = legalMoves
+    .filter((move) => move.operation.kind === 'F')
+    .sort(compareForwardInterleaved);
+  if (forward[0]) {
+    return forward[0];
+  }
+
+  const backward = legalMoves
+    .filter((move) => move.operation.kind === 'B')
+    .sort(compareBackwardInterleaved);
+
+  return backward[0] ?? null;
+}
+
 function blockedPolicyOperation(
   state: ScheduleState,
   policyId: ReferencePolicyId,
@@ -227,6 +310,8 @@ function selectMove(
       return selectAfabMove(state, legalMoves);
     case 'one-f-one-b':
       return selectOneFOneBMove(state, legalMoves);
+    case 'interleaved-one-f-one-b':
+      return selectInterleavedOneFOneBMove(state, legalMoves);
   }
 }
 
@@ -366,6 +451,8 @@ function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[]
       return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
     case 'one-f-one-b':
       return Object.freeze(['one-f-one-b', 'gpipe-afab'] as const);
+    case 'interleaved-one-f-one-b':
+      return Object.freeze(['interleaved-one-f-one-b', 'one-f-one-b', 'gpipe-afab'] as const);
     default:
       return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
   }
