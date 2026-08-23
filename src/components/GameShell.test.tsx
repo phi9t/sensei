@@ -117,7 +117,7 @@ describe('Game shell', () => {
       group.getAttribute('label'),
     );
 
-    expect(groups).toEqual(['Foundations', 'GPipe', '1F1B', 'Building Blocks']);
+    expect(groups).toEqual(['Foundations', 'GPipe', '1F1B', 'Building Blocks', 'Virtual Stages']);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
     ).not.toBeNull();

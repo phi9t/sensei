@@ -156,11 +156,34 @@ describe('coaching', () => {
         kind: 'rank-frontier',
         rank: 1,
         rankFrontier: 2,
-        message: 'This move can start immediately at rank 1 frontier 2.',
+        message:
+          'This move can start immediately for logical stage 1 on rank 1 frontier 2.',
       },
     });
     expect(suggestMove(state)).toEqual(suggestMove(state));
     expect(suggestMove(complete)).toBeNull();
+  });
+
+  it('describes virtual-stage suggestions with logical stage and physical owner rank', () => {
+    const state = expectState(
+      replay(
+        getLevel('virtual-stages'),
+        placeIds('F:0:0', 'F:0:1', 'F:1:0', 'F:2:0', 'F:1:1'),
+      ),
+    );
+
+    expect(suggestMove(state)).toEqual({
+      operationId: 'F:3:0',
+      earliestStart: 3,
+      projectedMemory: 3,
+      reason: {
+        kind: 'rank-frontier',
+        rank: 0,
+        rankFrontier: 2,
+        message:
+          'This move can start immediately for logical stage 3 on rank 0 frontier 2.',
+      },
+    });
   });
 
   it('prefers the memory boundary over later choice analysis', () => {

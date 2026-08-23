@@ -116,7 +116,7 @@ export function suggestMove(state: ScheduleState): Suggestion | null {
       kind: 'rank-frontier' as const,
       rank: first.operation.rank,
       rankFrontier,
-      message: `This move can start immediately at rank ${parsed.stage} frontier ${rankFrontier}.`,
+      message: `This move can start immediately for logical stage ${parsed.stage} on rank ${first.operation.rank} frontier ${rankFrontier}.`,
     }),
   });
 }
