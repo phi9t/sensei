@@ -24,6 +24,7 @@ const EXPECTED_LEVEL_IDS = [
   'virtual-stages',
   'interleaved-one-f-one-b',
   'ragged-rounds',
+  'heavy-backward-tail',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -33,6 +34,7 @@ const EXPECTED_LEVEL_GROUPS = [
   'Building Blocks',
   'Virtual Stages',
   'Interleaved 1F1B',
+  'Nonuniform Cost',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -341,6 +343,33 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['ragged round', 'policy par', 'tail effect'],
     },
   },
+  'heavy-backward-tail': {
+    id: 'heavy-backward-tail',
+    version: 1,
+    title: 'Heavy Backward Tail',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 3,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 28 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 6 },
+    ],
+    algorithm: {
+      family: 'interleaved-one-f-one-b',
+      setTitle: 'Nonuniform Cost',
+      concept:
+        'A heavy first-stage backward creates a critical tail even when operation counts look balanced.',
+      objective: 'Keep the interleaved rhythm while draining the expensive B:S0 tail early enough.',
+      patternLabel: 'Cost-aware',
+      introducedModel: ['stage-specific duration', 'critical tail by cost'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -609,6 +638,32 @@ const EXPECTED_MASTERED_ACTIONS = {
     'B:1:4',
     'B:0:4',
   ],
+  'heavy-backward-tail': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:2:0',
+    'F:3:0',
+    'B:3:0',
+    'F:1:1',
+    'F:2:1',
+    'F:3:1',
+    'B:3:1',
+    'F:0:2',
+    'F:1:2',
+    'F:2:2',
+    'F:3:2',
+    'B:3:2',
+    'B:2:0',
+    'B:1:0',
+    'B:0:0',
+    'B:2:1',
+    'B:1:1',
+    'B:0:1',
+    'B:2:2',
+    'B:1:2',
+    'B:0:2',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 const EXPECTED_GOLDEN_ROWS = {
@@ -695,6 +750,13 @@ const EXPECTED_GOLDEN_ROWS = {
     bubbleRatio: 8 / 23,
     peakActivationMemoryByRank: [6, 10],
     peakActivationMemory: 10,
+  },
+  'heavy-backward-tail': {
+    makespan: 28,
+    intentionalIdle: 0,
+    bubbleRatio: 0.25,
+    peakActivationMemoryByRank: [4, 6],
+    peakActivationMemory: 6,
   },
 } satisfies Record<
   LevelId,
@@ -800,6 +862,15 @@ describe('levels public API', () => {
 
     expect(Object.isFrozen(level.topology)).toBe(true);
     expect(level.topology).toEqual({ placement: 'v-shape', virtualStagesPerRank: 2 });
+  });
+
+  it('freezes duration override metadata with the level config', () => {
+    const level = getLevel('heavy-backward-tail');
+
+    expect(Object.isFrozen(level.durationOverrides)).toBe(true);
+    expect(Object.isFrozen(level.durationOverrides?.[0])).toBe(true);
+    expect(level.durationOverrides).toEqual([{ kind: 'B', stage: 0, duration: 4 }]);
+    expect(getLevel('ragged-rounds').durationOverrides).toBeUndefined();
   });
 });
 

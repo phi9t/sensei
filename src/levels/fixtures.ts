@@ -287,6 +287,32 @@ const masteredActions = {
     'B:1:4',
     'B:0:4',
   ),
+  'heavy-backward-tail': placeIds(
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:2:0',
+    'F:3:0',
+    'B:3:0',
+    'F:1:1',
+    'F:2:1',
+    'F:3:1',
+    'B:3:1',
+    'F:0:2',
+    'F:1:2',
+    'F:2:2',
+    'F:3:2',
+    'B:3:2',
+    'B:2:0',
+    'B:1:0',
+    'B:0:0',
+    'B:2:1',
+    'B:1:1',
+    'B:0:1',
+    'B:2:2',
+    'B:1:2',
+    'B:0:2',
+  ),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const MASTERED_ACTIONS = Object.freeze(masteredActions);
@@ -304,6 +330,7 @@ const legalActions = {
   'virtual-stages': withLeadingWait(MASTERED_ACTIONS['virtual-stages']),
   'interleaved-one-f-one-b': withLeadingWait(MASTERED_ACTIONS['interleaved-one-f-one-b']),
   'ragged-rounds': withLeadingWait(MASTERED_ACTIONS['ragged-rounds']),
+  'heavy-backward-tail': withLeadingWait(MASTERED_ACTIONS['heavy-backward-tail']),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const LEGAL_ACTIONS = Object.freeze(legalActions);

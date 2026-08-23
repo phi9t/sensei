@@ -13,6 +13,7 @@ export const LEVEL_IDS = [
   'virtual-stages',
   'interleaved-one-f-one-b',
   'ragged-rounds',
+  'heavy-backward-tail',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -48,8 +49,14 @@ function freezeTopology(
   return Object.freeze({ ...topology });
 }
 
+function freezeDurationOverrides(
+  overrides: NonNullable<LevelConfig['durationOverrides']>,
+): NonNullable<LevelConfig['durationOverrides']> {
+  return Object.freeze(overrides.map((override) => Object.freeze({ ...override })));
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
-  const { buildingBlock, topology, ...baseConfig } = config;
+  const { buildingBlock, topology, durationOverrides, ...baseConfig } = config;
   const frozen = {
     ...baseConfig,
     durations: Object.freeze({ ...config.durations }),
@@ -59,6 +66,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     algorithm: freezeAlgorithm(config.algorithm),
     ...(buildingBlock ? { buildingBlock: freezeBuildingBlock(buildingBlock) } : {}),
     ...(topology ? { topology: freezeTopology(topology) } : {}),
+    ...(durationOverrides ? { durationOverrides: freezeDurationOverrides(durationOverrides) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -368,6 +376,33 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Hit the interleaved policy par, then inspect where the tail still bubbles.',
       patternLabel: 'Policy par',
       introducedModel: ['ragged round', 'policy par', 'tail effect'],
+    },
+  }),
+  'heavy-backward-tail': freezeLevel({
+    id: 'heavy-backward-tail',
+    version: 1,
+    title: 'Heavy Backward Tail',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 3,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    durationOverrides: [{ kind: 'B', stage: 0, duration: 4 }],
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 28 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 6 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'interleaved-one-f-one-b',
+      setTitle: 'Nonuniform Cost',
+      concept:
+        'A heavy first-stage backward creates a critical tail even when operation counts look balanced.',
+      objective: 'Keep the interleaved rhythm while draining the expensive B:S0 tail early enough.',
+      patternLabel: 'Cost-aware',
+      introducedModel: ['stage-specific duration', 'critical tail by cost'],
     },
   }),
 });
