@@ -77,6 +77,8 @@ Do not touch or stage the pre-existing untracked file `src/components/PipelineLe
   - Add or preserve contract coverage that duration/cost chips fit compactly.
 - Modify `src/styles/app.css`
   - Add compact cost-chip styling and allow level-guide chips to wrap safely.
+- Modify `eslint.config.js`
+  - Ignore project-local worktree directories so root-level verification does not lint nested linked checkouts.
 - Modify this plan file
   - Append the post-execution review and any plan corrections found during implementation.
 
@@ -1107,6 +1109,7 @@ Date: 2026-08-23
 - Level scope: `heavy-backward-tail` teaches stage-specific cost through one `B:S0 = 4t` override, a cost-aware fixture, and compact guide/inspector cues without introducing split backward, zero-bubble, DualPipe, FSDP residency, dynamic durations, per-microbatch overrides, or a rules panel.
 - Persistence: URL and local attempts remain canonical `Action[]`; `durationOverrides`, `durations`, and `topology` are not serialized into attempt payloads.
 - Plan corrections:
+  - `eslint.config.js` needed `.worktrees/**` and `worktrees/**` ignores because root-level `eslint .` recursed into the project-local implementation worktree after landing, causing TypeScript ESLint to see multiple candidate TSConfig roots.
   - The existing level picker test needed its expected optgroup list updated to include `Nonuniform Cost` after adding the new catalog entry.
   - `src/styles/app.css` did not already define `--warning`; the compact duration chip required adding `--warning: #c07b16` before using it in `.duration-chip`.
   - `src/components/MoveInspector.tsx` already had access to `explanation.operation.duration`; no new prop or state shape was needed.

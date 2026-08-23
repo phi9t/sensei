@@ -61,6 +61,6 @@ export default [
     },
   },
   {
-    ignores: ['dist', 'node_modules', 'package-lock.json'],
+    ignores: ['dist', 'node_modules', 'package-lock.json', '.worktrees/**', 'worktrees/**'],
   },
 ];
