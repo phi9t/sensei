@@ -132,7 +132,9 @@ function rankOwnersForSchedule(state: ScheduleState): readonly RankOwnerLabel[] 
     Array.from({ length: state.config.rankCount }, (_, rank) =>
       Object.freeze({
         rank,
-        stages: Object.freeze([...(stagesByRank.get(rank) ?? [])].sort((left, right) => left - right)),
+        stages: Object.freeze(
+          [...(stagesByRank.get(rank) ?? [])].sort((left, right) => left - right),
+        ),
       }),
     ),
   );

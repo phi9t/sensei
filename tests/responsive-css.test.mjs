@@ -276,9 +276,7 @@ describe('responsive play surface CSS contract', () => {
 
     expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bwhite-space:\s*nowrap\s*;/);
     expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bmax-width:\s*100%\s*;/);
-    expect(topologyOwnersBlock).toMatch(
-      /\.rank-owner-list\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
-    );
+    expect(topologyOwnersBlock).toMatch(/\.rank-owner-list\s*\{[^}]*\boverflow-x:\s*auto\s*;/);
   });
 
   it('keeps selected identity and score summary compact in the right rail', async () => {

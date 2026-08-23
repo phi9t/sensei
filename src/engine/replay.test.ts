@@ -429,9 +429,7 @@ describe('virtual-stage replay', () => {
   });
 
   it('places logical stages on their physical owner ranks', () => {
-    const state = expectState(
-      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
-    );
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')));
 
     expect(
       state.placements.map(({ operationId, rank, start, end }) => ({
@@ -449,9 +447,7 @@ describe('virtual-stage replay', () => {
   });
 
   it('blocks backward work until the next logical stage backward is complete', () => {
-    const state = expectState(
-      replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')),
-    );
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')));
 
     const result = applyAction(state, { type: 'place', operationId: 'B:1:0' });
 
