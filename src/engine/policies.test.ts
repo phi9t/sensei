@@ -159,4 +159,16 @@ describe('reference policy recognition', () => {
       });
     }
   });
+
+  it('does not route split zero-bubble schedules through F/B reference policies', () => {
+    const replayResult = replay(getLevel('split-backward'), MASTERED_ACTIONS['split-backward']);
+
+    expect(replayResult.ok).toBe(true);
+    if (replayResult.ok) {
+      expect(recognizeSchedule(replayResult.state)).toEqual({
+        kind: 'unmatched',
+        candidatePolicyIds: [],
+      });
+    }
+  });
 });

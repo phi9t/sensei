@@ -1,5 +1,10 @@
 import type { Action, LevelConfig, Operation, OperationId } from './types';
-import { deriveOperations, predecessorsOf, parseOperationId } from './operations';
+import {
+  deriveOperations,
+  predecessorsOf,
+  parseOperationId,
+  releasesActivation,
+} from './operations';
 import { validateLevelConfig } from './config';
 
 export interface Placement {
@@ -73,7 +78,7 @@ function computePeakMemory(
     const parsed = parseOperationId(placement.operationId);
     if (parsed.kind === 'F') {
       events.push({ time: placement.end, rank: placement.rank, delta: 1 });
-    } else {
+    } else if (releasesActivation(config, parsed.kind)) {
       events.push({ time: placement.end, rank: placement.rank, delta: -1 });
     }
   }
@@ -102,7 +107,7 @@ function computeCurrentMemory(
 
   for (const placement of placements) {
     const parsed = parseOperationId(placement.operationId);
-    if (parsed.kind === 'B') {
+    if (releasesActivation(config, parsed.kind)) {
       const matchingF: OperationId = `F:${parsed.stage}:${parsed.microbatch}`;
       releasedF.add(matchingF);
     }
@@ -130,6 +135,9 @@ function cloneConfig(config: LevelConfig): LevelConfig {
       ...config.algorithm,
       introducedModel: Object.freeze([...config.algorithm.introducedModel]),
     }),
+    ...(config.operationModel
+      ? { operationModel: Object.freeze({ ...config.operationModel }) }
+      : {}),
     ...(config.durationOverrides
       ? {
           durationOverrides: Object.freeze(
@@ -146,10 +154,7 @@ function cloneConfig(config: LevelConfig): LevelConfig {
 }
 
 function validateOperationIdInInventory(id: OperationId, operations: readonly Operation[]): void {
-  const parsed = parseOperationId(id);
-  if (parsed.kind !== 'F' && parsed.kind !== 'B') {
-    throw new Error(`Unknown operation id: ${id}`);
-  }
+  parseOperationId(id);
   const found = operations.find((op) => op.id === id);
   if (!found) {
     throw new Error(
@@ -163,10 +168,7 @@ function operationIdReasonInInventory(
   operations: readonly Operation[],
 ): BlockReason | null {
   try {
-    const parsed = parseOperationId(id);
-    if (parsed.kind !== 'F' && parsed.kind !== 'B') {
-      return { kind: 'unknown-operation-id', operationId: id };
-    }
+    parseOperationId(id);
   } catch {
     return { kind: 'unknown-operation-id', operationId: id };
   }
@@ -250,7 +252,7 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
   let projectedMemory = state.currentMemory[operation.rank] ?? 0;
   if (operation.kind === 'F') {
     projectedMemory = projectedMemory + 1;
-  } else {
+  } else if (releasesActivation(state.config, operation.kind)) {
     projectedMemory = projectedMemory - 1;
   }
 

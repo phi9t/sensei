@@ -1,13 +1,14 @@
 import type { LevelConfig, OperationKind, PipelineTopologyPlacement } from './types';
 
 const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
+const BACKWARD_MODELS = new Set(['fused', 'split']);
 
 function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
   return TOPOLOGY_PLACEMENTS.has(value as PipelineTopologyPlacement);
 }
 
 function isOperationKind(value: string): value is OperationKind {
-  return value === 'F' || value === 'B';
+  return value === 'F' || value === 'B' || value === 'W';
 }
 
 function isFinitePositiveInteger(value: number): boolean {
@@ -40,15 +41,43 @@ export function validateLevelConfig(config: LevelConfig): void {
   if (!isFinitePositiveInteger(config.durations.B)) {
     throw new Error('B duration must be a positive finite integer');
   }
-  if (config.durations.F !== 1 || config.durations.B !== 2) {
+  const operationModel = config.operationModel ?? { backward: 'fused' as const };
+  if (!BACKWARD_MODELS.has(operationModel.backward)) {
+    throw new Error('operationModel backward must be fused or split');
+  }
+  if (config.durations.W !== undefined && !isFinitePositive(config.durations.W)) {
+    throw new Error('W duration must be a positive finite number');
+  }
+  if (config.durations.W !== undefined && !isFinitePositiveInteger(config.durations.W)) {
+    throw new Error('W duration must be a positive finite integer');
+  }
+  if (operationModel.backward === 'split' && config.durations.W === undefined) {
+    throw new Error('split operationModel requires W duration');
+  }
+  if (
+    operationModel.backward === 'fused' &&
+    (config.durations.F !== 1 || config.durations.B !== 2)
+  ) {
     throw new Error('V1 base durations must be F=1 and B=2');
+  }
+  if (
+    operationModel.backward === 'split' &&
+    (config.durations.F !== 1 || config.durations.B !== 1 || config.durations.W !== 1)
+  ) {
+    throw new Error('split base durations must be F=1, B=1, and W=1');
+  }
+  if (operationModel.backward === 'fused' && config.durations.W !== undefined) {
+    throw new Error('fused operationModel must not define W duration');
   }
 
   if (config.durationOverrides) {
     const seen = new Set<string>();
     for (const override of config.durationOverrides) {
       if (!isOperationKind(override.kind)) {
-        throw new Error('duration override kind must be F or B');
+        throw new Error('duration override kind must be F, B, or W');
+      }
+      if (override.kind === 'W' && operationModel.backward !== 'split') {
+        throw new Error('W duration overrides require split operationModel');
       }
       if (
         !Number.isInteger(override.stage) ||

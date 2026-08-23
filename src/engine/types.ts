@@ -1,6 +1,10 @@
-export type OperationKind = 'F' | 'B';
+export type OperationKind = 'F' | 'B' | 'W';
 
 export type OperationId = `${OperationKind}:${number}:${number}`;
+
+export interface OperationModel {
+  readonly backward: 'fused' | 'split';
+}
 
 export interface OperationDurationOverride {
   readonly kind: OperationKind;
@@ -122,7 +126,7 @@ export interface LevelConfig {
   rankCount: number;
   stageCount: number;
   microbatchCount: number;
-  durations: Record<OperationKind, number>;
+  durations: Readonly<Record<'F' | 'B', number> & Partial<Record<'W', number>>>;
   durationOverrides?: readonly OperationDurationOverride[];
   memoryCaps: readonly number[] | null;
   masteryTargets: readonly MasteryTarget[];
@@ -130,4 +134,5 @@ export interface LevelConfig {
   algorithm: AlgorithmLevelMetadata;
   buildingBlock?: BuildingBlockLevelMetadata;
   topology?: PipelineTopology;
+  operationModel?: OperationModel;
 }

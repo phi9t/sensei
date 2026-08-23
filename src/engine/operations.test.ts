@@ -18,6 +18,30 @@ describe('deriveOperations', () => {
     expect(ids).toEqual(['F:0:0', 'F:0:1', 'B:0:0', 'B:0:1', 'F:1:0', 'F:1:1', 'B:1:0', 'B:1:1']);
   });
 
+  it('does not derive W operations for fused backward levels', () => {
+    const config = makeConfig({ microbatchCount: 2 });
+    const ids = deriveOperations(config).map((op) => op.id);
+
+    expect(ids).not.toContain('W:0:0');
+    expect(ids).toHaveLength(config.stageCount * config.microbatchCount * 2);
+  });
+
+  it('derives W operations only when split backward is enabled', () => {
+    const config = makeConfig({
+      durations: { F: 1, B: 1, W: 1 },
+      operationModel: { backward: 'split' },
+    });
+
+    expect(deriveOperations(config).map((op) => op.id)).toEqual([
+      'F:0:0',
+      'B:0:0',
+      'W:0:0',
+      'F:1:0',
+      'B:1:0',
+      'W:1:0',
+    ]);
+  });
+
   it('uses rank equal to stage in V1', () => {
     const config = makeConfig();
     const operations = deriveOperations(config);
@@ -142,6 +166,7 @@ describe('parseOperationId', () => {
   it('parses valid IDs', () => {
     expect(parseOperationId('F:0:0')).toEqual({ kind: 'F', stage: 0, microbatch: 0 });
     expect(parseOperationId('B:1:2')).toEqual({ kind: 'B', stage: 1, microbatch: 2 });
+    expect(parseOperationId('W:2:3')).toEqual({ kind: 'W', stage: 2, microbatch: 3 });
     expect(parseOperationId('F:99:99')).toEqual({ kind: 'F', stage: 99, microbatch: 99 });
   });
 
@@ -162,6 +187,10 @@ describe('parseOperationId', () => {
 
 describe('predecessorsOf', () => {
   const config = makeConfig();
+  const splitConfig = makeConfig({
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+  });
 
   it('F:1:0 depends on F:0:0 (forward previous-stage)', () => {
     expect(predecessorsOf('F:1:0', config)).toEqual(['F:0:0']);
@@ -169,6 +198,18 @@ describe('predecessorsOf', () => {
 
   it('B:1:0 depends on F:1:0 (backward same-stage forward)', () => {
     expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0']);
+  });
+
+  it('split W depends on same-stage input-gradient B', () => {
+    expect(predecessorsOf('W:1:0', splitConfig)).toEqual(['B:1:0']);
+  });
+
+  it('split B keeps input-gradient dependencies independent from W', () => {
+    expect(predecessorsOf('B:0:0', splitConfig)).toEqual(['F:0:0', 'B:1:0']);
+  });
+
+  it('rejects W predecessors for fused backward levels', () => {
+    expect(() => predecessorsOf('W:0:0', config)).toThrow(/not valid for fused backward levels/);
   });
 
   it('B:0:0 depends on F:0:0 and B:1:0 (backward next-stage)', () => {

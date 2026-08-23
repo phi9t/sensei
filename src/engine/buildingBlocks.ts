@@ -1,4 +1,9 @@
-import { deriveOperations, parseOperationId, predecessorsOf } from './operations';
+import {
+  deriveOperations,
+  parseOperationId,
+  predecessorsOf,
+  releasesActivation,
+} from './operations';
 import { classifyOperation, replay } from './replay';
 import type {
   Action,
@@ -275,8 +280,11 @@ function projectedPeakMemory(
       continue;
     }
 
-    const delta = operation.kind === 'F' ? 1 : -1;
-    events.push({ time: start + operation.duration, rank: operation.rank, delta });
+    if (operation.kind === 'F') {
+      events.push({ time: start + operation.duration, rank: operation.rank, delta: 1 });
+    } else if (releasesActivation(config, operation.kind)) {
+      events.push({ time: start + operation.duration, rank: operation.rank, delta: -1 });
+    }
   }
 
   events.sort(

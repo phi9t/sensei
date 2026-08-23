@@ -14,6 +14,7 @@ export const LEVEL_IDS = [
   'interleaved-one-f-one-b',
   'ragged-rounds',
   'heavy-backward-tail',
+  'split-backward',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -55,8 +56,14 @@ function freezeDurationOverrides(
   return Object.freeze(overrides.map((override) => Object.freeze({ ...override })));
 }
 
+function freezeOperationModel(
+  operationModel: NonNullable<LevelConfig['operationModel']>,
+): NonNullable<LevelConfig['operationModel']> {
+  return Object.freeze({ ...operationModel });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
-  const { buildingBlock, topology, durationOverrides, ...baseConfig } = config;
+  const { buildingBlock, topology, durationOverrides, operationModel, ...baseConfig } = config;
   const frozen = {
     ...baseConfig,
     durations: Object.freeze({ ...config.durations }),
@@ -67,6 +74,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     ...(buildingBlock ? { buildingBlock: freezeBuildingBlock(buildingBlock) } : {}),
     ...(topology ? { topology: freezeTopology(topology) } : {}),
     ...(durationOverrides ? { durationOverrides: freezeDurationOverrides(durationOverrides) } : {}),
+    ...(operationModel ? { operationModel: freezeOperationModel(operationModel) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -403,6 +411,31 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Keep the interleaved rhythm while draining the expensive B:S0 tail early enough.',
       patternLabel: 'Cost-aware',
       introducedModel: ['stage-specific duration', 'critical tail by cost'],
+    },
+  }),
+  'split-backward': freezeLevel({
+    id: 'split-backward',
+    version: 1,
+    title: 'Split Backward',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    memoryCaps: null,
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 7 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Split backward exposes input-gradient and weight-gradient work as separate blocks.',
+      objective: 'Place W after B and watch activation memory release at weight-gradient time.',
+      patternLabel: 'Split B/W',
+      introducedModel: ['input-gradient work', 'weight-gradient work', 'release on W'],
     },
   }),
 });

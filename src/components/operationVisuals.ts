@@ -14,7 +14,7 @@ export function operationVisualKey(operation: OperationVisualIdentity): string {
 }
 
 export function operationHue(operation: OperationVisualIdentity): number {
-  const kindOffset = operation.kind === 'F' ? 0 : 5;
+  const kindOffset = operation.kind === 'F' ? 0 : operation.kind === 'B' ? 5 : 8;
   const index =
     (operation.microbatch * 3 + operation.stage * 2 + kindOffset) % OPERATION_HUES.length;
   return OPERATION_HUES[index]!;

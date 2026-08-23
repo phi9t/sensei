@@ -134,6 +134,46 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
+  it('renders split-backward blocks with a compact WGT stack and split notation', () => {
+    render(<App initialLevelId="split-backward" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
+    const weightStack = within(batchZero).getByRole('group', {
+      name: /batch 0 weight-gradient blocks/i,
+    });
+
+    expect(within(guide).getByRole('heading', { name: /^Split Backward$/i })).toBeInTheDocument();
+    expect(screen.getByText(/\(F\/B\/W, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    expect(within(weightStack).getByText(/^WGT$/i)).toBeInTheDocument();
+    expect(within(weightStack).getByText(/^W0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(weightStack).getByText(/^W1:S1:B0$/i)).toBeInTheDocument();
+    expect(screen.getByTestId('tile-W:0:0')).toHaveAttribute('data-kind', 'W');
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('renders split-backward memory release on W in the schedule board', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="split-backward" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place B stage 1 microbatch 0/i }));
+
+    expect(
+      screen.getByText(/Rank 1 memory timeline: 0-2 => 0 units; 2-3 => 1 units/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /place W stage 1 microbatch 0/i }));
+
+    expect(screen.getByTestId('rank-tile-W:1:0')).toHaveAttribute('data-kind', 'W');
+    expect(screen.getByTestId('rank-label-W:1:0')).toHaveAccessibleName('W1:S1:B0');
+    expect(
+      screen.getByText(/Rank 1 memory timeline: 0-2 => 0 units; 2-4 => 1 units/i),
+    ).toBeInTheDocument();
+  });
+
   it('renders overridden durations in ready queue, inspector, preview, and board geometry', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="heavy-backward-tail" />);
@@ -206,6 +246,7 @@ describe('Game shell', () => {
       'Virtual Stages',
       'Interleaved 1F1B',
       'Nonuniform Cost',
+      'Zero Bubble',
     ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),

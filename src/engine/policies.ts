@@ -453,8 +453,13 @@ function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[]
       return Object.freeze(['one-f-one-b', 'gpipe-afab'] as const);
     case 'interleaved-one-f-one-b':
       return Object.freeze(['interleaved-one-f-one-b', 'one-f-one-b', 'gpipe-afab'] as const);
-    default:
-      return Object.freeze(['gpipe-afab', 'one-f-one-b'] as const);
+    case 'foundations':
+    case 'building-block':
+    case 'zero-bubble':
+    case 'grouped':
+    case 'fsdp-residency':
+    case 'dualpipe':
+      return Object.freeze([]);
   }
 }
 

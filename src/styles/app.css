@@ -544,6 +544,10 @@ summary:focus-visible {
   color: var(--backward);
 }
 
+.batch-stack[data-kind='W'] .batch-stack__label {
+  color: #6c5a9d;
+}
+
 .batch-stack__tokens {
   display: grid;
   gap: 0.24rem;
@@ -628,6 +632,26 @@ summary:focus-visible {
       hsl(var(--operation-hue) 42% 48% / 0.1) 0.26rem,
       transparent 0.26rem,
       transparent 0.72rem
+    ),
+    hsl(var(--operation-hue) 56% 94%);
+}
+
+.operation-button[data-kind='W'] {
+  border-color: color-mix(in srgb, var(--operation-accent) 40%, #6c5a9d);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      hsl(var(--operation-hue) 42% 48% / 0.11) 0,
+      hsl(var(--operation-hue) 42% 48% / 0.11) 0.22rem,
+      transparent 0.22rem,
+      transparent 0.58rem
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      hsl(var(--operation-hue) 42% 48% / 0.08) 0,
+      hsl(var(--operation-hue) 42% 48% / 0.08) 0.16rem,
+      transparent 0.16rem,
+      transparent 0.56rem
     ),
     hsl(var(--operation-hue) 56% 94%);
 }
@@ -832,6 +856,10 @@ summary:focus-visible {
   fill: var(--backward-soft);
 }
 
+.tile-pattern-base--weight {
+  fill: hsl(var(--operation-hue) 56% 94%);
+}
+
 .tile-pattern {
   stroke-width: 1.5;
 }
@@ -842,6 +870,10 @@ summary:focus-visible {
 
 .tile-pattern--backward {
   stroke: rgba(181, 92, 55, 0.58);
+}
+
+.tile-pattern--weight {
+  stroke: hsl(var(--operation-hue) 42% 38% / 0.62);
 }
 
 .board-details {

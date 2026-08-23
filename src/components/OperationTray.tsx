@@ -4,6 +4,8 @@ import type { OperationId, OperationKind } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
+const OPERATION_KIND_ORDER: readonly OperationKind[] = ['F', 'B', 'W'];
+
 interface OperationTrayProps {
   readonly classifications: readonly MoveClassification[];
   readonly selectedOperationId: OperationId | null;
@@ -58,7 +60,8 @@ function groupByMicrobatch(classifications: readonly MoveClassification[]): read
         [...batchClassifications].sort(
           (left, right) =>
             left.operation.stage - right.operation.stage ||
-            left.operation.kind.localeCompare(right.operation.kind),
+            OPERATION_KIND_ORDER.indexOf(left.operation.kind) -
+              OPERATION_KIND_ORDER.indexOf(right.operation.kind),
         ),
       );
       const readyCount = sortedClassifications.filter(
@@ -84,7 +87,25 @@ function groupByMicrobatch(classifications: readonly MoveClassification[]): read
 }
 
 function passLabel(kind: OperationKind): string {
-  return kind === 'F' ? 'FWD' : 'BWD';
+  switch (kind) {
+    case 'F':
+      return 'FWD';
+    case 'B':
+      return 'BWD';
+    case 'W':
+      return 'WGT';
+  }
+}
+
+function passAriaLabel(kind: OperationKind): string {
+  switch (kind) {
+    case 'F':
+      return 'forward';
+    case 'B':
+      return 'backward';
+    case 'W':
+      return 'weight-gradient';
+  }
 }
 
 function batchPhaseLabel(group: BatchGroup): string {
@@ -108,7 +129,12 @@ export function OperationTray({
     (classification) => classification.status === 'legal',
   ).length;
   const batchGroups = groupByMicrobatch(classifications);
-  const operationKinds: readonly OperationKind[] = ['F', 'B'];
+  const operationKinds = OPERATION_KIND_ORDER.filter((kind) =>
+    classifications.some((classification) => classification.operation.kind === kind),
+  );
+  const notationKey = operationKinds.includes('W')
+    ? '(F/B/W, stage_id, micro_batch_id)'
+    : '(F/B, stage_id, micro_batch_id)';
 
   return (
     <section className="panel tray-panel" aria-label="Ready queue">
@@ -120,7 +146,7 @@ export function OperationTray({
         <div className="tray-panel__summary">
           <p className="ready-count">{readyCount} ready</p>
           <p className="notation-key">
-            <span className="mono">(F/B, stage_id, micro_batch_id)</span>
+            <span className="mono">{notationKey}</span>
           </p>
         </div>
       </div>
@@ -137,7 +163,7 @@ export function OperationTray({
               <h3>Batch {group.microbatch}</h3>
               <span className="batch-lane__status">{batchPhaseLabel(group)}</span>
             </div>
-            <div className="batch-lane__stacks">
+            <div className="batch-lane__stacks" data-stack-count={operationKinds.length}>
               {operationKinds.map((kind) => {
                 const stackClassifications = group.classifications.filter(
                   (classification) => classification.operation.kind === kind,
@@ -148,9 +174,7 @@ export function OperationTray({
                     key={`${group.microbatch}-${kind}`}
                     className="batch-stack"
                     role="group"
-                    aria-label={`Batch ${group.microbatch} ${
-                      kind === 'F' ? 'forward' : 'backward'
-                    } blocks`}
+                    aria-label={`Batch ${group.microbatch} ${passAriaLabel(kind)} blocks`}
                     data-kind={kind}
                   >
                     <p className="batch-stack__label">{passLabel(kind)}</p>

@@ -25,6 +25,7 @@ const EXPECTED_LEVEL_IDS = [
   'interleaved-one-f-one-b',
   'ragged-rounds',
   'heavy-backward-tail',
+  'split-backward',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -35,6 +36,7 @@ const EXPECTED_LEVEL_GROUPS = [
   'Virtual Stages',
   'Interleaved 1F1B',
   'Nonuniform Cost',
+  'Zero Bubble',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -370,6 +372,31 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['stage-specific duration', 'critical tail by cost'],
     },
   },
+  'split-backward': {
+    id: 'split-backward',
+    version: 1,
+    title: 'Split Backward',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 1, W: 1 },
+    operationModel: { backward: 'split' },
+    memoryCaps: null,
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 7 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    algorithm: {
+      family: 'zero-bubble',
+      setTitle: 'Zero Bubble',
+      concept: 'Split backward exposes input-gradient and weight-gradient work as separate blocks.',
+      objective: 'Place W after B and watch activation memory release at weight-gradient time.',
+      patternLabel: 'Split B/W',
+      introducedModel: ['input-gradient work', 'weight-gradient work', 'release on W'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -664,6 +691,20 @@ const EXPECTED_MASTERED_ACTIONS = {
     'B:1:2',
     'B:0:2',
   ],
+  'split-backward': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'B:1:0',
+    'B:0:0',
+    'F:1:1',
+    'W:0:0',
+    'B:1:1',
+    'B:0:1',
+    'W:1:0',
+    'W:0:1',
+    'W:1:1',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 const EXPECTED_GOLDEN_ROWS = {
@@ -757,6 +798,13 @@ const EXPECTED_GOLDEN_ROWS = {
     bubbleRatio: 0.25,
     peakActivationMemoryByRank: [4, 6],
     peakActivationMemory: 6,
+  },
+  'split-backward': {
+    makespan: 7,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 7,
+    peakActivationMemoryByRank: [2, 2],
+    peakActivationMemory: 2,
   },
 } satisfies Record<
   LevelId,
@@ -872,6 +920,14 @@ describe('levels public API', () => {
     expect(level.durationOverrides).toEqual([{ kind: 'B', stage: 0, duration: 4 }]);
     expect(getLevel('ragged-rounds').durationOverrides).toBeUndefined();
   });
+
+  it('freezes operation model metadata with the level config', () => {
+    const level = getLevel('split-backward');
+
+    expect(Object.isFrozen(level.operationModel)).toBe(true);
+    expect(level.operationModel).toEqual({ backward: 'split' });
+    expect(getLevel('heavy-backward-tail').operationModel).toBeUndefined();
+  });
 });
 
 describe('golden fixtures', () => {
@@ -955,8 +1011,8 @@ describe('golden replay outcomes', () => {
     for (const id of EXPECTED_LEVEL_IDS) {
       const config = getLevel(id);
       const actions = MASTERED_ACTIONS[id]!;
-      const expectedCount = config.stageCount * config.microbatchCount * 2;
       const inventory = initialState(config).operations.map((operation) => operation.id);
+      const expectedCount = inventory.length;
       const placedIds = actions
         .filter((action): action is Extract<Action, { type: 'place' }> => action.type === 'place')
         .map((action) => action.operationId);

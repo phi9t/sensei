@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
-import type { Operation, OperationId } from '../engine/types';
+import type { Operation, OperationId, OperationKind } from '../engine/types';
 import { topologyForLevel } from '../engine/topology';
+import { releasesActivation } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 export const CELL_WIDTH = 56;
@@ -24,8 +25,15 @@ interface ScheduleBoardProps {
   } | null;
 }
 
-function kindPatternId(kind: 'F' | 'B'): string {
-  return kind === 'F' ? 'pattern-forward' : 'pattern-backward';
+function kindPatternId(kind: OperationKind): string {
+  switch (kind) {
+    case 'F':
+      return 'pattern-forward';
+    case 'B':
+      return 'pattern-backward';
+    case 'W':
+      return 'pattern-weight';
+  }
 }
 
 interface MemorySegment {
@@ -78,9 +86,11 @@ function memorySegmentsForRank(state: ScheduleState, rank: number): readonly Mem
       const operation = operationById(state, placement.operationId);
       return {
         time: placement.end,
-        delta: operation.kind === 'F' ? 1 : -1,
+        delta:
+          operation.kind === 'F' ? 1 : releasesActivation(state.config, operation.kind) ? -1 : 0,
       };
     })
+    .filter((event) => event.delta !== 0)
     .sort((left, right) => left.time - right.time || right.delta - left.delta);
 
   const segments: MemorySegment[] = [];
@@ -246,6 +256,11 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
               />
               <line x1="0" y1="1" x2="8" y2="1" className="tile-pattern tile-pattern--backward" />
               <line x1="0" y1="5" x2="8" y2="5" className="tile-pattern tile-pattern--backward" />
+            </pattern>
+            <pattern id="pattern-weight" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect width="8" height="8" className="tile-pattern-base tile-pattern-base--weight" />
+              <path d="M0 8 L8 0" className="tile-pattern tile-pattern--weight" />
+              <path d="M-4 4 L4 -4 M4 12 L12 4" className="tile-pattern tile-pattern--weight" />
             </pattern>
           </defs>
 

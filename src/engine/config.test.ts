@@ -59,6 +59,59 @@ describe('validateLevelConfig', () => {
     ).toThrow(/V1 base durations must be F=1 and B=2/);
   });
 
+  it('accepts split backward levels with explicit W duration', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durations: { F: 1, B: 1, W: 1 },
+          operationModel: { backward: 'split' },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects split backward levels without W duration', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durations: { F: 1, B: 1 },
+          operationModel: { backward: 'split' },
+        }),
+      ),
+    ).toThrow(/split operationModel requires W duration/);
+  });
+
+  it('rejects malformed split backward base durations', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durations: { F: 1, B: 2, W: 1 },
+          operationModel: { backward: 'split' },
+        }),
+      ),
+    ).toThrow(/split base durations must be F=1, B=1, and W=1/);
+  });
+
+  it('rejects W durations on fused backward levels', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durations: { F: 1, B: 2, W: 1 },
+        }),
+      ),
+    ).toThrow(/fused operationModel must not define W duration/);
+  });
+
+  it('rejects W duration overrides on fused backward levels', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          durationOverrides: [{ kind: 'W', stage: 0, duration: 2 }],
+        }),
+      ),
+    ).toThrow(/W duration overrides require split operationModel/);
+  });
+
   it('rejects duration overrides outside the logical stage range', () => {
     expect(() =>
       validateLevelConfig(
@@ -101,7 +154,17 @@ describe('validateLevelConfig', () => {
           durationOverrides: [{ kind: 'X' as OperationKind, stage: 0, duration: 4 }],
         }),
       ),
-    ).toThrow(/duration override kind must be F or B/);
+    ).toThrow(/duration override kind must be F, B, or W/);
+  });
+
+  it('rejects unsupported operation models from untrusted config objects', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          operationModel: { backward: 'sideways' as 'fused' },
+        }),
+      ),
+    ).toThrow(/operationModel backward must be fused or split/);
   });
 
   it('rejects stageCount different from rankCount without virtual topology', () => {

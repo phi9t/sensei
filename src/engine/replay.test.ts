@@ -376,6 +376,42 @@ describe('memory and activation', () => {
     );
     expect(state.currentMemory).toEqual([1, 0]);
   });
+
+  it('split backward keeps activation memory until W completes', () => {
+    const split = makeConfig({
+      durations: { F: 1, B: 1, W: 1 },
+      operationModel: { backward: 'split' },
+    });
+
+    const afterB = expectState(replay(split, placeIds('F:0:0', 'F:1:0', 'B:1:0')));
+    expect(afterB.currentMemory).toEqual([1, 1]);
+    const weight = classifyOperation(afterB, 'W:1:0');
+    expect(weight.status).toBe('legal');
+    if (weight.status === 'legal') {
+      expect(weight.projectedMemory).toBe(0);
+    }
+
+    const afterW = expectState(replay(split, placeIds('F:0:0', 'F:1:0', 'B:1:0', 'W:1:0')));
+    expect(afterW.currentMemory).toEqual([1, 0]);
+    expect(afterW.peakMemory).toEqual([1, 1]);
+  });
+
+  it('split W is blocked until its matching input-gradient B completes', () => {
+    const split = makeConfig({
+      durations: { F: 1, B: 1, W: 1 },
+      operationModel: { backward: 'split' },
+    });
+    const state = expectState(replay(split, placeIds('F:0:0', 'F:1:0')));
+
+    const cls = classifyOperation(state, 'W:1:0');
+
+    expect(cls.status).toBe('blocked');
+    if (cls.status === 'blocked') {
+      expect(cls.reasons).toEqual(
+        expect.arrayContaining([{ kind: 'dependency-not-finished', operationId: 'B:1:0' }]),
+      );
+    }
+  });
 });
 
 describe('replay', () => {

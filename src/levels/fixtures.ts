@@ -313,6 +313,20 @@ const masteredActions = {
     'B:1:2',
     'B:0:2',
   ),
+  'split-backward': placeIds(
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'B:1:0',
+    'B:0:0',
+    'F:1:1',
+    'W:0:0',
+    'B:1:1',
+    'B:0:1',
+    'W:1:0',
+    'W:0:1',
+    'W:1:1',
+  ),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const MASTERED_ACTIONS = Object.freeze(masteredActions);
@@ -331,6 +345,7 @@ const legalActions = {
   'interleaved-one-f-one-b': withLeadingWait(MASTERED_ACTIONS['interleaved-one-f-one-b']),
   'ragged-rounds': withLeadingWait(MASTERED_ACTIONS['ragged-rounds']),
   'heavy-backward-tail': withLeadingWait(MASTERED_ACTIONS['heavy-backward-tail']),
+  'split-backward': withLeadingWait(MASTERED_ACTIONS['split-backward']),
 } satisfies Record<LevelId, readonly Action[]>;
 
 export const LEGAL_ACTIONS = Object.freeze(legalActions);
