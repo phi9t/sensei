@@ -71,6 +71,12 @@ export function validateLevelConfig(config: LevelConfig): void {
   ) {
     throw new Error('scoreModel internalBubble must be boolean');
   }
+  if (
+    config.residencyModel !== undefined &&
+    !isFinitePositiveInteger(config.residencyModel.weightUnit)
+  ) {
+    throw new Error('residencyModel weightUnit must be a positive finite integer');
+  }
   if (!isFinitePositive(config.durations.F)) {
     throw new Error('F duration must be a positive finite number');
   }
@@ -203,6 +209,11 @@ export function validateLevelConfig(config: LevelConfig): void {
     if ('metric' in target && target.metric === 'internalBubbleRatio') {
       if (config.scoreModel?.internalBubble !== true) {
         throw new Error('internalBubbleRatio targets require internal bubble scoring');
+      }
+    }
+    if ('metric' in target && target.metric === 'allGatherCount') {
+      if (config.residencyModel === undefined) {
+        throw new Error('allGatherCount targets require residencyModel');
       }
     }
   }

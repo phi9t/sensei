@@ -412,6 +412,88 @@ describe('memory and activation', () => {
       );
     }
   });
+
+  it('tracks FSDP-style weight gathers separately from activation memory', () => {
+    const config = makeConfig({
+      microbatchCount: 2,
+      memoryCaps: [3, 3],
+      residencyModel: { weightUnit: 1 },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:0:1')));
+
+    expect(state.currentMemory).toEqual([2, 0]);
+    expect(state.residentWeightsByRank).toEqual([[0], []]);
+    expect(state.allGatherCount).toBe(1);
+    expect(state.weightEventsByPlacement['F:0:0']).toMatchObject({
+      action: 'gather',
+      activationMemory: 1,
+      residentWeightMemory: 1,
+      totalMemory: 2,
+    });
+    expect(state.weightEventsByPlacement['F:0:1']).toMatchObject({
+      action: 'reuse',
+      activationMemory: 2,
+      residentWeightMemory: 1,
+      totalMemory: 3,
+    });
+  });
+
+  it('evicts other resident stages deterministically when a forward move needs room', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 4,
+      microbatchCount: 1,
+      topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+      memoryCaps: [3, 3],
+      residencyModel: { weightUnit: 1 },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0')));
+
+    const cls = classifyOperation(state, 'F:3:0');
+
+    expect(cls.status).toBe('legal');
+    if (cls.status === 'legal') {
+      expect(cls.residencyEffect).toMatchObject({
+        action: 'gather',
+        evictedStages: [0],
+        residentStages: [3],
+        activationMemory: 2,
+        residentWeightMemory: 1,
+        totalMemory: 3,
+      });
+    }
+
+    const next = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'F:2:0', 'F:3:0')));
+    expect(next.residentWeightsByRank).toEqual([[3], [2]]);
+    expect(next.weightEventsByPlacement['F:3:0']?.evictedStages).toEqual([0]);
+  });
+
+  it('blocks residency admission when activation plus required weights cannot fit', () => {
+    const config = makeConfig({
+      microbatchCount: 2,
+      memoryCaps: [2, 2],
+      residencyModel: { weightUnit: 1 },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0')));
+
+    const cls = classifyOperation(state, 'F:0:1');
+
+    expect(cls.status).toBe('blocked');
+    if (cls.status === 'blocked') {
+      expect(cls.reasons).toEqual([
+        {
+          kind: 'residency-memory-cap',
+          operationId: 'F:0:1',
+          rank: 0,
+          activationMemory: 2,
+          residentWeightMemory: 1,
+          requestedWeightMemory: 0,
+          evictedStages: [],
+          cap: 2,
+        },
+      ]);
+    }
+  });
 });
 
 describe('replay', () => {

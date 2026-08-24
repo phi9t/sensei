@@ -4,6 +4,7 @@ import type { MasteryTarget } from './types';
 export interface AttemptRankingTuple {
   makespan: number;
   peakActivationMemory: number;
+  allGatherCount?: number;
   intentionalIdle: number;
   actionCount: number;
 }
@@ -17,6 +18,7 @@ export interface ScoreResult {
   intentionalIdle: number;
   peakActivationMemoryByRank: readonly number[];
   peakActivationMemory: number;
+  allGatherCount?: number;
   complete: boolean;
   mastered: boolean;
 }
@@ -102,6 +104,8 @@ function masteryMetricValue(scoreResult: ScoreResult, target: MasteryTarget): nu
       return scoreResult.intentionalIdle;
     case 'peakActivationMemory':
       return scoreResult.peakActivationMemory;
+    case 'allGatherCount':
+      return scoreResult.allGatherCount ?? Number.POSITIVE_INFINITY;
   }
 }
 
@@ -172,6 +176,7 @@ export function score(state: ScheduleState): ScoreResult {
     intentionalIdle,
     peakActivationMemoryByRank: Object.freeze(peakActivationMemoryByRank),
     peakActivationMemory,
+    ...(state.config.residencyModel ? { allGatherCount: state.allGatherCount } : {}),
     complete,
     mastered: false,
   };
@@ -193,6 +198,7 @@ export function attemptRankingTuple(state: ScheduleState): AttemptRankingTuple {
   return Object.freeze({
     makespan: result.makespan,
     peakActivationMemory: result.peakActivationMemory,
+    ...(result.allGatherCount !== undefined ? { allGatherCount: result.allGatherCount } : {}),
     intentionalIdle: result.intentionalIdle,
     actionCount: state.actions.length,
   });
@@ -202,6 +208,9 @@ export function compareAttempts(left: AttemptRankingTuple, right: AttemptRanking
   const deltas = [
     left.makespan - right.makespan,
     left.peakActivationMemory - right.peakActivationMemory,
+    left.allGatherCount !== undefined && right.allGatherCount !== undefined
+      ? left.allGatherCount - right.allGatherCount
+      : 0,
     left.intentionalIdle - right.intentionalIdle,
     left.actionCount - right.actionCount,
   ];

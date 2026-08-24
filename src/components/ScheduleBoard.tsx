@@ -122,6 +122,44 @@ function memoryTimelineText(segments: readonly MemorySegment[], rank: number): s
     .join('; ')}`;
 }
 
+function residencySegmentsForRank(state: ScheduleState, rank: number): readonly MemorySegment[] {
+  const horizon = maxEndTime(state);
+  const placements = state.placements
+    .filter((placement) => placement.rank === rank)
+    .sort((left, right) => left.end - right.end || left.start - right.start);
+  const segments: MemorySegment[] = [];
+  let cursor = 0;
+  let value = 0;
+
+  for (const placement of placements) {
+    const effect = state.weightEventsByPlacement[placement.operationId];
+    if (!effect) {
+      continue;
+    }
+    if (placement.end > cursor) {
+      segments.push({ start: cursor, end: placement.end, value });
+      cursor = placement.end;
+    }
+    value = effect.residentWeightMemory;
+  }
+
+  if (cursor < horizon) {
+    segments.push({ start: cursor, end: horizon, value });
+  }
+
+  if (segments.length === 0) {
+    segments.push({ start: 0, end: horizon, value: 0 });
+  }
+
+  return Object.freeze(segments);
+}
+
+function residencyTimelineText(segments: readonly MemorySegment[], rank: number): string {
+  return `Rank ${rank} weight residency timeline: ${segments
+    .map((segment) => `${segment.start}-${segment.end} => ${segment.value} units`)
+    .join('; ')}`;
+}
+
 function rankOwnersForSchedule(state: ScheduleState): readonly RankOwnerLabel[] {
   const topology = topologyForLevel(state.config);
   if (topology.placement === 'one-to-one') {
@@ -197,6 +235,9 @@ function ScheduleOperationLabel({
 }
 
 export function ScheduleBoard({ schedule, selectedOperationId, preview }: ScheduleBoardProps) {
+  const hasResidency = schedule.config.residencyModel !== undefined;
+  const resourceStripHeight = hasResidency ? MEMORY_STRIP_HEIGHT * 2 + 2 : MEMORY_STRIP_HEIGHT;
+  const workTopOffset = resourceStripHeight + MEMORY_STRIP_GAP;
   const previewOperation = preview ? operationById(schedule, preview.operationId) : null;
   const previewStart = preview?.earliestStart ?? 0;
   const previewEnd = previewOperation ? previewStart + previewOperation.duration : 0;
@@ -236,7 +277,9 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
           role="img"
         >
           <title id="schedule-svg-title">Pipeline schedule board</title>
-          <desc id="schedule-svg-desc">Rank timelines, placed blocks, gaps, and memory.</desc>
+          <desc id="schedule-svg-desc">
+            Rank timelines, placed blocks, gaps, activation memory, and optional weight residency.
+          </desc>
           <defs>
             <pattern
               id="pattern-forward"
@@ -267,7 +310,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
           {schedule.rankFrontiers.map((_, rank) => {
             const y = rankRowTop(rank);
             const stripY = y;
-            const lineY = y + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 12;
+            const lineY = y + workTopOffset + 12;
             return (
               <g key={`rank-${rank}`}>
                 <rect
@@ -298,6 +341,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                         className={`memory-strip__segment${
                           segment.value > 0 ? ' memory-strip__segment--active' : ''
                         }`}
+                        data-resource="activation"
                         data-memory={segment.value}
                       />
                       <text
@@ -305,11 +349,42 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                         y={stripY + 9}
                         className="memory-strip__label"
                       >
-                        M{segment.value}
+                        A{segment.value}
                       </text>
                     </g>
                   ))}
                 </g>
+                {hasResidency ? (
+                  <g
+                    className="memory-strip memory-strip--weights"
+                    data-testid={`weight-strip-rank-${rank}`}
+                    transform={`translate(${LEFT_PADDING} 0)`}
+                  >
+                    {residencySegmentsForRank(schedule, rank).map((segment, index) => (
+                      <g key={`weight-${rank}-${segment.start}-${segment.end}-${segment.value}`}>
+                        <rect
+                          data-testid={`weight-segment-rank-${rank}-${index}`}
+                          x={segment.start * CELL_WIDTH}
+                          y={stripY + MEMORY_STRIP_HEIGHT + 2}
+                          width={(segment.end - segment.start) * CELL_WIDTH}
+                          height={MEMORY_STRIP_HEIGHT}
+                          className={`memory-strip__segment memory-strip__segment--weights${
+                            segment.value > 0 ? ' memory-strip__segment--resident' : ''
+                          }`}
+                          data-resource="weights"
+                          data-memory={segment.value}
+                        />
+                        <text
+                          x={segment.start * CELL_WIDTH + 4}
+                          y={stripY + MEMORY_STRIP_HEIGHT + 11}
+                          className="memory-strip__label memory-strip__label--weights"
+                        >
+                          W{segment.value}
+                        </text>
+                      </g>
+                    ))}
+                  </g>
+                ) : null}
                 <line
                   x1={LEFT_PADDING}
                   x2={LEFT_PADDING + timelineEnd * CELL_WIDTH}
@@ -341,7 +416,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
             })}
 
             {schedule.gaps.map((gap) => {
-              const y = rankRowTop(gap.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP;
+              const y = rankRowTop(gap.rank) + workTopOffset;
               const x = gap.start * CELL_WIDTH;
               const width = (gap.end - gap.start) * CELL_WIDTH;
               return (
@@ -365,7 +440,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
               const operation = operationById(schedule, placement.operationId);
               const width = operation.duration * CELL_WIDTH;
               const x = placement.start * CELL_WIDTH;
-              const y = rankRowTop(placement.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP;
+              const y = rankRowTop(placement.rank) + workTopOffset;
               const isSelected = selectedOperationId === placement.operationId;
 
               return (
@@ -405,7 +480,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                 <rect
                   data-testid={`preview-tile-${previewOperation.id}`}
                   x={preview.earliestStart * CELL_WIDTH}
-                  y={rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP}
+                  y={rankRowTop(previewOperation.rank) + workTopOffset}
                   width={previewOperation.duration * CELL_WIDTH}
                   height={WORK_BLOCK_HEIGHT}
                   rx="6"
@@ -421,9 +496,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     preview.earliestStart * CELL_WIDTH +
                     (previewOperation.duration * CELL_WIDTH) / 2
                   }
-                  y={
-                    rankRowTop(previewOperation.rank) + MEMORY_STRIP_HEIGHT + MEMORY_STRIP_GAP + 12
-                  }
+                  y={rankRowTop(previewOperation.rank) + workTopOffset + 12}
                   className="schedule-preview-label"
                   testId={`preview-label-${previewOperation.id}`}
                 />
@@ -495,6 +568,22 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
               })}
             </dl>
           </div>
+          {hasResidency ? (
+            <div>
+              <h3 className="board-subheading">Weight residency</h3>
+              <dl className="board-list">
+                {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
+                  const segments = residencySegmentsForRank(schedule, rank);
+                  return (
+                    <div key={`residency-detail-${rank}`}>
+                      <dt>Rank {rank}</dt>
+                      <dd>{residencyTimelineText(segments, rank)}</dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </div>
+          ) : null}
         </div>
       </details>
     </section>

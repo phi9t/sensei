@@ -1,4 +1,4 @@
-import type { Action, LevelConfig, Operation, OperationId } from './types';
+import type { Action, LevelConfig, Operation, OperationId, ResidencyEffect } from './types';
 import {
   deriveOperations,
   predecessorsOf,
@@ -25,13 +25,34 @@ export type BlockReason =
   | { kind: 'already-placed'; operationId: OperationId }
   | { kind: 'dependency-not-finished'; operationId: OperationId }
   | { kind: 'memory-cap'; rank: number; resident: number; requested: 1; cap: number }
+  | {
+      kind: 'residency-memory-cap';
+      operationId: OperationId;
+      rank: number;
+      activationMemory: number;
+      residentWeightMemory: number;
+      requestedWeightMemory: number;
+      evictedStages: readonly number[];
+      cap: number;
+    }
   | { kind: 'invalid-rank'; rank: number }
   | { kind: 'unknown-operation-id'; operationId: OperationId };
 
 export type MoveClassification =
-  | { status: 'legal'; operation: Operation; earliestStart: number; projectedMemory: number }
+  | {
+      status: 'legal';
+      operation: Operation;
+      earliestStart: number;
+      projectedMemory: number;
+      residencyEffect?: ResidencyEffect;
+    }
   | { status: 'blocked'; operation: Operation; reasons: readonly BlockReason[] }
-  | { status: 'completed'; operation: Operation; placement: Placement };
+  | {
+      status: 'completed';
+      operation: Operation;
+      placement: Placement;
+      residencyEffect?: ResidencyEffect;
+    };
 
 export interface ScheduleState {
   config: LevelConfig;
@@ -41,6 +62,9 @@ export interface ScheduleState {
   rankFrontiers: readonly number[];
   currentMemory: readonly number[];
   peakMemory: readonly number[];
+  residentWeightsByRank: readonly (readonly number[])[];
+  weightEventsByPlacement: Readonly<Partial<Record<OperationId, ResidencyEffect>>>;
+  allGatherCount: number;
   gaps: readonly Gap[];
   actions: readonly Action[];
 }
@@ -149,6 +173,9 @@ function cloneConfig(config: LevelConfig): LevelConfig {
         }
       : {}),
     ...(config.scoreModel ? { scoreModel: Object.freeze({ ...config.scoreModel }) } : {}),
+    ...(config.residencyModel
+      ? { residencyModel: Object.freeze({ ...config.residencyModel }) }
+      : {}),
     ...(config.referencePolicy
       ? {
           referencePolicy: Object.freeze({
@@ -198,6 +225,104 @@ function operationIdReasonInInventory(
   return found ? null : { kind: 'unknown-operation-id', operationId: id };
 }
 
+function emptyResidentWeights(rankCount: number): readonly (readonly number[])[] {
+  return Object.freeze(
+    Array.from({ length: rankCount }, () => Object.freeze([] as readonly number[])),
+  );
+}
+
+function freezeResidentWeights(
+  residentWeightsByRank: readonly (readonly number[])[],
+): readonly (readonly number[])[] {
+  return Object.freeze(
+    residentWeightsByRank.map((stages) =>
+      Object.freeze([...stages].sort((left, right) => left - right)),
+    ),
+  );
+}
+
+function freezeResidencyEffect(effect: ResidencyEffect): ResidencyEffect {
+  return Object.freeze({
+    ...effect,
+    evictedStages: Object.freeze([...effect.evictedStages]),
+    residentStages: Object.freeze([...effect.residentStages]),
+  });
+}
+
+type ResidencyProjection =
+  | { ok: true; effect: ResidencyEffect }
+  | { ok: false; reason: Extract<BlockReason, { kind: 'residency-memory-cap' }> };
+
+function projectResidencyEffect(
+  state: ScheduleState,
+  operation: Operation,
+): ResidencyProjection | null {
+  const residencyModel = state.config.residencyModel;
+  if (!residencyModel || operation.kind !== 'F') {
+    return null;
+  }
+
+  const rank = operation.rank;
+  const cap = state.config.memoryCaps?.[rank] ?? null;
+  const weightUnit = residencyModel.weightUnit;
+  const activationMemory = (state.currentMemory[rank] ?? 0) + 1;
+  const previousResidentStages = state.residentWeightsByRank[rank] ?? Object.freeze([]);
+  const residentStages = new Set(previousResidentStages);
+  const hasCurrentStage = residentStages.has(operation.stage);
+  const evictedStages: number[] = [];
+
+  residentStages.add(operation.stage);
+
+  if (cap !== null) {
+    const evictionCandidates = [...residentStages]
+      .filter((stage) => stage !== operation.stage)
+      .sort((left, right) => left - right);
+
+    while (
+      activationMemory + residentStages.size * weightUnit > cap &&
+      evictionCandidates.length > 0
+    ) {
+      const evicted = evictionCandidates.shift()!;
+      residentStages.delete(evicted);
+      evictedStages.push(evicted);
+    }
+
+    const residentWeightMemory = residentStages.size * weightUnit;
+    if (activationMemory + residentWeightMemory > cap) {
+      return Object.freeze({
+        ok: false as const,
+        reason: Object.freeze({
+          kind: 'residency-memory-cap' as const,
+          operationId: operation.id,
+          rank,
+          activationMemory,
+          residentWeightMemory,
+          requestedWeightMemory: hasCurrentStage ? 0 : weightUnit,
+          evictedStages: Object.freeze(evictedStages),
+          cap,
+        }),
+      });
+    }
+  }
+
+  const nextResidentStages = Object.freeze([...residentStages].sort((left, right) => left - right));
+  const residentWeightMemory = nextResidentStages.length * weightUnit;
+  const effect: ResidencyEffect = freezeResidencyEffect({
+    operationId: operation.id,
+    rank,
+    stage: operation.stage,
+    action: hasCurrentStage ? 'reuse' : 'gather',
+    evictedStages,
+    residentStages: nextResidentStages,
+    activationMemory,
+    residentWeightMemory,
+    totalMemory: activationMemory + residentWeightMemory,
+    cap,
+  });
+
+  return Object.freeze({ ok: true as const, effect });
+}
+
 function validateWaitRank(rank: number, rankCount: number): BlockReason | null {
   if (!Number.isFinite(rank) || !Number.isInteger(rank)) {
     return { kind: 'invalid-rank', rank };
@@ -222,6 +347,9 @@ export function initialState(config: LevelConfig): ScheduleState {
     rankFrontiers: Object.freeze(new Array<number>(rankCount).fill(0)),
     currentMemory: Object.freeze(new Array<number>(rankCount).fill(0)),
     peakMemory: Object.freeze(new Array<number>(rankCount).fill(0)),
+    residentWeightsByRank: emptyResidentWeights(rankCount),
+    weightEventsByPlacement: Object.freeze({}),
+    allGatherCount: 0,
     gaps: Object.freeze([]),
     actions: Object.freeze([]),
   };
@@ -236,7 +364,13 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
 
   const existing = state.placementById[id];
   if (existing) {
-    return { status: 'completed', operation, placement: existing };
+    const residencyEffect = state.weightEventsByPlacement[id];
+    return {
+      status: 'completed',
+      operation,
+      placement: existing,
+      ...(residencyEffect ? { residencyEffect } : {}),
+    };
   }
 
   const reasons: BlockReason[] = [];
@@ -251,17 +385,24 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
   const dependenciesReady = reasons.length === 0;
 
   if (dependenciesReady && operation.kind === 'F' && state.config.memoryCaps !== null) {
-    const cap = state.config.memoryCaps[operation.rank];
-    if (cap !== undefined) {
-      const resident = state.currentMemory[operation.rank] ?? 0;
-      if (resident + 1 > cap) {
-        reasons.push({
-          kind: 'memory-cap',
-          rank: operation.rank,
-          resident,
-          requested: 1,
-          cap,
-        });
+    if (state.config.residencyModel) {
+      const residencyProjection = projectResidencyEffect(state, operation);
+      if (residencyProjection?.ok === false) {
+        reasons.push(residencyProjection.reason);
+      }
+    } else {
+      const cap = state.config.memoryCaps[operation.rank];
+      if (cap !== undefined) {
+        const resident = state.currentMemory[operation.rank] ?? 0;
+        if (resident + 1 > cap) {
+          reasons.push({
+            kind: 'memory-cap',
+            rank: operation.rank,
+            resident,
+            requested: 1,
+            cap,
+          });
+        }
       }
     }
   }
@@ -278,7 +419,14 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
   }
 
   const start = computeEarliestStart(state, operation);
-  return { status: 'legal', operation, earliestStart: start, projectedMemory };
+  const residencyProjection = projectResidencyEffect(state, operation);
+  return {
+    status: 'legal',
+    operation,
+    earliestStart: start,
+    projectedMemory,
+    ...(residencyProjection?.ok === true ? { residencyEffect: residencyProjection.effect } : {}),
+  };
 }
 
 function computeEarliestStart(state: ScheduleState, operation: Operation): number {
@@ -334,23 +482,41 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
     }
   }
 
+  let residencyEffect: ResidencyEffect | undefined;
   if (operation.kind === 'F' && state.config.memoryCaps !== null) {
-    const cap = state.config.memoryCaps[operation.rank];
-    if (cap !== undefined) {
-      const resident = state.currentMemory[operation.rank] ?? 0;
-      if (resident + 1 > cap) {
+    if (state.config.residencyModel) {
+      const residencyProjection = projectResidencyEffect(state, operation);
+      if (residencyProjection?.ok === false) {
         return {
           ok: false,
           action,
-          reason: {
-            kind: 'memory-cap',
-            rank: operation.rank,
-            resident,
-            requested: 1,
-            cap,
-          },
+          reason: residencyProjection.reason,
         };
       }
+      residencyEffect = residencyProjection?.effect;
+    } else {
+      const cap = state.config.memoryCaps[operation.rank];
+      if (cap !== undefined) {
+        const resident = state.currentMemory[operation.rank] ?? 0;
+        if (resident + 1 > cap) {
+          return {
+            ok: false,
+            action,
+            reason: {
+              kind: 'memory-cap',
+              rank: operation.rank,
+              resident,
+              requested: 1,
+              cap,
+            },
+          };
+        }
+      }
+    }
+  } else if (state.config.residencyModel) {
+    const residencyProjection = projectResidencyEffect(state, operation);
+    if (residencyProjection?.ok === true) {
+      residencyEffect = residencyProjection.effect;
     }
   }
 
@@ -384,6 +550,19 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
 
   const newCurrentMemory = computeCurrentMemory(state.config, newPlacements);
   const newPeakMemory = computePeakMemory(state.config, state.operations, newPlacements);
+  let newResidentWeightsByRank = state.residentWeightsByRank;
+  let newWeightEventsByPlacement = state.weightEventsByPlacement;
+  let newAllGatherCount = state.allGatherCount;
+  if (residencyEffect) {
+    const residentWeightsByRank = [...state.residentWeightsByRank];
+    residentWeightsByRank[operation.rank] = residencyEffect.residentStages;
+    newResidentWeightsByRank = freezeResidentWeights(residentWeightsByRank);
+    newWeightEventsByPlacement = Object.freeze({
+      ...state.weightEventsByPlacement,
+      [operationId]: residencyEffect,
+    });
+    newAllGatherCount += residencyEffect.action === 'gather' ? 1 : 0;
+  }
 
   const newPlacementById = createPlacementById(state.config, state.operations, newPlacements);
 
@@ -395,6 +574,9 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
     rankFrontiers: Object.freeze(newFrontiers),
     currentMemory: newCurrentMemory,
     peakMemory: newPeakMemory,
+    residentWeightsByRank: newResidentWeightsByRank,
+    weightEventsByPlacement: newWeightEventsByPlacement,
+    allGatherCount: newAllGatherCount,
     gaps: Object.freeze(newGaps),
     actions: newActions,
   });
@@ -435,6 +617,9 @@ function applyWait(state: ScheduleState, rank: number): ApplyResult {
     rankFrontiers: Object.freeze(newFrontiers),
     currentMemory: state.currentMemory,
     peakMemory: state.peakMemory,
+    residentWeightsByRank: state.residentWeightsByRank,
+    weightEventsByPlacement: state.weightEventsByPlacement,
+    allGatherCount: state.allGatherCount,
     gaps: Object.freeze(newGaps),
     actions: newActions,
   });

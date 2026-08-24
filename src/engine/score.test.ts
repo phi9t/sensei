@@ -64,6 +64,34 @@ describe('score', () => {
     });
   });
 
+  it('omits all-gather count unless residency scoring is enabled', () => {
+    const state = expectState(replay(makeConfig(), placeIds('F:0:0')));
+
+    expect(score(state).allGatherCount).toBeUndefined();
+    expect(attemptRankingTuple(state)).not.toHaveProperty('allGatherCount');
+  });
+
+  it('scores FSDP residency all-gathers and supports mastery targets', () => {
+    const config = makeConfig({
+      microbatchCount: 2,
+      memoryCaps: [3, 3],
+      residencyModel: { weightUnit: 1 },
+      masteryTargets: [{ metric: 'allGatherCount', op: '<=', value: 2 }],
+    });
+    const state = expectState(
+      replay(config, placeIds('F:0:0', 'F:0:1', 'F:1:0', 'B:1:0', 'B:0:0')),
+    );
+
+    expect(score(state)).toMatchObject({
+      allGatherCount: 2,
+      mastered: false,
+    });
+    expect(attemptRankingTuple(state)).toMatchObject({
+      allGatherCount: 2,
+      actionCount: 5,
+    });
+  });
+
   it('scores in-progress schedules from placed work and current frontier capacity', () => {
     const config = makeConfig({ microbatchCount: 2 });
     const state = expectState(
@@ -188,6 +216,25 @@ describe('score', () => {
       expect(result[expectedMetric]).toBe(expectedValue);
       expect(result.mastered).toBe(false);
     }
+  });
+
+  it('ranks equal residency attempts by all-gather count before idle and action count', () => {
+    const base: AttemptRankingTuple = {
+      makespan: 10,
+      peakActivationMemory: 2,
+      allGatherCount: 1,
+      intentionalIdle: 0,
+      actionCount: 6,
+    };
+
+    expect(
+      compareAttempts(base, {
+        ...base,
+        allGatherCount: 2,
+        intentionalIdle: 0,
+        actionCount: 4,
+      }),
+    ).toBeLessThan(0);
   });
 
   it('does not mutate the state or its exposed arrays while scoring', () => {

@@ -20,6 +20,9 @@ export const LEVEL_IDS = [
   'zero-bubble-deep',
   'group-the-pipe',
   'bf-pp-pressure',
+  'gather-once-reuse',
+  'group-too-wide',
+  'regather-storm',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -95,6 +98,12 @@ function freezeReferencePolicy(
   });
 }
 
+function freezeResidencyModel(
+  residencyModel: NonNullable<LevelConfig['residencyModel']>,
+): NonNullable<LevelConfig['residencyModel']> {
+  return Object.freeze({ ...residencyModel });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
   const {
     buildingBlock,
@@ -104,6 +113,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     microbatchGrouping,
     scoreModel,
     referencePolicy,
+    residencyModel,
     ...baseConfig
   } = config;
   const frozen = {
@@ -122,6 +132,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
       : {}),
     ...(scoreModel ? { scoreModel: freezeScoreModel(scoreModel) } : {}),
     ...(referencePolicy ? { referencePolicy: freezeReferencePolicy(referencePolicy) } : {}),
+    ...(residencyModel ? { residencyModel: freezeResidencyModel(residencyModel) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -637,6 +648,95 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Use group-major placement to stay under the memory cap without FSDP claims.',
       patternLabel: 'BF-PP',
       introducedModel: ['bounded group', 'activation pressure', 'policy-relative comparison'],
+    },
+  }),
+  'gather-once-reuse': freezeLevel({
+    id: 'gather-once-reuse',
+    version: 1,
+    title: 'Gather Once, Reuse',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: [3, 3],
+    residencyModel: { weightUnit: 1 },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 9 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+      { metric: 'allGatherCount', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept:
+        'A forward block gathers its stage weights once, then later forwards can reuse them.',
+      objective: 'Place same-stage forwards close enough to reuse resident weights.',
+      patternLabel: 'Reuse',
+      introducedModel: ['weight residency', 'all-gather count', 'reuse'],
+    },
+  }),
+  'group-too-wide': freezeLevel({
+    id: 'group-too-wide',
+    version: 1,
+    title: 'Group Too Wide',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 2,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0'],
+    },
+    memoryCaps: [3, 3],
+    residencyModel: { weightUnit: 1 },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 24 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+      { metric: 'allGatherCount', op: '<=', value: 6 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept: 'A wide forward group can run out of room once activations and weights share a cap.',
+      objective: 'Drain one microbatch before admitting the next wide group.',
+      patternLabel: 'Cap-aware',
+      introducedModel: ['combined memory cap', 'durationless eviction', 'group width'],
+    },
+  }),
+  'regather-storm': freezeLevel({
+    id: 'regather-storm',
+    version: 1,
+    title: 'Regather Storm',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 4,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1'],
+    },
+    memoryCaps: [5, 5],
+    residencyModel: { weightUnit: 1 },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 36 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+      { metric: 'allGatherCount', op: '<=', value: 6 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept: 'Switching between resident virtual stages too often creates extra gathers.',
+      objective: 'Group work enough to reduce regathers while keeping the schedule compact.',
+      patternLabel: 'Gather-aware',
+      introducedModel: ['regather', 'residency pressure', 'communication trade-off'],
     },
   }),
 });

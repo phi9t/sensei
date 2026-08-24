@@ -390,6 +390,37 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes FSDP residency attempts as canonical actions only', () => {
+    const level = getLevel('gather-once-reuse');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'gather-once-reuse',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['gather-once-reuse'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('residencyModel');
+    expect(storedPayload).not.toHaveProperty('allGatherCount');
+    expect(storedPayload).not.toHaveProperty('weightEventsByPlacement');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['gather-once-reuse']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('gather-once-reuse');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['gather-once-reuse']);
+      expect(decoded.attempt.tuple.allGatherCount).toBe(2);
+    }
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(

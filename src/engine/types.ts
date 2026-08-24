@@ -88,9 +88,33 @@ export interface MicrobatchGrouping {
   readonly groupLabels?: readonly string[];
 }
 
+export interface ResidencyModel {
+  readonly weightUnit: number;
+}
+
+export type ResidencyActionKind = 'gather' | 'reuse';
+
+export interface ResidencyEffect {
+  readonly operationId: OperationId;
+  readonly rank: number;
+  readonly stage: number;
+  readonly action: ResidencyActionKind;
+  readonly evictedStages: readonly number[];
+  readonly residentStages: readonly number[];
+  readonly activationMemory: number;
+  readonly residentWeightMemory: number;
+  readonly totalMemory: number;
+  readonly cap: number | null;
+}
+
 export interface MetricMasteryTarget {
   metric:
-    'makespan' | 'bubbleRatio' | 'internalBubbleRatio' | 'intentionalIdle' | 'peakActivationMemory';
+    | 'makespan'
+    | 'bubbleRatio'
+    | 'internalBubbleRatio'
+    | 'intentionalIdle'
+    | 'peakActivationMemory'
+    | 'allGatherCount';
   op: '<=';
   value: number;
 }
@@ -162,4 +186,5 @@ export interface LevelConfig {
   topology?: PipelineTopology;
   operationModel?: OperationModel;
   referencePolicy?: ReferencePolicyModel;
+  residencyModel?: ResidencyModel;
 }

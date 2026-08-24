@@ -398,13 +398,17 @@ function replayFailureValidation(
         validation.projectedPeakMemory,
       );
     case 'memory-cap':
+    case 'residency-memory-cap':
       return freezeValidation(
         plan.period,
         [
           {
             kind: 'memory-cap',
             rank: result.reason.rank,
-            peak: result.reason.resident + result.reason.requested,
+            peak:
+              result.reason.kind === 'memory-cap'
+                ? result.reason.resident + result.reason.requested
+                : result.reason.activationMemory + result.reason.residentWeightMemory,
             cap: result.reason.cap,
           },
         ],

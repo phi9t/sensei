@@ -863,11 +863,25 @@ summary:focus-visible {
   stroke: rgba(8, 120, 134, 0.48);
 }
 
+.memory-strip__segment--weights {
+  fill: rgba(116, 94, 68, 0.08);
+  stroke: rgba(116, 94, 68, 0.2);
+}
+
+.memory-strip__segment--resident {
+  fill: rgba(174, 109, 45, 0.22);
+  stroke: rgba(174, 109, 45, 0.5);
+}
+
 .memory-strip__label {
   fill: rgba(23, 33, 35, 0.68);
   font-family: var(--font-mono);
   font-size: 0.625rem;
   font-weight: 750;
+}
+
+.memory-strip__label--weights {
+  fill: rgba(116, 74, 34, 0.74);
 }
 
 .tile-pattern-base--forward {

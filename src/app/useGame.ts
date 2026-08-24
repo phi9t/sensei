@@ -393,6 +393,8 @@ function masteryMetricLabel(metric: MetricMasteryTarget['metric']): string {
       return 'intentional idle';
     case 'peakActivationMemory':
       return 'peak activation memory';
+    case 'allGatherCount':
+      return 'all-gathers';
   }
 }
 
@@ -414,7 +416,9 @@ function missedMasteryReason(
             ? (scoreResult.internalBubbleRatio ?? Number.POSITIVE_INFINITY)
             : target.metric === 'intentionalIdle'
               ? scoreResult.intentionalIdle
-              : scoreResult.peakActivationMemory;
+              : target.metric === 'peakActivationMemory'
+                ? scoreResult.peakActivationMemory
+                : (scoreResult.allGatherCount ?? Number.POSITIVE_INFINITY);
 
     if (actual > target.value) {
       return `Missed ${masteryMetricLabel(target.metric)} target.`;

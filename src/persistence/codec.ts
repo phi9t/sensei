@@ -116,6 +116,7 @@ function freezeTuple(tuple: AttemptRankingTuple): AttemptRankingTuple {
   return Object.freeze({
     makespan: tuple.makespan,
     peakActivationMemory: tuple.peakActivationMemory,
+    ...(tuple.allGatherCount !== undefined ? { allGatherCount: tuple.allGatherCount } : {}),
     intentionalIdle: tuple.intentionalIdle,
     actionCount: tuple.actionCount,
   });
@@ -155,6 +156,17 @@ function freezeBlockReason(blockReason: BlockReason): BlockReason {
         rank: blockReason.rank,
         resident: blockReason.resident,
         requested: blockReason.requested,
+        cap: blockReason.cap,
+      });
+    case 'residency-memory-cap':
+      return Object.freeze({
+        kind: 'residency-memory-cap',
+        operationId: blockReason.operationId,
+        rank: blockReason.rank,
+        activationMemory: blockReason.activationMemory,
+        residentWeightMemory: blockReason.residentWeightMemory,
+        requestedWeightMemory: blockReason.requestedWeightMemory,
+        evictedStages: Object.freeze([...blockReason.evictedStages]),
         cap: blockReason.cap,
       });
     case 'invalid-rank':

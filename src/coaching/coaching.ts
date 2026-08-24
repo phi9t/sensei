@@ -27,12 +27,14 @@ export interface ReadyEntry {
   operationId: OperationId;
   earliestStart: number;
   projectedMemory: number;
+  allGatherCount?: number;
 }
 
 export interface Suggestion {
   operationId: OperationId;
   earliestStart: number;
   projectedMemory: number;
+  allGatherCount?: number;
   reason: {
     kind: 'rank-frontier';
     rank: number;
@@ -46,8 +48,15 @@ export type ExplanationResult =
       status: 'completed';
       operationId: OperationId;
       placement: ScheduleState['placementById'][OperationId];
+      residencyEffect?: Extract<MoveClassification, { status: 'completed' }>['residencyEffect'];
     }
-  | { status: 'legal'; operationId: OperationId; earliestStart: number; projectedMemory: number }
+  | {
+      status: 'legal';
+      operationId: OperationId;
+      earliestStart: number;
+      projectedMemory: number;
+      residencyEffect?: Extract<MoveClassification, { status: 'legal' }>['residencyEffect'];
+    }
   | {
       status: 'blocked';
       operationId: OperationId;
@@ -93,6 +102,11 @@ export function revealReadySet(state: ScheduleState): readonly ReadyEntry[] {
         operationId: m.operation.id,
         earliestStart: m.earliestStart,
         projectedMemory: m.projectedMemory,
+        ...(m.residencyEffect?.action === 'gather'
+          ? { allGatherCount: state.allGatherCount + 1 }
+          : state.config.residencyModel
+            ? { allGatherCount: state.allGatherCount }
+            : {}),
       }),
     ),
   );
@@ -112,6 +126,11 @@ export function suggestMove(state: ScheduleState): Suggestion | null {
     operationId: first.operation.id,
     earliestStart: first.earliestStart,
     projectedMemory: first.projectedMemory,
+    ...(first.residencyEffect?.action === 'gather'
+      ? { allGatherCount: state.allGatherCount + 1 }
+      : state.config.residencyModel
+        ? { allGatherCount: state.allGatherCount }
+        : {}),
     reason: Object.freeze({
       kind: 'rank-frontier' as const,
       rank: first.operation.rank,
@@ -128,6 +147,9 @@ function formatBlockMessage(reason: BlockReason): string {
     }
     case 'memory-cap': {
       return `Rank ${reason.rank} is at memory cap ${reason.resident}/${reason.cap} and cannot place another forward activation.`;
+    }
+    case 'residency-memory-cap': {
+      return `Rank ${reason.rank} would use ${reason.activationMemory} activation + ${reason.residentWeightMemory} weight units after evicting cached stages.`;
     }
     case 'already-placed': {
       return `${reason.operationId} is already placed.`;
@@ -153,6 +175,9 @@ export function explainBlockedMove(
       status: 'completed' as const,
       operationId,
       placement: classification.placement,
+      ...(classification.residencyEffect
+        ? { residencyEffect: classification.residencyEffect }
+        : {}),
     });
   }
 
@@ -162,6 +187,9 @@ export function explainBlockedMove(
       operationId,
       earliestStart: classification.earliestStart,
       projectedMemory: classification.projectedMemory,
+      ...(classification.residencyEffect
+        ? { residencyEffect: classification.residencyEffect }
+        : {}),
     });
   }
 
@@ -319,7 +347,9 @@ function getBlockedWithMemoryCap(state: ScheduleState): readonly BlockedWithMemo
   const result: BlockedWithMemoryCap[] = [];
   for (const classification of classifyMoves(state)) {
     if (classification.status === 'blocked') {
-      const hasMemCap = classification.reasons.some((r) => r.kind === 'memory-cap');
+      const hasMemCap = classification.reasons.some(
+        (r) => r.kind === 'memory-cap' || r.kind === 'residency-memory-cap',
+      );
       if (hasMemCap) {
         result.push({ operationId: classification.operation.id });
       }

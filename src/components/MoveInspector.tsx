@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { ExplanationResult } from '../coaching/coaching';
 import type { BlockReason } from '../engine/replay';
-import type { Operation, OperationId } from '../engine/types';
+import type { Operation, OperationId, ResidencyEffect } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { parseOperationId } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
@@ -64,17 +64,27 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
           ) : null}
 
           {explanation.status === 'legal' ? (
-            <p>
-              Legal now. Earliest start {explanation.earliestStart}. Duration{' '}
-              {explanation.operation?.duration}. Memory after: {explanation.projectedMemory}.
-            </p>
+            <>
+              <p>
+                Legal now. Earliest start {explanation.earliestStart}. Duration{' '}
+                {explanation.operation?.duration}. Memory after: {explanation.projectedMemory}.
+              </p>
+              {explanation.residencyEffect ? (
+                <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
+              ) : null}
+            </>
           ) : null}
 
           {explanation.status === 'completed' ? (
-            <p>
-              Placed on rank {explanation.placement?.rank} from {explanation.placement?.start} to{' '}
-              {explanation.placement?.end}. Duration {explanation.operation?.duration}.
-            </p>
+            <>
+              <p>
+                Placed on rank {explanation.placement?.rank} from {explanation.placement?.start} to{' '}
+                {explanation.placement?.end}. Duration {explanation.operation?.duration}.
+              </p>
+              {explanation.residencyEffect ? (
+                <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
+              ) : null}
+            </>
           ) : null}
         </div>
       ) : null}
@@ -101,6 +111,8 @@ function humanBlockedMessage(reason: BlockReason): string {
       return `Waiting for ${formatOperationName(reason.operationId)}.`;
     case 'memory-cap':
       return `Rank ${reason.rank} is at activation cap ${reason.resident}/${reason.cap}.`;
+    case 'residency-memory-cap':
+      return `Rank ${reason.rank} would exceed memory cap ${reason.cap} after residency admission.`;
     case 'already-placed':
       return `${formatOperationName(reason.operationId)} is already placed.`;
     case 'invalid-rank':
@@ -116,6 +128,8 @@ function typedReasonLabel(reason: BlockReason): string {
       return formatOperationCode(reason.operationId);
     case 'memory-cap':
       return `memory-cap rank=${reason.rank} resident=${reason.resident} cap=${reason.cap}`;
+    case 'residency-memory-cap':
+      return `residency-cap rank=${reason.rank} activation=${reason.activationMemory} weights=${reason.residentWeightMemory} cap=${reason.cap}`;
     case 'already-placed':
       return formatOperationCode(reason.operationId);
     case 'invalid-rank':
@@ -123,4 +137,15 @@ function typedReasonLabel(reason: BlockReason): string {
     case 'unknown-operation-id':
       return reason.operationId;
   }
+}
+
+function residencyEffectText(effect: ResidencyEffect): string {
+  const cache = effect.residentStages.map((stage) => `S${stage}`).join(', ') || 'empty';
+  const evicted =
+    effect.evictedStages.length === 0
+      ? ''
+      : ` Evicted ${effect.evictedStages.map((stage) => `S${stage}`).join(', ')}.`;
+  const verb = effect.action === 'gather' ? 'Gathers weights' : 'Reuses resident weights';
+  const cap = effect.cap === null ? 'no cap' : `cap ${effect.cap}`;
+  return `${verb}. ${effect.activationMemory} activation + ${effect.residentWeightMemory} weights (${cap}). Cache: ${cache}.${evicted}`;
 }

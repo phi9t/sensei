@@ -11,7 +11,12 @@ interface MetricsPanelProps {
 }
 
 function formatTuple(tuple: AttemptRankingTuple): string {
-  return `${tuple.makespan} -> ${tuple.peakActivationMemory} -> ${tuple.intentionalIdle} -> ${tuple.actionCount}`;
+  const parts = [tuple.makespan, tuple.peakActivationMemory];
+  if (tuple.allGatherCount !== undefined) {
+    parts.push(tuple.allGatherCount);
+  }
+  parts.push(tuple.intentionalIdle, tuple.actionCount);
+  return parts.join(' -> ');
 }
 
 function formatBubbleRatio(value: number): string {
@@ -74,6 +79,8 @@ function metricLabel(metric: MetricMasteryTarget['metric']): string {
       return 'intentional idle';
     case 'peakActivationMemory':
       return 'peak activation memory';
+    case 'allGatherCount':
+      return 'all-gathers';
   }
 }
 
@@ -127,6 +134,12 @@ export function MetricsPanel({
           <span className="scoreboard-card__label">Memory</span>
           <strong>{memorySummary}</strong>
         </div>
+        {score.allGatherCount !== undefined ? (
+          <div className="scoreboard-card">
+            <span className="scoreboard-card__label">Gathers</span>
+            <strong>{score.allGatherCount}</strong>
+          </div>
+        ) : null}
         <div className="scoreboard-card">
           <span className="scoreboard-card__label">Status</span>
           <strong>
@@ -224,6 +237,12 @@ export function MetricsPanel({
             <dt>Peak activation memory</dt>
             <dd>{score.peakActivationMemory}</dd>
           </div>
+          {score.allGatherCount !== undefined ? (
+            <div>
+              <dt>All-gathers</dt>
+              <dd>{score.allGatherCount}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Mastery targets</dt>
             <dd>{masteryTargets}</dd>

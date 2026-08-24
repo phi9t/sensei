@@ -31,6 +31,9 @@ const EXPECTED_LEVEL_IDS = [
   'zero-bubble-deep',
   'group-the-pipe',
   'bf-pp-pressure',
+  'gather-once-reuse',
+  'group-too-wide',
+  'regather-storm',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -43,6 +46,7 @@ const EXPECTED_LEVEL_GROUPS = [
   'Nonuniform Cost',
   'Zero Bubble',
   'Grouped',
+  'FSDP Residency',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -557,6 +561,95 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['bounded group', 'activation pressure', 'policy-relative comparison'],
     },
   },
+  'gather-once-reuse': {
+    id: 'gather-once-reuse',
+    version: 1,
+    title: 'Gather Once, Reuse',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: [3, 3],
+    residencyModel: { weightUnit: 1 },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 9 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+      { metric: 'allGatherCount', op: '<=', value: 2 },
+    ],
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept:
+        'A forward block gathers its stage weights once, then later forwards can reuse them.',
+      objective: 'Place same-stage forwards close enough to reuse resident weights.',
+      patternLabel: 'Reuse',
+      introducedModel: ['weight residency', 'all-gather count', 'reuse'],
+    },
+  },
+  'group-too-wide': {
+    id: 'group-too-wide',
+    version: 1,
+    title: 'Group Too Wide',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 2,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0'],
+    },
+    memoryCaps: [3, 3],
+    residencyModel: { weightUnit: 1 },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 24 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+      { metric: 'allGatherCount', op: '<=', value: 6 },
+    ],
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept: 'A wide forward group can run out of room once activations and weights share a cap.',
+      objective: 'Drain one microbatch before admitting the next wide group.',
+      patternLabel: 'Cap-aware',
+      introducedModel: ['combined memory cap', 'durationless eviction', 'group width'],
+    },
+  },
+  'regather-storm': {
+    id: 'regather-storm',
+    version: 1,
+    title: 'Regather Storm',
+    rankCount: 2,
+    stageCount: 4,
+    microbatchCount: 4,
+    topology: { placement: 'v-shape', virtualStagesPerRank: 2 },
+    durations: { F: 1, B: 2 },
+    microbatchGrouping: {
+      groupSize: 2,
+      groupLabels: ['G0', 'G1'],
+    },
+    memoryCaps: [5, 5],
+    residencyModel: { weightUnit: 1 },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 36 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+      { metric: 'allGatherCount', op: '<=', value: 6 },
+    ],
+    algorithm: {
+      family: 'fsdp-residency',
+      setTitle: 'FSDP Residency',
+      concept: 'Switching between resident virtual stages too often creates extra gathers.',
+      objective: 'Group work enough to reduce regathers while keeping the schedule compact.',
+      patternLabel: 'Gather-aware',
+      introducedModel: ['regather', 'residency pressure', 'communication trade-off'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -1049,6 +1142,59 @@ const EXPECTED_MASTERED_ACTIONS = {
     'B:0:4',
     'B:0:5',
   ],
+  'gather-once-reuse': ['F:0:0', 'F:0:1', 'F:1:0', 'B:1:0', 'B:0:0', 'F:1:1', 'B:1:1', 'B:0:1'],
+  'group-too-wide': [
+    'F:0:0',
+    'F:1:0',
+    'F:2:0',
+    'F:3:0',
+    'B:3:0',
+    'B:2:0',
+    'B:1:0',
+    'B:0:0',
+    'F:0:1',
+    'F:1:1',
+    'F:2:1',
+    'F:3:1',
+    'B:3:1',
+    'B:2:1',
+    'B:1:1',
+    'B:0:1',
+  ],
+  'regather-storm': [
+    'F:0:0',
+    'F:0:1',
+    'F:1:0',
+    'F:1:1',
+    'F:2:0',
+    'F:2:1',
+    'F:3:0',
+    'F:3:1',
+    'B:3:0',
+    'B:3:1',
+    'B:2:0',
+    'B:2:1',
+    'B:1:0',
+    'B:1:1',
+    'B:0:0',
+    'B:0:1',
+    'F:0:2',
+    'F:0:3',
+    'F:1:2',
+    'F:1:3',
+    'F:2:2',
+    'F:2:3',
+    'F:3:2',
+    'F:3:3',
+    'B:3:2',
+    'B:3:3',
+    'B:2:2',
+    'B:2:3',
+    'B:1:2',
+    'B:1:3',
+    'B:0:2',
+    'B:0:3',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 interface ExpectedGoldenRow {
@@ -1058,6 +1204,7 @@ interface ExpectedGoldenRow {
   readonly internalBubbleRatio?: number;
   readonly peakActivationMemoryByRank: readonly number[];
   readonly peakActivationMemory: number;
+  readonly allGatherCount?: number;
 }
 
 const EXPECTED_GOLDEN_ROWS: Record<LevelId, ExpectedGoldenRow> = {
@@ -1196,6 +1343,30 @@ const EXPECTED_GOLDEN_ROWS: Record<LevelId, ExpectedGoldenRow> = {
     bubbleRatio: 0.5,
     peakActivationMemoryByRank: [2, 2, 2],
     peakActivationMemory: 2,
+  },
+  'gather-once-reuse': {
+    makespan: 9,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 3,
+    peakActivationMemoryByRank: [2, 1],
+    peakActivationMemory: 2,
+    allGatherCount: 2,
+  },
+  'group-too-wide': {
+    makespan: 24,
+    intentionalIdle: 0,
+    bubbleRatio: 0.5,
+    peakActivationMemoryByRank: [2, 2],
+    peakActivationMemory: 2,
+    allGatherCount: 6,
+  },
+  'regather-storm': {
+    makespan: 36,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 3,
+    peakActivationMemoryByRank: [4, 4],
+    peakActivationMemory: 4,
+    allGatherCount: 6,
   },
 };
 
@@ -1398,6 +1569,7 @@ describe('golden replay outcomes', () => {
       expect(result.intentionalIdle).toBe(expectedRow.intentionalIdle);
       expect(result.peakActivationMemoryByRank).toEqual(expectedRow.peakActivationMemoryByRank);
       expect(result.peakActivationMemory).toBe(expectedRow.peakActivationMemory);
+      expect(result.allGatherCount).toBe(expectedRow.allGatherCount);
     }
   });
 

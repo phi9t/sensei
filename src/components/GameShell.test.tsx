@@ -287,6 +287,7 @@ describe('Game shell', () => {
       'Nonuniform Cost',
       'Zero Bubble',
       'Grouped',
+      'FSDP Residency',
     ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
@@ -298,6 +299,9 @@ describe('Game shell', () => {
     ).not.toBeNull();
     expect(
       picker.querySelector('optgroup[label="Grouped"] option[value="group-the-pipe"]'),
+    ).not.toBeNull();
+    expect(
+      picker.querySelector('optgroup[label="FSDP Residency"] option[value="gather-once-reuse"]'),
     ).not.toBeNull();
   });
 
@@ -556,6 +560,35 @@ describe('Game shell', () => {
     expect(within(batchZero).getByText(/^B2:S2:B0$/i)).toBeInTheDocument();
     expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('shows FSDP residency metrics and weight strips only on residency levels', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="gather-once-reuse" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    expect(
+      within(guide).getByRole('heading', { name: /^Gather Once, Reuse$/i }),
+    ).toBeInTheDocument();
+    expect(within(guide).getByText(/^FSDP Residency$/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /inspect F stage 0 microbatch 0/i }));
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+
+    expect(screen.getByTestId('weight-strip-rank-0')).toBeInTheDocument();
+    expect(within(board).getByText(/Rank 0 weight residency timeline/i)).toBeInTheDocument();
+    expect(within(metrics).getByText(/^Gathers$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/Gathers weights.*Cache: S0/i)).toBeInTheDocument();
+
+    cleanup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    expect(screen.queryByTestId('weight-strip-rank-0')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Gathers$/i)).not.toBeInTheDocument();
   });
 
   it('compares grouped completion against the configured 1F1B reference', async () => {

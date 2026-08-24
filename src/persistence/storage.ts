@@ -1,4 +1,5 @@
 import { compareAttempts } from '../engine/score';
+import type { BlockReason } from '../engine/replay';
 import { LEVEL_IDS, type LevelId } from '../levels/levels';
 import {
   decodeAttempt,
@@ -116,6 +117,9 @@ function cloneAttempt(attempt: StoredAttempt): StoredAttempt {
     tuple: Object.freeze({
       makespan: attempt.tuple.makespan,
       peakActivationMemory: attempt.tuple.peakActivationMemory,
+      ...(attempt.tuple.allGatherCount !== undefined
+        ? { allGatherCount: attempt.tuple.allGatherCount }
+        : {}),
       intentionalIdle: attempt.tuple.intentionalIdle,
       actionCount: attempt.tuple.actionCount,
     }),
@@ -150,29 +154,48 @@ function cloneUrlDecodeFailure(failure: DecodeAttemptFailure): DecodeAttemptFail
         ok: false,
         reason: 'replay-blocked',
         index: failure.index,
-        blockReason:
-          failure.blockReason.kind === 'memory-cap'
-            ? Object.freeze({
-                kind: 'memory-cap',
-                rank: failure.blockReason.rank,
-                resident: failure.blockReason.resident,
-                requested: failure.blockReason.requested,
-                cap: failure.blockReason.cap,
-              })
-            : failure.blockReason.kind === 'invalid-rank'
-              ? Object.freeze({
-                  kind: 'invalid-rank',
-                  rank: failure.blockReason.rank,
-                })
-              : Object.freeze({
-                  kind: failure.blockReason.kind,
-                  operationId: failure.blockReason.operationId,
-                }),
+        blockReason: cloneBlockReason(failure.blockReason),
       });
     default:
       return Object.freeze({
         ok: false,
         reason: failure.reason,
+      });
+  }
+}
+
+function cloneBlockReason(blockReason: BlockReason): BlockReason {
+  switch (blockReason.kind) {
+    case 'already-placed':
+    case 'dependency-not-finished':
+    case 'unknown-operation-id':
+      return Object.freeze({
+        kind: blockReason.kind,
+        operationId: blockReason.operationId,
+      });
+    case 'memory-cap':
+      return Object.freeze({
+        kind: 'memory-cap',
+        rank: blockReason.rank,
+        resident: blockReason.resident,
+        requested: blockReason.requested,
+        cap: blockReason.cap,
+      });
+    case 'residency-memory-cap':
+      return Object.freeze({
+        kind: 'residency-memory-cap',
+        operationId: blockReason.operationId,
+        rank: blockReason.rank,
+        activationMemory: blockReason.activationMemory,
+        residentWeightMemory: blockReason.residentWeightMemory,
+        requestedWeightMemory: blockReason.requestedWeightMemory,
+        evictedStages: Object.freeze([...blockReason.evictedStages]),
+        cap: blockReason.cap,
+      });
+    case 'invalid-rank':
+      return Object.freeze({
+        kind: 'invalid-rank',
+        rank: blockReason.rank,
       });
   }
 }
