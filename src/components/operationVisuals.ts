@@ -5,18 +5,21 @@ export interface OperationVisualVars {
   readonly '--operation-accent': string;
 }
 
-type OperationVisualIdentity = Pick<Operation, 'kind' | 'stage' | 'microbatch'>;
+type OperationVisualIdentity = Pick<Operation, 'kind' | 'stage' | 'microbatch' | 'direction'>;
 
 const OPERATION_HUES = [184, 38, 132, 258, 88, 214, 12, 164, 296, 52, 228, 112] as const;
 
 export function operationVisualKey(operation: OperationVisualIdentity): string {
-  return `${operation.kind}-${operation.stage}-${operation.microbatch}`;
+  const baseKey = `${operation.kind}-${operation.stage}-${operation.microbatch}`;
+  return operation.direction ? `${baseKey}-${operation.direction}` : baseKey;
 }
 
 export function operationHue(operation: OperationVisualIdentity): number {
   const kindOffset = operation.kind === 'F' ? 0 : operation.kind === 'B' ? 5 : 8;
+  const directionOffset = operation.direction === 'desc' ? 3 : 0;
   const index =
-    (operation.microbatch * 3 + operation.stage * 2 + kindOffset) % OPERATION_HUES.length;
+    (operation.microbatch * 3 + operation.stage * 2 + kindOffset + directionOffset) %
+    OPERATION_HUES.length;
   return OPERATION_HUES[index]!;
 }
 

@@ -1,12 +1,14 @@
 import type {
   LevelConfig,
   OperationKind,
+  PipelineDirection,
   PipelineTopologyPlacement,
   ReferencePolicyId,
 } from './types';
 
 const TOPOLOGY_PLACEMENTS = new Set<PipelineTopologyPlacement>(['one-to-one', 'wrap', 'v-shape']);
 const BACKWARD_MODELS = new Set(['fused', 'split']);
+const PIPELINE_DIRECTIONS = new Set<PipelineDirection>(['asc', 'desc']);
 const REFERENCE_POLICY_IDS = new Set<ReferencePolicyId>([
   'gpipe-afab',
   'one-f-one-b',
@@ -15,6 +17,8 @@ const REFERENCE_POLICY_IDS = new Set<ReferencePolicyId>([
   'zero-bubble-h1',
   'zero-bubble-h2',
   'zero-bubble-deep',
+  'dualpipe-balanced',
+  'dualpipe-one-direction',
 ]);
 
 function isTopologyPlacement(value: string): value is PipelineTopologyPlacement {
@@ -25,12 +29,45 @@ function isOperationKind(value: string): value is OperationKind {
   return value === 'F' || value === 'B' || value === 'W';
 }
 
+function isPipelineDirection(value: string): value is PipelineDirection {
+  return PIPELINE_DIRECTIONS.has(value as PipelineDirection);
+}
+
 function isFinitePositiveInteger(value: number): boolean {
   return Number.isInteger(value) && Number.isFinite(value) && value > 0;
 }
 
 function isFinitePositive(value: number): boolean {
   return Number.isFinite(value) && value > 0;
+}
+
+function parseDirectionalDependencyEndpoint(
+  id: string,
+): { kind: OperationKind; stage: number; microbatch: number; direction: PipelineDirection } | null {
+  const match = /^(F|B|W):(0|[1-9]\d*):(0|[1-9]\d*):(asc|desc)$/.exec(id);
+  if (!match) {
+    return null;
+  }
+  return {
+    kind: match[1] as OperationKind,
+    stage: Number.parseInt(match[2]!, 10),
+    microbatch: Number.parseInt(match[3]!, 10),
+    direction: match[4] as PipelineDirection,
+  };
+}
+
+function isValidDependencyEndpoint(
+  endpoint: ReturnType<typeof parseDirectionalDependencyEndpoint>,
+  config: LevelConfig,
+  operationModel: { readonly backward: 'fused' | 'split' },
+): boolean {
+  if (endpoint === null) {
+    return false;
+  }
+  if (endpoint.kind === 'W' && operationModel.backward !== 'split') {
+    return false;
+  }
+  return endpoint.stage < config.stageCount && endpoint.microbatch < config.microbatchCount;
 }
 
 export function validateLevelConfig(config: LevelConfig): void {
@@ -76,6 +113,36 @@ export function validateLevelConfig(config: LevelConfig): void {
     !isFinitePositiveInteger(config.residencyModel.weightUnit)
   ) {
     throw new Error('residencyModel weightUnit must be a positive finite integer');
+  }
+  if (config.dualPipeModel !== undefined) {
+    if (config.dualPipeModel.enabled !== true) {
+      throw new Error('dualPipeModel enabled must be true');
+    }
+    if (
+      !Array.isArray(config.dualPipeModel.directions) ||
+      config.dualPipeModel.directions.length === 0
+    ) {
+      throw new Error('dualPipeModel directions must be a non-empty array');
+    }
+    const seenDirections = new Set<PipelineDirection>();
+    for (const direction of config.dualPipeModel.directions) {
+      if (!isPipelineDirection(direction)) {
+        throw new Error('dualPipeModel directions must be asc or desc');
+      }
+      if (seenDirections.has(direction)) {
+        throw new Error(`duplicate dualPipeModel direction ${direction}`);
+      }
+      seenDirections.add(direction);
+    }
+    if (!seenDirections.has('asc') || !seenDirections.has('desc')) {
+      throw new Error('dualPipeModel must include asc and desc directions');
+    }
+    if (!isFinitePositiveInteger(config.dualPipeModel.resourceModel.directionalSlots)) {
+      throw new Error('dualPipeModel directionalSlots must be a positive finite integer');
+    }
+    if (!isFinitePositiveInteger(config.dualPipeModel.resourceModel.sharedCapacity)) {
+      throw new Error('dualPipeModel sharedCapacity must be a positive finite integer');
+    }
   }
   if (!isFinitePositive(config.durations.F)) {
     throw new Error('F duration must be a positive finite number');
@@ -166,6 +233,28 @@ export function validateLevelConfig(config: LevelConfig): void {
     }
     if (!seenReferencePolicies.has(config.referencePolicy.comparisonPolicyId)) {
       throw new Error('comparison reference policy id must be a candidate policy');
+    }
+  }
+
+  if (config.dualPipeModel?.crossDirectionDependencies) {
+    const seenEdges = new Set<string>();
+    for (const edge of config.dualPipeModel.crossDirectionDependencies) {
+      const from = parseDirectionalDependencyEndpoint(edge.from);
+      const to = parseDirectionalDependencyEndpoint(edge.to);
+      if (from === null || to === null) {
+        throw new Error('dualPipeModel cross-direction dependencies require directional IDs');
+      }
+      if (
+        !isValidDependencyEndpoint(from, config, operationModel) ||
+        !isValidDependencyEndpoint(to, config, operationModel)
+      ) {
+        throw new Error('dualPipeModel cross-direction dependency endpoint not in inventory');
+      }
+      const key = `${edge.from}->${edge.to}`;
+      if (seenEdges.has(key)) {
+        throw new Error(`duplicate dualPipeModel dependency ${key}`);
+      }
+      seenEdges.add(key);
     }
   }
 

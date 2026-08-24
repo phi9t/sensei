@@ -88,6 +88,37 @@ describe('deriveOperations', () => {
     ]);
   });
 
+  it('derives DualPipe operations with explicit direction-bearing IDs', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 2,
+      microbatchCount: 1,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+      },
+    });
+
+    expect(
+      deriveOperations(config).map(({ id, stage, rank, direction }) => ({
+        id,
+        stage,
+        rank,
+        direction,
+      })),
+    ).toEqual([
+      { id: 'F:0:0:asc', stage: 0, rank: 0, direction: 'asc' },
+      { id: 'B:0:0:asc', stage: 0, rank: 0, direction: 'asc' },
+      { id: 'F:0:0:desc', stage: 0, rank: 0, direction: 'desc' },
+      { id: 'B:0:0:desc', stage: 0, rank: 0, direction: 'desc' },
+      { id: 'F:1:0:asc', stage: 1, rank: 1, direction: 'asc' },
+      { id: 'B:1:0:asc', stage: 1, rank: 1, direction: 'asc' },
+      { id: 'F:1:0:desc', stage: 1, rank: 1, direction: 'desc' },
+      { id: 'B:1:0:desc', stage: 1, rank: 1, direction: 'desc' },
+    ]);
+  });
+
   it('uses configured durations', () => {
     const config = makeConfig();
     const operations = deriveOperations(config);
@@ -168,6 +199,12 @@ describe('parseOperationId', () => {
     expect(parseOperationId('B:1:2')).toEqual({ kind: 'B', stage: 1, microbatch: 2 });
     expect(parseOperationId('W:2:3')).toEqual({ kind: 'W', stage: 2, microbatch: 3 });
     expect(parseOperationId('F:99:99')).toEqual({ kind: 'F', stage: 99, microbatch: 99 });
+    expect(parseOperationId('F:1:2:desc')).toEqual({
+      kind: 'F',
+      stage: 1,
+      microbatch: 2,
+      direction: 'desc',
+    });
   });
 
   it('rejects leading-zero forms', () => {
@@ -175,6 +212,7 @@ describe('parseOperationId', () => {
     expect(() => parseOperationId('F:0:01')).toThrow(/Invalid operation ID/);
     expect(() => parseOperationId('B:00:0')).toThrow(/Invalid operation ID/);
     expect(() => parseOperationId('F:1:00')).toThrow(/Invalid operation ID/);
+    expect(() => parseOperationId('F:0:0:up' as OperationId)).toThrow(/Invalid operation ID/);
   });
 
   it('rejects malformed IDs', () => {
@@ -240,6 +278,39 @@ describe('predecessorsOf', () => {
     expect(predecessorsOf('F:2:0', config)).toEqual(['F:1:0']);
     expect(predecessorsOf('B:1:0', config)).toEqual(['F:1:0', 'B:2:0']);
     expect(predecessorsOf('B:3:0', config)).toEqual(['F:3:0']);
+  });
+
+  it('uses opposite stage flow for desc DualPipe dependencies', () => {
+    const config = makeConfig({
+      rankCount: 3,
+      stageCount: 3,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+      },
+    });
+
+    expect(predecessorsOf('F:1:0:asc', config)).toEqual(['F:0:0:asc']);
+    expect(predecessorsOf('F:1:0:desc', config)).toEqual(['F:2:0:desc']);
+    expect(predecessorsOf('B:1:0:asc', config)).toEqual(['F:1:0:asc', 'B:2:0:asc']);
+    expect(predecessorsOf('B:1:0:desc', config)).toEqual(['F:1:0:desc', 'B:0:0:desc']);
+  });
+
+  it('adds explicit cross-direction dependencies without inferring visual pairs', () => {
+    const config = makeConfig({
+      rankCount: 2,
+      stageCount: 2,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+        crossDirectionDependencies: [{ from: 'B:0:0:asc', to: 'F:1:0:desc' }],
+      },
+    });
+
+    expect(predecessorsOf('F:1:0:desc', config)).toEqual(['B:0:0:asc']);
+    expect(predecessorsOf('F:0:0:desc', config)).toEqual(['F:1:0:desc']);
   });
 
   it('produces deterministic order without duplicates', () => {

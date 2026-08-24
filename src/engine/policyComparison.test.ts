@@ -171,4 +171,39 @@ describe('policy comparison', () => {
     expect(comparison?.reference.bubbleRatio).toBeCloseTo(1 / 3);
     expect(comparison?.delta.bubbleRatio).toBeCloseTo(1 / 6);
   });
+
+  it('compares balanced DualPipe completion against the one-direction baseline', () => {
+    const state = replayComplete('dualpipe-balance', MASTERED_ACTIONS['dualpipe-balance']);
+
+    const comparison = compareToReferencePolicy(state);
+
+    expect(comparison).toMatchObject({
+      policyId: 'dualpipe-one-direction',
+      label: 'One-direction baseline',
+      matchedPolicyId: 'dualpipe-balanced',
+      matchedLabel: 'DualPipe balanced',
+      match: 'exact',
+      current: {
+        makespan: 9,
+        bubbleRatio: 1 / 3,
+        peakActivationMemory: 4,
+        intentionalIdle: 0,
+        actionCount: 16,
+      },
+      reference: {
+        makespan: 18,
+        bubbleRatio: 2 / 3,
+        peakActivationMemory: 2,
+        intentionalIdle: 0,
+        actionCount: 16,
+      },
+      delta: {
+        makespan: -9,
+        peakActivationMemory: 2,
+        intentionalIdle: 0,
+        actionCount: 0,
+      },
+    });
+    expect(comparison?.delta.bubbleRatio).toBeCloseTo(-1 / 3);
+  });
 });

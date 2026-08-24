@@ -3,6 +3,8 @@ import { replay } from './replay';
 import type { MasteryTarget } from './types';
 import { attemptRankingTuple, compareAttempts, score, type AttemptRankingTuple } from './score';
 import { expectState, makeConfig, placeIds } from '../test/factories';
+import { MASTERED_ACTIONS } from '../levels/fixtures';
+import { getLevel } from '../levels/levels';
 
 describe('score', () => {
   it('scores the mastered dependency chain exactly', () => {
@@ -43,6 +45,36 @@ describe('score', () => {
       intentionalIdle: 0,
       peakActivationMemoryByRank: [1, 1],
       peakActivationMemory: 1,
+      complete: true,
+      mastered: true,
+    });
+  });
+
+  it('scores DualPipe capacity from configured shared rank capacity', () => {
+    const balanced = expectState(
+      replay(getLevel('dualpipe-balance'), MASTERED_ACTIONS['dualpipe-balance']),
+    );
+    const conflict = expectState(
+      replay(getLevel('dualpipe-conflict'), MASTERED_ACTIONS['dualpipe-conflict']),
+    );
+
+    expect(score(balanced)).toMatchObject({
+      makespan: 9,
+      totalWork: 24,
+      capacity: 36,
+      bubbleRatio: 1 / 3,
+      peakActivationMemoryByRank: [4, 4],
+      peakActivationMemory: 4,
+      complete: true,
+      mastered: true,
+    });
+    expect(score(conflict)).toMatchObject({
+      makespan: 12,
+      totalWork: 24,
+      capacity: 24,
+      bubbleRatio: 0,
+      peakActivationMemoryByRank: [4, 4],
+      peakActivationMemory: 4,
       complete: true,
       mastered: true,
     });

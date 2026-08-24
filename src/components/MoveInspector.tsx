@@ -45,6 +45,11 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
               {showOwnerRank ? (
                 <span className="inspector-operation__owner">Owner rank {ownerRank}</span>
               ) : null}
+              {directionLabel(operationIdentity?.direction) ? (
+                <span className="inspector-operation__owner">
+                  {directionLabel(operationIdentity?.direction)}
+                </span>
+              ) : null}
             </div>
             <span className="inspector-operation__status">{explanation.status}</span>
           </div>
@@ -103,6 +108,17 @@ function ownerRankForExplanation(explanation: InspectorExplanation | null): numb
     return explanation.placement?.rank ?? null;
   }
   return null;
+}
+
+function directionLabel(direction: Operation['direction']): string | null {
+  switch (direction) {
+    case 'asc':
+      return 'Direction up';
+    case 'desc':
+      return 'Direction down';
+    case undefined:
+      return null;
+  }
 }
 
 function humanBlockedMessage(reason: BlockReason): string {

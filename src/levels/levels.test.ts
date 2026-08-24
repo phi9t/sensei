@@ -34,6 +34,9 @@ const EXPECTED_LEVEL_IDS = [
   'gather-once-reuse',
   'group-too-wide',
   'regather-storm',
+  'two-directions',
+  'dualpipe-balance',
+  'dualpipe-conflict',
 ] as const;
 
 const EXPECTED_LEVEL_GROUPS = [
@@ -47,6 +50,7 @@ const EXPECTED_LEVEL_GROUPS = [
   'Zero Bubble',
   'Grouped',
   'FSDP Residency',
+  'DualPipe',
 ] as const;
 
 const EXPECTED_CONFIGS = {
@@ -650,6 +654,105 @@ const EXPECTED_CONFIGS = {
       introducedModel: ['regather', 'residency pressure', 'communication trade-off'],
     },
   },
+  'two-directions': {
+    id: 'two-directions',
+    version: 1,
+    title: 'Two Directions',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 1,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 6 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'Two directions carry independent microbatches through the same rank lanes.',
+      objective: 'Place Up and Down blocks while keeping the code shape F0:S0:B0.',
+      patternLabel: 'Bidirectional',
+      introducedModel: ['direction cue', 'opposite stage flow', 'direction-bearing ID'],
+    },
+  },
+  'dualpipe-balance': {
+    id: 'dualpipe-balance',
+    version: 1,
+    title: 'DualPipe Balance',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 9 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'Opposite-direction work can share a rank lane when the resource model allows it.',
+      objective: 'Overlap Up and Down blocks to beat the one-direction baseline.',
+      patternLabel: 'Balanced',
+      introducedModel: ['bidirectional overlap', 'shared rank capacity', 'baseline comparison'],
+    },
+  },
+  'dualpipe-conflict': {
+    id: 'dualpipe-conflict',
+    version: 1,
+    title: 'DualPipe Conflict',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 1 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    coaching: { readySet: true, suggest: true, auto: true },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 12 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'A shared capacity of one turns apparent pairs back into serialized work.',
+      objective: 'Read the resource conflict and still complete the bidirectional schedule.',
+      patternLabel: 'Capacity 1',
+      introducedModel: ['resource conflict', 'shared capacity', 'forced serialization'],
+    },
+  },
 } satisfies Record<LevelId, LevelConfig>;
 
 const EXPECTED_MASTERED_ACTIONS = {
@@ -1195,6 +1298,52 @@ const EXPECTED_MASTERED_ACTIONS = {
     'B:0:2',
     'B:0:3',
   ],
+  'two-directions': [
+    'F:0:0:asc',
+    'F:1:0:desc',
+    'F:0:0:desc',
+    'F:1:0:asc',
+    'B:0:0:desc',
+    'B:1:0:asc',
+    'B:0:0:asc',
+    'B:1:0:desc',
+  ],
+  'dualpipe-balance': [
+    'F:0:0:asc',
+    'F:1:0:desc',
+    'F:0:0:desc',
+    'F:1:0:asc',
+    'F:0:1:asc',
+    'F:1:1:desc',
+    'F:0:1:desc',
+    'F:1:1:asc',
+    'B:0:0:desc',
+    'B:1:0:asc',
+    'B:0:0:asc',
+    'B:1:0:desc',
+    'B:0:1:desc',
+    'B:1:1:asc',
+    'B:0:1:asc',
+    'B:1:1:desc',
+  ],
+  'dualpipe-conflict': [
+    'F:0:0:asc',
+    'F:1:0:desc',
+    'F:0:0:desc',
+    'F:1:0:asc',
+    'F:0:1:asc',
+    'F:1:1:desc',
+    'F:0:1:desc',
+    'F:1:1:asc',
+    'B:0:0:desc',
+    'B:1:0:asc',
+    'B:0:0:asc',
+    'B:1:0:desc',
+    'B:0:1:desc',
+    'B:1:1:asc',
+    'B:0:1:asc',
+    'B:1:1:desc',
+  ],
 } satisfies Record<LevelId, readonly (OperationId | Action)[]>;
 
 interface ExpectedGoldenRow {
@@ -1368,6 +1517,27 @@ const EXPECTED_GOLDEN_ROWS: Record<LevelId, ExpectedGoldenRow> = {
     peakActivationMemory: 4,
     allGatherCount: 6,
   },
+  'two-directions': {
+    makespan: 6,
+    intentionalIdle: 0,
+    bubbleRatio: 0.5,
+    peakActivationMemoryByRank: [2, 2],
+    peakActivationMemory: 2,
+  },
+  'dualpipe-balance': {
+    makespan: 9,
+    intentionalIdle: 0,
+    bubbleRatio: 1 / 3,
+    peakActivationMemoryByRank: [4, 4],
+    peakActivationMemory: 4,
+  },
+  'dualpipe-conflict': {
+    makespan: 12,
+    intentionalIdle: 0,
+    bubbleRatio: 0,
+    peakActivationMemoryByRank: [4, 4],
+    peakActivationMemory: 4,
+  },
 };
 
 function isMetricTarget(target: MasteryTarget): target is MetricMasteryTarget {
@@ -1503,6 +1673,25 @@ describe('levels public API', () => {
     expect(level.referencePolicy).toEqual({
       candidatePolicyIds: ['group-major', 'one-f-one-b'],
       comparisonPolicyId: 'one-f-one-b',
+    });
+  });
+
+  it('freezes DualPipe metadata with the level config', () => {
+    const level = getLevel('dualpipe-balance');
+
+    expect(Object.isFrozen(level.dualPipeModel)).toBe(true);
+    expect(Object.isFrozen(level.dualPipeModel?.directions)).toBe(true);
+    expect(Object.isFrozen(level.dualPipeModel?.resourceModel)).toBe(true);
+    expect(Object.isFrozen(level.referencePolicy)).toBe(true);
+    expect(Object.isFrozen(level.referencePolicy?.candidatePolicyIds)).toBe(true);
+    expect(level.dualPipeModel).toEqual({
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+    });
+    expect(level.referencePolicy).toEqual({
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
     });
   });
 });

@@ -252,7 +252,8 @@ function deriveSchedule(
 
 export function formatOperationName(value: OperationId | Operation): string {
   const parsed = typeof value === 'string' ? parseOperationId(value) : value;
-  return `${parsed.kind} stage ${parsed.stage} microbatch ${parsed.microbatch}`;
+  const direction = parsed.direction ? ` ${parsed.direction} direction` : '';
+  return `${parsed.kind} stage ${parsed.stage} microbatch ${parsed.microbatch}${direction}`;
 }
 
 export function formatOperationCode(value: OperationId | Operation): string {

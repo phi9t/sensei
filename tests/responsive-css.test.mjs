@@ -149,6 +149,16 @@ describe('responsive play surface CSS contract', () => {
     expect(operationButtonBlock).toMatch(
       /\.operation-button\s*\{[^}]*\bpadding:\s*0\.2rem 0\.95rem 0\.32rem 0\.36rem\s*;/,
     );
+    const operationDirectionBlock = extractBlock(css, '.operation-button__direction');
+    expect(operationDirectionBlock).toMatch(
+      /\.operation-button__direction\s*\{[^}]*\bmax-width:\s*2\.1rem\s*;/,
+    );
+    expect(operationDirectionBlock).toMatch(
+      /\.operation-button__direction\s*\{[^}]*\boverflow:\s*hidden\s*;/,
+    );
+    expect(operationDirectionBlock).toMatch(
+      /\.operation-button__direction\s*\{[^}]*\bfont-size:\s*0\.5rem\s*;/,
+    );
     expect(operationCodeBlock).toMatch(
       /\.operation-button__code\s*\{[^}]*\bline-height:\s*1\.05\s*;/,
     );
@@ -237,7 +247,11 @@ describe('responsive play surface CSS contract', () => {
     expect(scheduleBoardSource).toMatch(/export const CELL_WIDTH = 56;/);
     expect(scheduleBoardSource).toMatch(/const WORK_BLOCK_HEIGHT = 38;/);
     expect(scheduleBoardSource).toMatch(/const ROW_HEIGHT = 74;/);
+    expect(scheduleBoardSource).toMatch(/const DUALPIPE_ROW_HEIGHT = 116;/);
     expect(scheduleBoardSource).toMatch(/const MIN_BOARD_WIDTH = 860;/);
+    expect(scheduleBoardSource).toMatch(
+      /return operation\.direction === 'asc' \? 0 : WORK_BLOCK_HEIGHT \+ 4;/,
+    );
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bwidth:\s*100%\s*;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bmax-width:\s*none\s*;/);
     expect(scheduleRectBlock).toMatch(
@@ -255,7 +269,17 @@ describe('responsive play surface CSS contract', () => {
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
     expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/);
+    expect(scheduleLabelBlock).toMatch(
+      /\.schedule-label\s*\{[^}]*\bfont-family:\s*var\(--font-mono\)\s*;/,
+    );
     expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bpointer-events:\s*none\s*;/);
+    const directionLabelBlock = extractBlock(css, '.schedule-direction-label');
+    expect(directionLabelBlock).toMatch(
+      /\.schedule-direction-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/,
+    );
+    expect(directionLabelBlock).toMatch(
+      /\.schedule-direction-label\s*\{[^}]*\btext-transform:\s*uppercase\s*;/,
+    );
     expect(previewLabelBlock).toMatch(
       /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/,
     );

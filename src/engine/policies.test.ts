@@ -87,6 +87,62 @@ describe('reference policy projection', () => {
     }
   });
 
+  it('projects balanced DualPipe references with direction-bearing actions', () => {
+    for (const levelId of ['two-directions', 'dualpipe-balance', 'dualpipe-conflict'] as const) {
+      const projected = projectReferencePolicy(getLevel(levelId), 'dualpipe-balanced');
+
+      expect(projected.ok).toBe(true);
+      if (projected.ok) {
+        expect(projected.actions).toEqual(MASTERED_ACTIONS[levelId]);
+        expect(projected.actions.every((action) => action.type === 'place')).toBe(true);
+        expect(
+          projected.actions.every(
+            (action) =>
+              action.type === 'place' &&
+              (action.operationId.endsWith(':asc') || action.operationId.endsWith(':desc')),
+          ),
+        ).toBe(true);
+        expect(projected.state.placements).toHaveLength(projected.state.operations.length);
+        expect(projected.state.gaps).toEqual([]);
+      }
+    }
+  });
+
+  it('projects the one-direction DualPipe baseline by draining asc before desc', () => {
+    const projected = projectReferencePolicy(
+      getLevel('dualpipe-balance'),
+      'dualpipe-one-direction',
+    );
+
+    expect(projected.ok).toBe(true);
+    if (projected.ok) {
+      expect(projected.actions).toEqual([
+        { type: 'place', operationId: 'F:0:0:asc' },
+        { type: 'place', operationId: 'F:1:0:asc' },
+        { type: 'place', operationId: 'F:0:1:asc' },
+        { type: 'place', operationId: 'F:1:1:asc' },
+        { type: 'place', operationId: 'B:1:0:asc' },
+        { type: 'place', operationId: 'B:0:0:asc' },
+        { type: 'place', operationId: 'B:1:1:asc' },
+        { type: 'place', operationId: 'B:0:1:asc' },
+        { type: 'place', operationId: 'F:1:0:desc' },
+        { type: 'place', operationId: 'F:0:0:desc' },
+        { type: 'place', operationId: 'F:1:1:desc' },
+        { type: 'place', operationId: 'F:0:1:desc' },
+        { type: 'place', operationId: 'B:0:0:desc' },
+        { type: 'place', operationId: 'B:1:0:desc' },
+        { type: 'place', operationId: 'B:0:1:desc' },
+        { type: 'place', operationId: 'B:1:1:desc' },
+      ]);
+      expect(projected.state.placements.at(8)).toEqual({
+        operationId: 'F:1:0:desc',
+        rank: 1,
+        start: 9,
+        end: 10,
+      });
+    }
+  });
+
   it('returns a structured failure when a policy cannot complete a level', () => {
     const projected = projectReferencePolicy(getLevel('memory-wall'), 'gpipe-afab');
 
@@ -219,6 +275,37 @@ describe('reference policy recognition', () => {
         });
       }
     }
+  });
+
+  it('recognizes balanced and one-direction DualPipe schedules', () => {
+    const level = getLevel('dualpipe-balance');
+    const balanced = replay(level, MASTERED_ACTIONS['dualpipe-balance']);
+    const oneDirectionProjection = projectReferencePolicy(level, 'dualpipe-one-direction');
+
+    expect(balanced.ok).toBe(true);
+    expect(oneDirectionProjection.ok).toBe(true);
+    if (!balanced.ok || !oneDirectionProjection.ok) {
+      return;
+    }
+
+    const oneDirectionReplay = replay(level, oneDirectionProjection.actions);
+    expect(oneDirectionReplay.ok).toBe(true);
+    if (!oneDirectionReplay.ok) {
+      return;
+    }
+
+    expect(recognizeSchedule(balanced.state)).toMatchObject({
+      kind: 'matched',
+      policyId: 'dualpipe-balanced',
+      label: 'DualPipe balanced',
+      exact: true,
+    });
+    expect(recognizeSchedule(oneDirectionReplay.state)).toMatchObject({
+      kind: 'matched',
+      policyId: 'dualpipe-one-direction',
+      label: 'One-direction baseline',
+      exact: false,
+    });
   });
 
   it('distinguishes grouped order from 1F1B when configured candidates differ by rank order', () => {

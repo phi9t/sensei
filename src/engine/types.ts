@@ -1,6 +1,10 @@
 export type OperationKind = 'F' | 'B' | 'W';
 
-export type OperationId = `${OperationKind}:${number}:${number}`;
+export type PipelineDirection = 'asc' | 'desc';
+
+export type OperationId =
+  | `${OperationKind}:${number}:${number}`
+  | `${OperationKind}:${number}:${number}:${PipelineDirection}`;
 
 export interface OperationModel {
   readonly backward: 'fused' | 'split';
@@ -18,6 +22,7 @@ export interface Operation {
   stage: number;
   rank: number;
   microbatch: number;
+  direction?: PipelineDirection;
   duration: number;
 }
 
@@ -107,6 +112,23 @@ export interface ResidencyEffect {
   readonly cap: number | null;
 }
 
+export interface DualPipeResourceModel {
+  readonly directionalSlots: number;
+  readonly sharedCapacity: number;
+}
+
+export interface DualPipeDependencyEdge {
+  readonly from: OperationId;
+  readonly to: OperationId;
+}
+
+export interface DualPipeModel {
+  readonly enabled: true;
+  readonly directions: readonly PipelineDirection[];
+  readonly resourceModel: DualPipeResourceModel;
+  readonly crossDirectionDependencies?: readonly DualPipeDependencyEdge[];
+}
+
 export interface MetricMasteryTarget {
   metric:
     | 'makespan'
@@ -160,7 +182,9 @@ export type ReferencePolicyId =
   | 'group-major'
   | 'zero-bubble-h1'
   | 'zero-bubble-h2'
-  | 'zero-bubble-deep';
+  | 'zero-bubble-deep'
+  | 'dualpipe-balanced'
+  | 'dualpipe-one-direction';
 
 export interface ReferencePolicyModel {
   readonly candidatePolicyIds: readonly ReferencePolicyId[];
@@ -187,4 +211,5 @@ export interface LevelConfig {
   operationModel?: OperationModel;
   referencePolicy?: ReferencePolicyModel;
   residencyModel?: ResidencyModel;
+  dualPipeModel?: DualPipeModel;
 }

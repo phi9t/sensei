@@ -121,8 +121,9 @@ function labelForAction(action: Action): RegExp {
     return new RegExp(`wait one tick on rank ${action.rank}`, 'i');
   }
 
-  const [kind, stage, microbatch] = action.operationId.split(':');
-  return new RegExp(`place ${kind} stage ${stage} microbatch ${microbatch}`, 'i');
+  const [kind, stage, microbatch, direction] = action.operationId.split(':');
+  const directionLabel = direction === undefined ? '' : ` ${direction} direction`;
+  return new RegExp(`place ${kind} stage ${stage} microbatch ${microbatch}${directionLabel}`, 'i');
 }
 
 async function focusAndPress(user: ReturnType<typeof userEvent.setup>, target: HTMLElement) {

@@ -23,6 +23,9 @@ export const LEVEL_IDS = [
   'gather-once-reuse',
   'group-too-wide',
   'regather-storm',
+  'two-directions',
+  'dualpipe-balance',
+  'dualpipe-conflict',
 ] as const;
 
 export type LevelId = (typeof LEVEL_IDS)[number];
@@ -104,6 +107,23 @@ function freezeResidencyModel(
   return Object.freeze({ ...residencyModel });
 }
 
+function freezeDualPipeModel(
+  dualPipeModel: NonNullable<LevelConfig['dualPipeModel']>,
+): NonNullable<LevelConfig['dualPipeModel']> {
+  return Object.freeze({
+    enabled: dualPipeModel.enabled,
+    directions: Object.freeze([...dualPipeModel.directions]),
+    resourceModel: Object.freeze({ ...dualPipeModel.resourceModel }),
+    ...(dualPipeModel.crossDirectionDependencies
+      ? {
+          crossDirectionDependencies: Object.freeze(
+            dualPipeModel.crossDirectionDependencies.map((edge) => Object.freeze({ ...edge })),
+          ),
+        }
+      : {}),
+  });
+}
+
 function freezeLevel(config: LevelConfig): LevelConfig {
   const {
     buildingBlock,
@@ -114,6 +134,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     scoreModel,
     referencePolicy,
     residencyModel,
+    dualPipeModel,
     ...baseConfig
   } = config;
   const frozen = {
@@ -133,6 +154,7 @@ function freezeLevel(config: LevelConfig): LevelConfig {
     ...(scoreModel ? { scoreModel: freezeScoreModel(scoreModel) } : {}),
     ...(referencePolicy ? { referencePolicy: freezeReferencePolicy(referencePolicy) } : {}),
     ...(residencyModel ? { residencyModel: freezeResidencyModel(residencyModel) } : {}),
+    ...(dualPipeModel ? { dualPipeModel: freezeDualPipeModel(dualPipeModel) } : {}),
   } satisfies LevelConfig;
 
   return Object.freeze(frozen);
@@ -737,6 +759,105 @@ const LEVELS_BY_ID: Readonly<Record<LevelId, LevelConfig>> = Object.freeze({
       objective: 'Group work enough to reduce regathers while keeping the schedule compact.',
       patternLabel: 'Gather-aware',
       introducedModel: ['regather', 'residency pressure', 'communication trade-off'],
+    },
+  }),
+  'two-directions': freezeLevel({
+    id: 'two-directions',
+    version: 1,
+    title: 'Two Directions',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 1,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 6 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 2 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'Two directions carry independent microbatches through the same rank lanes.',
+      objective: 'Place Up and Down blocks while keeping the code shape F0:S0:B0.',
+      patternLabel: 'Bidirectional',
+      introducedModel: ['direction cue', 'opposite stage flow', 'direction-bearing ID'],
+    },
+  }),
+  'dualpipe-balance': freezeLevel({
+    id: 'dualpipe-balance',
+    version: 1,
+    title: 'DualPipe Balance',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 9 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'Opposite-direction work can share a rank lane when the resource model allows it.',
+      objective: 'Overlap Up and Down blocks to beat the one-direction baseline.',
+      patternLabel: 'Balanced',
+      introducedModel: ['bidirectional overlap', 'shared rank capacity', 'baseline comparison'],
+    },
+  }),
+  'dualpipe-conflict': freezeLevel({
+    id: 'dualpipe-conflict',
+    version: 1,
+    title: 'DualPipe Conflict',
+    rankCount: 2,
+    stageCount: 2,
+    microbatchCount: 2,
+    durations: { F: 1, B: 2 },
+    memoryCaps: null,
+    dualPipeModel: {
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 1 },
+    },
+    referencePolicy: {
+      candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+      comparisonPolicyId: 'dualpipe-one-direction',
+    },
+    masteryTargets: [
+      { metric: 'makespan', op: '<=', value: 12 },
+      { metric: 'intentionalIdle', op: '<=', value: 0 },
+      { metric: 'peakActivationMemory', op: '<=', value: 4 },
+    ],
+    coaching: { readySet: true, suggest: true, auto: true },
+    algorithm: {
+      family: 'dualpipe',
+      setTitle: 'DualPipe',
+      concept: 'A shared capacity of one turns apparent pairs back into serialized work.',
+      objective: 'Read the resource conflict and still complete the bidirectional schedule.',
+      patternLabel: 'Capacity 1',
+      introducedModel: ['resource conflict', 'shared capacity', 'forced serialization'],
     },
   }),
 });

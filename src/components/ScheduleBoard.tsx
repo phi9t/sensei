@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Gap, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
-import type { Operation, OperationId, OperationKind } from '../engine/types';
+import type { Operation, OperationId, OperationKind, PipelineDirection } from '../engine/types';
 import { topologyForLevel } from '../engine/topology';
 import { releasesActivation } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
@@ -12,6 +12,7 @@ const MEMORY_STRIP_HEIGHT = 8;
 const MEMORY_STRIP_GAP = 8;
 const WORK_BLOCK_HEIGHT = 38;
 const ROW_HEIGHT = 74;
+const DUALPIPE_ROW_HEIGHT = 116;
 const TOP_PADDING = 48;
 const LEFT_PADDING = 78;
 const MIN_BOARD_WIDTH = 860;
@@ -74,8 +75,12 @@ function timelineExtent(state: ScheduleState): number {
   return LEFT_PADDING + maxEndTime(state) * CELL_WIDTH + RIGHT_PADDING;
 }
 
-function rankRowTop(rank: number): number {
-  return TOP_PADDING + rank * ROW_HEIGHT;
+function rowHeightForSchedule(state: ScheduleState): number {
+  return state.config.dualPipeModel ? DUALPIPE_ROW_HEIGHT : ROW_HEIGHT;
+}
+
+function rankRowTopForSchedule(state: ScheduleState, rank: number): number {
+  return TOP_PADDING + rank * rowHeightForSchedule(state);
 }
 
 function memorySegmentsForRank(state: ScheduleState, rank: number): readonly MemorySegment[] {
@@ -234,8 +239,27 @@ function ScheduleOperationLabel({
   );
 }
 
+function directionLabel(direction: PipelineDirection | undefined): string | null {
+  switch (direction) {
+    case 'asc':
+      return 'Up';
+    case 'desc':
+      return 'Down';
+    case undefined:
+      return null;
+  }
+}
+
+function operationLaneOffset(operation: Operation, hasDualPipe: boolean): number {
+  if (!hasDualPipe || !operation.direction) {
+    return 0;
+  }
+  return operation.direction === 'asc' ? 0 : WORK_BLOCK_HEIGHT + 4;
+}
+
 export function ScheduleBoard({ schedule, selectedOperationId, preview }: ScheduleBoardProps) {
   const hasResidency = schedule.config.residencyModel !== undefined;
+  const hasDualPipe = schedule.config.dualPipeModel !== undefined;
   const resourceStripHeight = hasResidency ? MEMORY_STRIP_HEIGHT * 2 + 2 : MEMORY_STRIP_HEIGHT;
   const workTopOffset = resourceStripHeight + MEMORY_STRIP_GAP;
   const previewOperation = preview ? operationById(schedule, preview.operationId) : null;
@@ -247,7 +271,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
     MIN_BOARD_WIDTH,
     LEFT_PADDING + previewEnd * CELL_WIDTH + RIGHT_PADDING,
   );
-  const svgHeight = TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT + 20;
+  const svgHeight = TOP_PADDING + schedule.config.rankCount * rowHeightForSchedule(schedule) + 20;
   const timelineEnd = Math.max(maxEndTime(schedule), previewEnd);
 
   return (
@@ -278,7 +302,8 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
         >
           <title id="schedule-svg-title">Pipeline schedule board</title>
           <desc id="schedule-svg-desc">
-            Rank timelines, placed blocks, gaps, activation memory, and optional weight residency.
+            Rank timelines, placed blocks, gaps, activation memory, optional weight residency, and
+            optional bidirectional overlap lanes.
           </desc>
           <defs>
             <pattern
@@ -308,7 +333,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
           </defs>
 
           {schedule.rankFrontiers.map((_, rank) => {
-            const y = rankRowTop(rank);
+            const y = rankRowTopForSchedule(schedule, rank);
             const stripY = y;
             const lineY = y + workTopOffset + 12;
             return (
@@ -318,7 +343,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                   x={LEFT_PADDING}
                   y={y - 12}
                   width={timelineEnd * CELL_WIDTH}
-                  height={ROW_HEIGHT - 10}
+                  height={rowHeightForSchedule(schedule) - 10}
                   className="rank-band"
                   data-rank-parity={rank % 2 === 0 ? 'even' : 'odd'}
                 />
@@ -405,7 +430,9 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     x1={x}
                     x2={x}
                     y1={TOP_PADDING - 6}
-                    y2={TOP_PADDING + schedule.config.rankCount * ROW_HEIGHT - 8}
+                    y2={
+                      TOP_PADDING + schedule.config.rankCount * rowHeightForSchedule(schedule) - 8
+                    }
                     className="tick-line"
                   />
                   <text x={x} y={TOP_PADDING - 10} textAnchor="middle" className="tick-label">
@@ -416,7 +443,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
             })}
 
             {schedule.gaps.map((gap) => {
-              const y = rankRowTop(gap.rank) + workTopOffset;
+              const y = rankRowTopForSchedule(schedule, gap.rank) + workTopOffset;
               const x = gap.start * CELL_WIDTH;
               const width = (gap.end - gap.start) * CELL_WIDTH;
               return (
@@ -440,7 +467,10 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
               const operation = operationById(schedule, placement.operationId);
               const width = operation.duration * CELL_WIDTH;
               const x = placement.start * CELL_WIDTH;
-              const y = rankRowTop(placement.rank) + workTopOffset;
+              const y =
+                rankRowTopForSchedule(schedule, placement.rank) +
+                workTopOffset +
+                operationLaneOffset(operation, hasDualPipe);
               const isSelected = selectedOperationId === placement.operationId;
 
               return (
@@ -456,11 +486,22 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     className="schedule-rect"
                     data-operation-visual={operationVisualKey(operation)}
                     data-kind={operation.kind}
+                    data-direction={operation.direction}
                     data-duration={operation.duration}
                     data-selected={isSelected ? 'true' : 'false'}
                     fill={`url(#${kindPatternId(operation.kind)})`}
                     style={operationVisualVars(operation) as CSSProperties}
                   />
+                  {directionLabel(operation.direction) ? (
+                    <text
+                      x={x + width - 6}
+                      y={y + WORK_BLOCK_HEIGHT - 6}
+                      textAnchor="end"
+                      className="schedule-direction-label"
+                    >
+                      {directionLabel(operation.direction)}
+                    </text>
+                  ) : null}
                   <ScheduleOperationLabel
                     operation={operation}
                     x={x + width / 2}
@@ -480,13 +521,18 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                 <rect
                   data-testid={`preview-tile-${previewOperation.id}`}
                   x={preview.earliestStart * CELL_WIDTH}
-                  y={rankRowTop(previewOperation.rank) + workTopOffset}
+                  y={
+                    rankRowTopForSchedule(schedule, previewOperation.rank) +
+                    workTopOffset +
+                    operationLaneOffset(previewOperation, hasDualPipe)
+                  }
                   width={previewOperation.duration * CELL_WIDTH}
                   height={WORK_BLOCK_HEIGHT}
                   rx="6"
                   className="schedule-preview-rect"
                   data-operation-visual={operationVisualKey(previewOperation)}
                   data-kind={previewOperation.kind}
+                  data-direction={previewOperation.direction}
                   data-duration={previewOperation.duration}
                   style={operationVisualVars(previewOperation) as CSSProperties}
                 />
@@ -496,10 +542,35 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     preview.earliestStart * CELL_WIDTH +
                     (previewOperation.duration * CELL_WIDTH) / 2
                   }
-                  y={rankRowTop(previewOperation.rank) + workTopOffset + 12}
+                  y={
+                    rankRowTopForSchedule(schedule, previewOperation.rank) +
+                    workTopOffset +
+                    operationLaneOffset(previewOperation, hasDualPipe) +
+                    12
+                  }
                   className="schedule-preview-label"
                   testId={`preview-label-${previewOperation.id}`}
                 />
+                {directionLabel(previewOperation.direction) ? (
+                  <text
+                    x={
+                      preview.earliestStart * CELL_WIDTH +
+                      previewOperation.duration * CELL_WIDTH -
+                      6
+                    }
+                    y={
+                      rankRowTopForSchedule(schedule, previewOperation.rank) +
+                      workTopOffset +
+                      operationLaneOffset(previewOperation, hasDualPipe) +
+                      WORK_BLOCK_HEIGHT -
+                      6
+                    }
+                    textAnchor="end"
+                    className="schedule-direction-label"
+                  >
+                    {directionLabel(previewOperation.direction)}
+                  </text>
+                ) : null}
               </g>
             ) : null}
           </g>

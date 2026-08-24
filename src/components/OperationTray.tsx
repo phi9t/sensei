@@ -61,9 +61,10 @@ function groupByMicrobatch(classifications: readonly MoveClassification[]): read
       const sortedClassifications = Object.freeze(
         [...batchClassifications].sort(
           (left, right) =>
-            left.operation.stage - right.operation.stage ||
             OPERATION_KIND_ORDER.indexOf(left.operation.kind) -
-              OPERATION_KIND_ORDER.indexOf(right.operation.kind),
+              OPERATION_KIND_ORDER.indexOf(right.operation.kind) ||
+            directionOrder(left.operation.direction) - directionOrder(right.operation.direction) ||
+            left.operation.stage - right.operation.stage,
         ),
       );
       const readyCount = sortedClassifications.filter(
@@ -88,6 +89,10 @@ function groupByMicrobatch(classifications: readonly MoveClassification[]): read
     });
 }
 
+function directionOrder(direction: MoveClassification['operation']['direction']): number {
+  return direction === 'desc' ? 1 : 0;
+}
+
 function passLabel(kind: OperationKind): string {
   switch (kind) {
     case 'F':
@@ -107,6 +112,17 @@ function passAriaLabel(kind: OperationKind): string {
       return 'backward';
     case 'W':
       return 'weight-gradient';
+  }
+}
+
+function directionLabel(direction: MoveClassification['operation']['direction']): string | null {
+  switch (direction) {
+    case 'asc':
+      return 'Up';
+    case 'desc':
+      return 'Down';
+    case undefined:
+      return null;
   }
 }
 
@@ -246,6 +262,11 @@ function BatchLane({
                       <span className="operation-button__code">
                         {formatOperationCode(operation)}
                       </span>
+                      {directionLabel(operation.direction) ? (
+                        <span className="operation-button__direction">
+                          {directionLabel(operation.direction)}
+                        </span>
+                      ) : null}
                       <span className="operation-button__meta">
                         R{operation.rank} - {operation.duration}t
                       </span>

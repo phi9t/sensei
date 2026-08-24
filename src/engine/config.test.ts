@@ -266,6 +266,151 @@ describe('validateLevelConfig', () => {
     ).not.toThrow();
   });
 
+  it('accepts DualPipe metadata and reference policies', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+            crossDirectionDependencies: [{ from: 'B:0:0:asc', to: 'F:1:0:desc' }],
+          },
+          referencePolicy: {
+            candidatePolicyIds: ['dualpipe-balanced', 'dualpipe-one-direction'],
+            comparisonPolicyId: 'dualpipe-one-direction',
+          },
+          algorithm: {
+            family: 'dualpipe',
+            setTitle: 'DualPipe',
+            concept: 'DualPipe test.',
+            objective: 'DualPipe objective.',
+            patternLabel: 'Balanced',
+            introducedModel: ['direction'],
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects malformed DualPipe metadata', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: false as true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel enabled must be true/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel must include asc and desc directions/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'asc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/duplicate dualPipeModel direction asc/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'sideways' as 'asc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel directions must be asc or desc/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 0, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel directionalSlots must be a positive finite integer/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 0 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel sharedCapacity must be a positive finite integer/);
+  });
+
+  it('rejects malformed DualPipe cross-direction dependencies', () => {
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+            crossDirectionDependencies: [{ from: 'B:0:0', to: 'F:1:0:desc' }],
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel cross-direction dependencies require directional IDs/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+            crossDirectionDependencies: [{ from: 'B:0:0:asc', to: 'F:2:0:desc' }],
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel cross-direction dependency endpoint not in inventory/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+            crossDirectionDependencies: [
+              { from: 'B:0:0:asc', to: 'F:1:0:desc' },
+              { from: 'B:0:0:asc', to: 'F:1:0:desc' },
+            ],
+          },
+        }),
+      ),
+    ).toThrow(/duplicate dualPipeModel dependency B:0:0:asc->F:1:0:desc/);
+  });
+
   it('rejects malformed grouped microbatch metadata', () => {
     expect(() =>
       validateLevelConfig(

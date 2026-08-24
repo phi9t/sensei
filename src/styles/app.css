@@ -702,6 +702,22 @@ summary:focus-visible {
   opacity: 1;
 }
 
+.operation-button__direction {
+  position: absolute;
+  top: 0.16rem;
+  right: 0.36rem;
+  max-width: 2.1rem;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--block-color) 76%, var(--ink));
+  font-size: 0.5rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: right;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .operation-button__code {
   min-width: 0;
   overflow: hidden;
@@ -829,10 +845,20 @@ summary:focus-visible {
 
 .schedule-label {
   fill: var(--ink);
+  font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 850;
   letter-spacing: 0;
   pointer-events: none;
+}
+
+.schedule-direction-label {
+  fill: color-mix(in srgb, var(--operation-accent) 76%, var(--ink));
+  font-size: 0.46rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+  text-transform: uppercase;
 }
 
 .gap-rect {

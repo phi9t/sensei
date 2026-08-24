@@ -155,7 +155,8 @@ function satisfiesTarget(
 export function score(state: ScheduleState): ScoreResult {
   const makespan = state.rankFrontiers.reduce((max, frontier) => Math.max(max, frontier), 0);
   const totalWork = totalPlacedWork(state);
-  const capacity = state.config.rankCount * makespan;
+  const capacityMultiplier = state.config.dualPipeModel?.resourceModel.sharedCapacity ?? 1;
+  const capacity = state.config.rankCount * makespan * capacityMultiplier;
   const bubbleRatio = capacity === 0 ? 0 : (capacity - totalWork) / capacity;
   const intentionalIdle = intentionalIdleDuration(state);
   const peakActivationMemoryByRank = [...state.peakMemory];

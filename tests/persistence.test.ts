@@ -421,6 +421,59 @@ describe('URL attempt codec', () => {
     }
   });
 
+  it('encodes and decodes DualPipe attempts as direction-bearing actions only', () => {
+    const level = getLevel('dualpipe-balance');
+    const payload: UrlAttemptPayload = {
+      schemaVersion: 1,
+      levelId: 'dualpipe-balance',
+      levelVersion: level.version,
+      actions: MASTERED_ACTIONS['dualpipe-balance'],
+    };
+
+    const encoded = encodeAttempt(payload);
+    const storedPayload = JSON.parse(decodeURIComponent(encoded)) as Record<string, unknown>;
+
+    expect(Object.keys(storedPayload).sort()).toEqual(
+      ['actions', 'levelId', 'levelVersion', 'schemaVersion'].sort(),
+    );
+    expect(storedPayload).not.toHaveProperty('dualPipeModel');
+    expect(storedPayload).not.toHaveProperty('directions');
+    expect(storedPayload).not.toHaveProperty('resourceModel');
+    expect(storedPayload).not.toHaveProperty('referencePolicy');
+    expect(storedPayload.actions).toEqual(MASTERED_ACTIONS['dualpipe-balance']);
+
+    const decoded = decodeAttempt(encoded, getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.attempt.levelId).toBe('dualpipe-balance');
+      expect(decoded.attempt.outcome).toBe('mastered');
+      expect(decoded.attempt.actions).toEqual(MASTERED_ACTIONS['dualpipe-balance']);
+      expect(decoded.attempt.tuple).toEqual({
+        makespan: 9,
+        peakActivationMemory: 4,
+        intentionalIdle: 0,
+        actionCount: 16,
+      });
+    }
+  });
+
+  it('rejects non-directional operation IDs on DualPipe attempts', () => {
+    const level = getLevel('dualpipe-balance');
+    const decoded = decodeAttempt(
+      encodeUnknown({
+        schemaVersion: 1,
+        levelId: 'dualpipe-balance',
+        levelVersion: level.version,
+        actions: [{ type: 'place', operationId: 'F:0:0' }],
+      }),
+      getLevel,
+    );
+
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expectDecodeReason(decoded, 'unknown-operation-id');
+  });
+
   it('rejects outcome and tuple smuggling by exact URL keys', () => {
     const level = getLevel('dependency-chain');
     const decoded = decodeAttempt(
@@ -749,6 +802,30 @@ describe('stored progress validation and recovery', () => {
         status: 'ok',
         recovery: { kind: 'quarantined-storage', reason: 'invalid-stored-attempt' },
       });
+    }
+  });
+
+  it('quarantines stale DualPipe stored attempts and keeps the raw payload historical', () => {
+    const staleAttempt = {
+      schemaVersion: 1,
+      levelId: 'dualpipe-balance',
+      levelVersion: 0,
+      actions: MASTERED_ACTIONS['dualpipe-balance'],
+    } satisfies UrlAttemptPayload;
+    const stored = {
+      schemaVersion: 1,
+      unlockedLevelIds: ['dependency-chain', 'dualpipe-balance'],
+      bestLegalAttempts: { 'dualpipe-balance': staleAttempt },
+      bestMasteredAttempts: {},
+      historicalAttempts: [],
+    };
+
+    const decoded = deserializeProgress(JSON.stringify(stored), getLevel);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.progress.bestLegalAttempts['dualpipe-balance']).toBeUndefined();
+      expect(decoded.progress.historicalAttempts).toEqual([staleAttempt]);
     }
   });
 

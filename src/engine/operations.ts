@@ -1,4 +1,10 @@
-import type { LevelConfig, Operation, OperationId, OperationKind } from './types';
+import type {
+  LevelConfig,
+  Operation,
+  OperationId,
+  OperationKind,
+  PipelineDirection,
+} from './types';
 import { validateLevelConfig } from './config';
 import { ownerRankForStage } from './topology';
 
@@ -25,6 +31,10 @@ export function operationKindsForLevel(config: LevelConfig): readonly OperationK
   return isSplitBackwardLevel(config) ? (['F', 'B', 'W'] as const) : (['F', 'B'] as const);
 }
 
+export function directionsForLevel(config: LevelConfig): readonly PipelineDirection[] {
+  return config.dualPipeModel ? config.dualPipeModel.directions : (['asc'] as const);
+}
+
 export function releasesActivation(config: LevelConfig, kind: OperationKind): boolean {
   return isSplitBackwardLevel(config) ? kind === 'W' : kind === 'B';
 }
@@ -33,19 +43,24 @@ export function deriveOperations(config: LevelConfig): readonly Operation[] {
   validateLevelConfig(config);
   const ops: Operation[] = [];
   const kinds = operationKindsForLevel(config);
+  const directions = directionsForLevel(config);
   for (let stage = 0; stage < config.stageCount; stage++) {
-    for (const kind of kinds) {
-      for (let microbatch = 0; microbatch < config.microbatchCount; microbatch++) {
-        ops.push(
-          Object.freeze({
-            id: `${kind}:${stage}:${microbatch}`,
-            kind,
-            stage,
-            rank: ownerRankForStage(config, stage),
-            microbatch,
-            duration: durationForOperation(config, kind, stage),
-          }),
-        );
+    for (const direction of directions) {
+      for (const kind of kinds) {
+        for (let microbatch = 0; microbatch < config.microbatchCount; microbatch++) {
+          const id = operationIdFor(config, kind, stage, microbatch, direction);
+          ops.push(
+            Object.freeze({
+              id,
+              kind,
+              stage,
+              rank: ownerRankForStage(config, stage),
+              microbatch,
+              ...(config.dualPipeModel ? { direction } : {}),
+              duration: durationForOperation(config, kind, stage),
+            }),
+          );
+        }
       }
     }
   }
@@ -56,8 +71,9 @@ export function parseOperationId(id: OperationId): {
   kind: OperationKind;
   stage: number;
   microbatch: number;
+  direction?: PipelineDirection;
 } {
-  const match = /^(F|B|W):(0|[1-9]\d*):(0|[1-9]\d*)$/.exec(id);
+  const match = /^(F|B|W):(0|[1-9]\d*):(0|[1-9]\d*)(?::(asc|desc))?$/.exec(id);
   if (!match) {
     throw new Error(`Invalid operation ID: ${id}`);
   }
@@ -65,12 +81,54 @@ export function parseOperationId(id: OperationId): {
     kind: match[1] as OperationKind,
     stage: Number.parseInt(match[2]!, 10),
     microbatch: Number.parseInt(match[3]!, 10),
+    ...(match[4] ? { direction: match[4] as PipelineDirection } : {}),
   };
+}
+
+export function operationIdFor(
+  config: LevelConfig,
+  kind: OperationKind,
+  stage: number,
+  microbatch: number,
+  direction: PipelineDirection = 'asc',
+): OperationId {
+  return config.dualPipeModel
+    ? `${kind}:${stage}:${microbatch}:${direction}`
+    : `${kind}:${stage}:${microbatch}`;
+}
+
+function directionForParsed(
+  parsed: ReturnType<typeof parseOperationId>,
+  config: LevelConfig,
+): PipelineDirection {
+  if (config.dualPipeModel) {
+    if (!parsed.direction) {
+      throw new Error('DualPipe operation IDs must include direction');
+    }
+    return parsed.direction;
+  }
+  if (parsed.direction) {
+    throw new Error('directional operation IDs require dualPipeModel');
+  }
+  return 'asc';
+}
+
+function previousStage(direction: PipelineDirection, stage: number): number {
+  return direction === 'asc' ? stage - 1 : stage + 1;
+}
+
+function nextStage(direction: PipelineDirection, stage: number): number {
+  return direction === 'asc' ? stage + 1 : stage - 1;
+}
+
+function stageExists(stage: number, config: LevelConfig): boolean {
+  return stage >= 0 && stage < config.stageCount;
 }
 
 export function predecessorsOf(id: OperationId, config: LevelConfig): readonly OperationId[] {
   validateLevelConfig(config);
   const parsed = parseOperationId(id);
+  const direction = directionForParsed(parsed, config);
 
   if (parsed.stage < 0 || parsed.stage >= config.stageCount) {
     throw new Error(
@@ -86,20 +144,28 @@ export function predecessorsOf(id: OperationId, config: LevelConfig): readonly O
   const result: OperationId[] = [];
 
   if (parsed.kind === 'F') {
-    if (parsed.stage > 0) {
-      result.push(`F:${parsed.stage - 1}:${parsed.microbatch}`);
+    const previous = previousStage(direction, parsed.stage);
+    if (stageExists(previous, config)) {
+      result.push(operationIdFor(config, 'F', previous, parsed.microbatch, direction));
     }
   } else if (parsed.kind === 'B') {
-    result.push(`F:${parsed.stage}:${parsed.microbatch}`);
-    if (parsed.stage < config.stageCount - 1) {
-      result.push(`B:${parsed.stage + 1}:${parsed.microbatch}`);
+    result.push(operationIdFor(config, 'F', parsed.stage, parsed.microbatch, direction));
+    const next = nextStage(direction, parsed.stage);
+    if (stageExists(next, config)) {
+      result.push(operationIdFor(config, 'B', next, parsed.microbatch, direction));
     }
   } else {
     if (!isSplitBackwardLevel(config)) {
       throw new Error(`Operation ID ${id} is not valid for fused backward levels`);
     }
-    result.push(`B:${parsed.stage}:${parsed.microbatch}`);
+    result.push(operationIdFor(config, 'B', parsed.stage, parsed.microbatch, direction));
   }
 
-  return result;
+  for (const edge of config.dualPipeModel?.crossDirectionDependencies ?? []) {
+    if (edge.to === id) {
+      result.push(edge.from);
+    }
+  }
+
+  return Object.freeze(result);
 }

@@ -288,6 +288,7 @@ describe('Game shell', () => {
       'Zero Bubble',
       'Grouped',
       'FSDP Residency',
+      'DualPipe',
     ]);
     expect(
       picker.querySelector('optgroup[label="1F1B"] option[value="tie-at-the-frontier"]'),
@@ -302,6 +303,9 @@ describe('Game shell', () => {
     ).not.toBeNull();
     expect(
       picker.querySelector('optgroup[label="FSDP Residency"] option[value="gather-once-reuse"]'),
+    ).not.toBeNull();
+    expect(
+      picker.querySelector('optgroup[label="DualPipe"] option[value="dualpipe-balance"]'),
     ).not.toBeNull();
   });
 
@@ -626,6 +630,96 @@ describe('Game shell', () => {
     expect(within(comparison).getByText(/^Bubble delta$/i)).toBeInTheDocument();
     expect(within(comparison).getByText(/^\+16\.7 pp$/i)).toBeInTheDocument();
     expect(within(comparison).getByText(/^-1 memory$/i)).toBeInTheDocument();
+  });
+
+  it('renders DualPipe directions as compact cues while preserving block codes', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dualpipe-balance" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
+    const forwardStack = within(batchZero).getByRole('group', {
+      name: /batch 0 forward blocks/i,
+    });
+
+    expect(within(guide).getByRole('heading', { name: /^DualPipe Balance$/i })).toBeInTheDocument();
+    expect(within(guide).getByText(/^DualPipe$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Balanced$/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    expect(within(forwardStack).getAllByText(/^F0:S0:B0$/i)).toHaveLength(2);
+    expect(within(forwardStack).getAllByText(/^F1:S1:B0$/i)).toHaveLength(2);
+    expect(within(forwardStack).getAllByText(/^Up$/i).length).toBeGreaterThan(0);
+    expect(within(forwardStack).getAllByText(/^Down$/i).length).toBeGreaterThan(0);
+    expect(
+      within(forwardStack).getByRole('button', {
+        name: /place F stage 0 microbatch 0 asc direction, 1 tick, ready/i,
+      }),
+    ).toHaveAttribute('data-operation-visual', 'F-0-0-asc');
+    expect(
+      within(forwardStack).getByRole('button', {
+        name: /place F stage 1 microbatch 0 desc direction, 1 tick, ready/i,
+      }),
+    ).toHaveAttribute('data-operation-visual', 'F-1-0-desc');
+
+    await user.click(
+      within(forwardStack).getByRole('button', {
+        name: /place F stage 0 microbatch 0 asc direction, 1 tick, ready/i,
+      }),
+    );
+    await user.click(
+      within(forwardStack).getByRole('button', {
+        name: /place F stage 1 microbatch 0 desc direction, 1 tick, ready/i,
+      }),
+    );
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    expect(scheduleLabelIn(board, 'F:0:0:asc')).toHaveAccessibleName('F0:S0:B0');
+    expect(scheduleLabelIn(board, 'F:1:0:desc')).toHaveAccessibleName('F1:S1:B0');
+    expect(screen.getByTestId('rank-tile-F:0:0:asc')).toHaveAttribute('data-direction', 'asc');
+    expect(screen.getByTestId('rank-tile-F:1:0:desc')).toHaveAttribute('data-direction', 'desc');
+    expect(within(board).getAllByText(/^Up$/i).length).toBeGreaterThan(0);
+    expect(within(board).getAllByText(/^Down$/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('compares DualPipe completion against the one-direction baseline in compact metrics', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dualpipe-balance" />);
+
+    for (const action of MASTERED_ACTIONS['dualpipe-balance']) {
+      if (action.type !== 'place') {
+        throw new Error('expected place-only mastered fixture');
+      }
+      const [kind, stage, microbatch, direction] = action.operationId.split(':');
+      await user.click(
+        screen.getByRole('button', {
+          name: new RegExp(
+            `place ${kind} stage ${stage} microbatch ${microbatch} ${direction} direction`,
+            'i',
+          ),
+        }),
+      );
+    }
+
+    expect(
+      screen.getByText(
+        /^Completed with DualPipe balanced order, -9 makespan vs One-direction baseline reference\. Mastered\.$/i,
+      ),
+    ).toBeInTheDocument();
+
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    await user.click(within(metrics).getByText(/^Reference comparison$/i));
+    const comparison = within(metrics).getByRole('group', {
+      name: /reference comparison/i,
+    });
+
+    expect(within(comparison).getByText(/^One-direction baseline reference$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^DualPipe balanced exact$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^18$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^-9$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^-33\.3 pp$/i)).toBeInTheDocument();
+    expect(within(comparison).getByText(/^\+2 memory$/i)).toBeInTheDocument();
   });
 
   it('keeps operation visual identity consistent from selector to preview and board', async () => {

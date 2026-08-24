@@ -8,6 +8,7 @@ import {
 } from './replay';
 import type { Action, LevelConfig, Operation, OperationId, ReferencePolicyId } from './types';
 import { microbatchGroupIndex } from './microbatchGroups';
+import { operationIdFor } from './operations';
 import { topologyForLevel } from './topology';
 
 export interface ReferencePolicy {
@@ -29,6 +30,11 @@ export const REFERENCE_POLICIES: Readonly<Record<ReferencePolicyId, ReferencePol
     'zero-bubble-deep': Object.freeze({
       id: 'zero-bubble-deep',
       label: 'Zero Bubble Deep',
+    }),
+    'dualpipe-balanced': Object.freeze({ id: 'dualpipe-balanced', label: 'DualPipe balanced' }),
+    'dualpipe-one-direction': Object.freeze({
+      id: 'dualpipe-one-direction',
+      label: 'One-direction baseline',
     }),
   });
 
@@ -312,6 +318,33 @@ function selectGroupMajorMove(
   );
 }
 
+function directionOrder(operation: Operation): number {
+  return operation.direction === 'desc' ? 1 : 0;
+}
+
+function compareDualPipeBalanced(left: LegalMove, right: LegalMove): number {
+  if (left.earliestStart !== right.earliestStart) {
+    return left.earliestStart - right.earliestStart;
+  }
+  if (left.operation.kind !== right.operation.kind) {
+    return groupMajorKindOrder(left.operation.kind) - groupMajorKindOrder(right.operation.kind);
+  }
+  if (left.operation.microbatch !== right.operation.microbatch) {
+    return left.operation.microbatch - right.operation.microbatch;
+  }
+  if (left.operation.stage !== right.operation.stage) {
+    return left.operation.stage - right.operation.stage;
+  }
+  if (directionOrder(left.operation) !== directionOrder(right.operation)) {
+    return directionOrder(left.operation) - directionOrder(right.operation);
+  }
+  return left.operation.id.localeCompare(right.operation.id);
+}
+
+function selectDualPipeBalancedMove(legalMoves: readonly LegalMove[]): LegalMove | null {
+  return [...legalMoves].sort(compareDualPipeBalanced)[0] ?? null;
+}
+
 function zeroBubbleStageKey(operation: Operation): number {
   return operation.kind === 'F' ? operation.stage : -operation.stage;
 }
@@ -431,14 +464,53 @@ function selectMove(
       return selectZeroBubbleMove(state, legalMoves, state.config.stageCount);
     case 'zero-bubble-deep':
       return selectZeroBubbleMove(state, legalMoves, state.config.stageCount + 1);
+    case 'dualpipe-balanced':
+    case 'dualpipe-one-direction':
+      return selectDualPipeBalancedMove(legalMoves);
   }
+}
+
+function configForPolicy(config: LevelConfig, policyId: ReferencePolicyId): LevelConfig {
+  if (policyId !== 'dualpipe-one-direction' || !config.dualPipeModel) {
+    return config;
+  }
+
+  const edgeKeys = new Set<string>();
+  const crossDirectionDependencies = [...(config.dualPipeModel.crossDirectionDependencies ?? [])];
+
+  for (const edge of crossDirectionDependencies) {
+    edgeKeys.add(`${edge.from}->${edge.to}`);
+  }
+
+  for (let ascMicrobatch = 0; ascMicrobatch < config.microbatchCount; ascMicrobatch += 1) {
+    const from = operationIdFor(config, 'B', 0, ascMicrobatch, 'asc');
+    for (let descMicrobatch = 0; descMicrobatch < config.microbatchCount; descMicrobatch += 1) {
+      const to = operationIdFor(config, 'F', config.stageCount - 1, descMicrobatch, 'desc');
+      const key = `${from}->${to}`;
+      if (!edgeKeys.has(key)) {
+        crossDirectionDependencies.push(Object.freeze({ from, to }));
+        edgeKeys.add(key);
+      }
+    }
+  }
+
+  return Object.freeze({
+    ...config,
+    dualPipeModel: Object.freeze({
+      ...config.dualPipeModel,
+      directions: Object.freeze([...config.dualPipeModel.directions]),
+      resourceModel: Object.freeze({ ...config.dualPipeModel.resourceModel }),
+      crossDirectionDependencies: Object.freeze(crossDirectionDependencies),
+    }),
+  });
 }
 
 export function projectReferencePolicy(
   config: LevelConfig,
   policyId: ReferencePolicyId,
 ): PolicyProjectionResult {
-  let currentState = replay(config, []);
+  const projectedConfig = configForPolicy(config, policyId);
+  let currentState = replay(projectedConfig, []);
   if (!currentState.ok) {
     throw new Error('initial replay unexpectedly failed');
   }
@@ -578,11 +650,12 @@ function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[]
       return Object.freeze(['interleaved-one-f-one-b', 'one-f-one-b', 'gpipe-afab'] as const);
     case 'grouped':
       return Object.freeze(['group-major', 'one-f-one-b'] as const);
+    case 'dualpipe':
+      return Object.freeze(['dualpipe-balanced', 'dualpipe-one-direction'] as const);
     case 'foundations':
     case 'building-block':
     case 'zero-bubble':
     case 'fsdp-residency':
-    case 'dualpipe':
       return Object.freeze([]);
   }
 }

@@ -1,6 +1,7 @@
 import type { Action, LevelConfig, Operation, OperationId, ResidencyEffect } from './types';
 import {
   deriveOperations,
+  operationIdFor,
   predecessorsOf,
   parseOperationId,
   releasesActivation,
@@ -132,7 +133,13 @@ function computeCurrentMemory(
   for (const placement of placements) {
     const parsed = parseOperationId(placement.operationId);
     if (releasesActivation(config, parsed.kind)) {
-      const matchingF: OperationId = `F:${parsed.stage}:${parsed.microbatch}`;
+      const matchingF = operationIdFor(
+        config,
+        'F',
+        parsed.stage,
+        parsed.microbatch,
+        parsed.direction ?? 'asc',
+      );
       releasedF.add(matchingF);
     }
   }
@@ -175,6 +182,24 @@ function cloneConfig(config: LevelConfig): LevelConfig {
     ...(config.scoreModel ? { scoreModel: Object.freeze({ ...config.scoreModel }) } : {}),
     ...(config.residencyModel
       ? { residencyModel: Object.freeze({ ...config.residencyModel }) }
+      : {}),
+    ...(config.dualPipeModel
+      ? {
+          dualPipeModel: Object.freeze({
+            enabled: config.dualPipeModel.enabled,
+            directions: Object.freeze([...config.dualPipeModel.directions]),
+            resourceModel: Object.freeze({ ...config.dualPipeModel.resourceModel }),
+            ...(config.dualPipeModel.crossDirectionDependencies
+              ? {
+                  crossDirectionDependencies: Object.freeze(
+                    config.dualPipeModel.crossDirectionDependencies.map((edge) =>
+                      Object.freeze({ ...edge }),
+                    ),
+                  ),
+                }
+              : {}),
+          }),
+        }
       : {}),
     ...(config.referencePolicy
       ? {
@@ -430,6 +455,12 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
 }
 
 function computeEarliestStart(state: ScheduleState, operation: Operation): number {
+  if (state.config.dualPipeModel) {
+    const dependencyStart = dependencyReadyTime(state, operation);
+    const waitStart = latestIntentionalWaitEnd(state, operation.rank);
+    return earliestDualPipeResourceStart(state, operation, Math.max(dependencyStart, waitStart));
+  }
+
   let start = state.rankFrontiers[operation.rank] ?? 0;
   const predecessors = predecessorsOf(operation.id, state.config);
   for (const predId of predecessors) {
@@ -439,6 +470,102 @@ function computeEarliestStart(state: ScheduleState, operation: Operation): numbe
     }
   }
   return start;
+}
+
+function dependencyReadyTime(state: ScheduleState, operation: Operation): number {
+  let start = 0;
+  const predecessors = predecessorsOf(operation.id, state.config);
+  for (const predId of predecessors) {
+    const predPlacement = state.placementById[predId];
+    if (predPlacement) {
+      start = Math.max(start, predPlacement.end);
+    }
+  }
+  return start;
+}
+
+function latestIntentionalWaitEnd(state: ScheduleState, rank: number): number {
+  return state.gaps.reduce(
+    (latest, gap) =>
+      gap.rank === rank && gap.kind === 'intentional' ? Math.max(latest, gap.end) : latest,
+    0,
+  );
+}
+
+function intervalsOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+) {
+  return leftStart < rightEnd && leftEnd > rightStart;
+}
+
+function operationForPlacement(state: ScheduleState, placement: Placement): Operation {
+  const operation = state.operations.find((candidate) => candidate.id === placement.operationId);
+  if (!operation) {
+    throw new Error(`Operation ${placement.operationId} not found`);
+  }
+  return operation;
+}
+
+function canOccupyDualPipeResources(
+  state: ScheduleState,
+  operation: Operation,
+  start: number,
+): boolean {
+  const model = state.config.dualPipeModel;
+  if (!model) {
+    return true;
+  }
+  if (!operation.direction) {
+    throw new Error(`DualPipe operation ${operation.id} is missing direction`);
+  }
+
+  const end = start + operation.duration;
+  let sharedOccupancy = 0;
+  let directionalOccupancy = 0;
+
+  for (const placement of state.placements) {
+    if (placement.rank !== operation.rank) {
+      continue;
+    }
+    if (!intervalsOverlap(start, end, placement.start, placement.end)) {
+      continue;
+    }
+
+    const placedOperation = operationForPlacement(state, placement);
+    sharedOccupancy += 1;
+    if (placedOperation.direction === operation.direction) {
+      directionalOccupancy += 1;
+    }
+  }
+
+  return (
+    sharedOccupancy < model.resourceModel.sharedCapacity &&
+    directionalOccupancy < model.resourceModel.directionalSlots
+  );
+}
+
+function earliestDualPipeResourceStart(
+  state: ScheduleState,
+  operation: Operation,
+  minimumStart: number,
+): number {
+  const horizon =
+    state.placements.reduce((max, placement) => Math.max(max, placement.end), 0) +
+    operation.duration +
+    state.operations.length +
+    state.actions.length +
+    1;
+
+  for (let start = minimumStart; start <= horizon; start += 1) {
+    if (canOccupyDualPipeResources(state, operation, start)) {
+      return start;
+    }
+  }
+
+  return horizon;
 }
 
 export function classifyMoves(state: ScheduleState): readonly MoveClassification[] {
@@ -532,10 +659,10 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
   const newPlacements: readonly Placement[] = Object.freeze([...state.placements, newPlacement]);
 
   const newFrontiers = [...state.rankFrontiers];
-  newFrontiers[operation.rank] = end;
+  newFrontiers[operation.rank] = Math.max(newFrontiers[operation.rank] ?? 0, end);
 
   const newGaps = [...state.gaps];
-  if (start > (state.rankFrontiers[operation.rank] ?? 0)) {
+  if (!state.config.dualPipeModel && start > (state.rankFrontiers[operation.rank] ?? 0)) {
     newGaps.push(
       Object.freeze({
         rank: operation.rank,

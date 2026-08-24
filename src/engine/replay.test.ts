@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { OperationId } from './types';
 import { initialState, classifyOperation, classifyMoves, applyAction, replay } from './replay';
 import { makeConfig, placeIds, expectState } from '../test/factories';
+import { getLevel } from '../levels/levels';
 
 describe('initialState', () => {
   it('creates empty state with zeroed frontiers and memory', () => {
@@ -67,6 +68,41 @@ describe('initialState', () => {
 
     expect(state.config.durationOverrides).toEqual([{ kind: 'B', stage: 0, duration: 4 }]);
     expect(state.operations.find((operation) => operation.id === 'B:0:0')?.duration).toBe(4);
+  });
+
+  it('deep-freezes cloned DualPipe metadata independently of the input config', () => {
+    const config = makeConfig({
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+        crossDirectionDependencies: [{ from: 'B:0:0:asc', to: 'F:1:0:desc' }],
+      },
+    });
+
+    const state = initialState(config);
+
+    expect(Object.isFrozen(state.config.dualPipeModel)).toBe(true);
+    expect(Object.isFrozen(state.config.dualPipeModel?.directions)).toBe(true);
+    expect(Object.isFrozen(state.config.dualPipeModel?.resourceModel)).toBe(true);
+    expect(Object.isFrozen(state.config.dualPipeModel?.crossDirectionDependencies)).toBe(true);
+    expect(Object.isFrozen(state.config.dualPipeModel?.crossDirectionDependencies?.[0])).toBe(true);
+
+    (config.dualPipeModel!.directions as string[]).reverse();
+    (config.dualPipeModel!.resourceModel as { sharedCapacity: number }).sharedCapacity = 1;
+    (
+      config.dualPipeModel!.crossDirectionDependencies as Array<{
+        from: OperationId;
+        to: OperationId;
+      }>
+    )[0]!.to = 'F:0:0:desc';
+
+    expect(state.config.dualPipeModel).toEqual({
+      enabled: true,
+      directions: ['asc', 'desc'],
+      resourceModel: { directionalSlots: 1, sharedCapacity: 2 },
+      crossDirectionDependencies: [{ from: 'B:0:0:asc', to: 'F:1:0:desc' }],
+    });
   });
 });
 
@@ -551,6 +587,65 @@ describe('replay', () => {
     expect(state1.placements).not.toBe(state2.placements);
     expect(state1.gaps).not.toBe(state2.gaps);
     expect(state1.actions).not.toBe(state2.actions);
+  });
+});
+
+describe('DualPipe replay', () => {
+  it('allows opposite directions to overlap on a rank when shared capacity permits it', () => {
+    const state = expectState(
+      replay(
+        getLevel('dualpipe-balance'),
+        placeIds('F:0:0:asc', 'F:1:0:desc', 'F:0:0:desc', 'F:1:0:asc', 'F:0:1:asc', 'F:1:1:desc'),
+      ),
+    );
+
+    expect(state.placements).toEqual([
+      { operationId: 'F:0:0:asc', rank: 0, start: 0, end: 1 },
+      { operationId: 'F:1:0:desc', rank: 1, start: 0, end: 1 },
+      { operationId: 'F:0:0:desc', rank: 0, start: 1, end: 2 },
+      { operationId: 'F:1:0:asc', rank: 1, start: 1, end: 2 },
+      { operationId: 'F:0:1:asc', rank: 0, start: 1, end: 2 },
+      { operationId: 'F:1:1:desc', rank: 1, start: 1, end: 2 },
+    ]);
+    expect(state.rankFrontiers).toEqual([2, 2]);
+    expect(state.gaps).toEqual([]);
+  });
+
+  it('serializes same-rank opposite directions when shared capacity is one', () => {
+    const state = expectState(
+      replay(
+        getLevel('dualpipe-conflict'),
+        placeIds('F:0:0:asc', 'F:1:0:desc', 'F:0:0:desc', 'F:1:0:asc', 'F:0:1:asc', 'F:1:1:desc'),
+      ),
+    );
+
+    expect(state.placements).toEqual([
+      { operationId: 'F:0:0:asc', rank: 0, start: 0, end: 1 },
+      { operationId: 'F:1:0:desc', rank: 1, start: 0, end: 1 },
+      { operationId: 'F:0:0:desc', rank: 0, start: 1, end: 2 },
+      { operationId: 'F:1:0:asc', rank: 1, start: 1, end: 2 },
+      { operationId: 'F:0:1:asc', rank: 0, start: 2, end: 3 },
+      { operationId: 'F:1:1:desc', rank: 1, start: 2, end: 3 },
+    ]);
+    expect(state.rankFrontiers).toEqual([3, 3]);
+    expect(state.gaps).toEqual([]);
+  });
+
+  it('releases activation memory by stage, microbatch, and direction', () => {
+    const forwards = ['F:0:0:asc', 'F:1:0:desc', 'F:0:0:desc', 'F:1:0:asc'] as const;
+    const afterForwards = expectState(replay(getLevel('two-directions'), placeIds(...forwards)));
+
+    expect(afterForwards.currentMemory).toEqual([2, 2]);
+    const descBackward = classifyOperation(afterForwards, 'B:0:0:desc');
+    expect(descBackward.status).toBe('legal');
+    if (descBackward.status === 'legal') {
+      expect(descBackward.projectedMemory).toBe(1);
+    }
+
+    const afterDescRelease = expectState(
+      replay(getLevel('two-directions'), placeIds(...forwards, 'B:0:0:desc')),
+    );
+    expect(afterDescRelease.currentMemory).toEqual([1, 2]);
   });
 });
 
