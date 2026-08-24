@@ -26,23 +26,43 @@ function topologyLabel(level: LevelConfig): string | null {
   return `V-stage x${level.topology.virtualStagesPerRank}`;
 }
 
-function durationOverrideLabels(level: LevelConfig): readonly string[] {
-  return Object.freeze(
-    (level.durationOverrides ?? []).map(
-      (override) => `${override.kind}:S${override.stage} = ${override.duration}t`,
-    ),
-  );
-}
-
 function groupLabel(level: LevelConfig): string | null {
   return level.microbatchGrouping ? `Group x${level.microbatchGrouping.groupSize}` : null;
 }
 
-export function LevelGuide({ level, score }: LevelGuideProps) {
-  const topology = topologyLabel(level);
-  const durationLabels = durationOverrideLabels(level);
+function primaryModifier(level: LevelConfig): string | null {
   const grouping = groupLabel(level);
+  if (grouping) {
+    return grouping;
+  }
+  if (level.residencyModel) {
+    return 'Residency';
+  }
+  if (level.dualPipeModel) {
+    return 'Bidirectional';
+  }
+  if ((level.durationOverrides ?? []).length > 0) {
+    return 'Variable cost';
+  }
+  const topology = topologyLabel(level);
+  if (topology) {
+    return topology;
+  }
+  return level.algorithm.patternLabel;
+}
 
+function guideChips(level: LevelConfig, score: ScoreResult): readonly string[] {
+  return Object.freeze(
+    [
+      primaryGoal(level),
+      score.complete ? 'Complete' : 'In progress',
+      `makespan ${score.makespan}`,
+      primaryModifier(level),
+    ].filter((label): label is string => label !== null),
+  );
+}
+
+export function LevelGuide({ level, score }: LevelGuideProps) {
   return (
     <section className="panel level-guide-panel" aria-label="Level guide">
       <div>
@@ -51,18 +71,11 @@ export function LevelGuide({ level, score }: LevelGuideProps) {
         <p className="level-guide-panel__copy">{level.algorithm.concept}</p>
       </div>
       <div className="level-guide-panel__chips" aria-label="Level progress summary">
-        <span>{primaryGoal(level)}</span>
-        {topology ? <span className="topology-chip">{topology}</span> : null}
-        {grouping ? <span className="group-chip">{grouping}</span> : null}
-        {durationLabels.map((label) => (
-          <span key={`duration-${label}`} className="duration-chip">
+        {guideChips(level, score).map((label) => (
+          <span key={label} className="level-guide-panel__chip" data-testid="level-guide-chip">
             {label}
           </span>
         ))}
-        {level.algorithm.patternLabel ? <span>{level.algorithm.patternLabel}</span> : null}
-        <span>{level.algorithm.objective}</span>
-        <span>{score.complete ? 'Complete' : 'In progress'}</span>
-        <span>makespan {score.makespan}</span>
       </div>
     </section>
   );

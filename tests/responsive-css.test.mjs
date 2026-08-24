@@ -69,6 +69,35 @@ describe('responsive play surface CSS contract', () => {
     );
   });
 
+  it('allocates the lower workspace to the schedule board on laptop layouts', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const cockpitGridBlock = extractBlock(css, '.cockpit-grid');
+    const levelGuideBlock = extractBlock(css, '.level-guide-panel');
+    const trayPanelBlock = extractBlock(css, '.tray-panel');
+    const commandRailBlock = extractBlock(css, '.schedule-command-rail');
+    const boardPanelBlock = extractBlock(css, '.board-panel');
+    const boardHeaderBlock = extractBlock(css, '.board-panel__header');
+    const boardScrollBlock = extractBlock(css, '.board-scroll-region');
+
+    expect(cockpitGridBlock).toMatch(
+      /grid-template-rows:\s*auto minmax\(0,\s*auto\) auto auto minmax\(45dvh,\s*1fr\)\s*;/,
+    );
+    expect(levelGuideBlock).toMatch(/\.level-guide-panel\s*\{[^}]*\bmin-height:\s*0\s*;/);
+    expect(trayPanelBlock).toMatch(
+      /\.tray-panel\s*\{[^}]*\bmax-height:\s*min\(22dvh,\s*14rem\)\s*;/,
+    );
+    expect(commandRailBlock).toMatch(
+      /\.schedule-command-rail\s*\{[^}]*\bmin-height:\s*2\.5rem\s*;/,
+    );
+    expect(boardPanelBlock).toMatch(/\.board-panel\s*\{[^}]*\bmin-height:\s*45dvh\s*;/);
+    expect(boardPanelBlock).toMatch(/\.board-panel\s*\{[^}]*\bdisplay:\s*grid\s*;/);
+    expect(boardPanelBlock).toMatch(
+      /\.board-panel\s*\{[^}]*\bgrid-template-rows:\s*auto minmax\(0,\s*1fr\) auto\s*;/,
+    );
+    expect(boardHeaderBlock).toMatch(/\.board-panel__header\s*\{[^}]*\bmin-width:\s*0\s*;/);
+    expect(boardScrollBlock).toMatch(/\.board-scroll-region\s*\{[^}]*\bmin-height:\s*0\s*;/);
+  });
+
   it('uses comfortable controls, visible feedback, and a compact two-row block dock on mobile', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const commandRailBlock = extractBlock(css, '.schedule-command-rail');
@@ -118,8 +147,12 @@ describe('responsive play surface CSS contract', () => {
     const patternCheckStatusBlock = extractBlock(css, '.pattern-check__copy,');
     expect(patternCheckBlock).toMatch(/\.pattern-check\s*\{[^}]*\bdisplay:\s*grid\s*;/);
     expect(patternCheckBlock).toMatch(
-      /grid-template-columns:\s*auto minmax\(8rem,\s*1fr\) minmax\(9rem,\s*1\.2fr\) auto\s*;/,
+      /grid-template-columns:\s*auto minmax\(4\.75rem,\s*auto\) minmax\(3\.75rem,\s*auto\) auto\s*;/,
     );
+    expect(patternCheckBlock).toMatch(
+      /\.pattern-check\s*\{[^}]*\bmax-width:\s*min\(100%,\s*22rem\)\s*;/,
+    );
+    expect(patternCheckBlock).toMatch(/\.pattern-check\s*\{[^}]*\bmin-width:\s*0\s*;/);
     expect(patternCheckBlock).toMatch(/\.pattern-check\s*\{[^}]*\bborder-radius:\s*7px\s*;/);
     expect(patternCheckStatusBlock).toMatch(
       /\.pattern-check__copy,\s*\.pattern-check__status\s*\{[^}]*\boverflow:\s*hidden\s*;/,
@@ -135,7 +168,7 @@ describe('responsive play surface CSS contract', () => {
       /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-flow:\s*column\s*;/,
     );
     expect(operationTrayGridBlock).toMatch(
-      /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-columns:\s*minmax\(12rem,\s*15rem\)\s*;/,
+      /\.operation-tray-grid\s*\{[^}]*\bgrid-auto-columns:\s*minmax\(10\.5rem,\s*13rem\)\s*;/,
     );
     expect(operationTrayGridBlock).toMatch(
       /\.operation-tray-grid\s*\{[^}]*\boverflow-x:\s*auto\s*;/,
@@ -143,11 +176,15 @@ describe('responsive play surface CSS contract', () => {
     expect(operationButtonBlock).toMatch(
       /\.operation-button\s*\{[^}]*\bgrid-template-rows:\s*minmax\(0,\s*1fr\)\s*;/,
     );
-    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bheight:\s*2rem\s*;/);
-    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmin-height:\s*2rem\s*;/);
-    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bmax-height:\s*2rem\s*;/);
+    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bheight:\s*1\.875rem\s*;/);
     expect(operationButtonBlock).toMatch(
-      /\.operation-button\s*\{[^}]*\bpadding:\s*0\.2rem 0\.95rem 0\.32rem 0\.36rem\s*;/,
+      /\.operation-button\s*\{[^}]*\bmin-height:\s*1\.875rem\s*;/,
+    );
+    expect(operationButtonBlock).toMatch(
+      /\.operation-button\s*\{[^}]*\bmax-height:\s*1\.875rem\s*;/,
+    );
+    expect(operationButtonBlock).toMatch(
+      /\.operation-button\s*\{[^}]*\bpadding:\s*0\.16rem 0\.75rem 0\.28rem 0\.28rem\s*;/,
     );
     const operationDirectionBlock = extractBlock(css, '.operation-button__direction');
     expect(operationDirectionBlock).toMatch(
@@ -178,7 +215,7 @@ describe('responsive play surface CSS contract', () => {
       /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
     );
     expect(batchReadyBlock).toMatch(
-      /\.batch-lane\[data-phase='ready'\]\s*\{[^}]*\bborder-color:\s*color-mix\(in srgb,\s*var\(--ready\) 34%,\s*var\(--line\)\)\s*;/,
+      /\.batch-lane\[data-phase='ready'\]\s*\{[^}]*\bborder-color:\s*color-mix\(in srgb,\s*var\(--batch-accent,\s*var\(--ready\)\) 34%,\s*var\(--line\)\)\s*;/,
     );
     expect(batchDoneBlock).toMatch(
       /\.batch-lane\[data-phase='done'\]\s*\{[^}]*\bopacity:\s*0\.64\s*;/,
@@ -203,6 +240,9 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(css).toMatch(
       /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-tray-grid\s*\{[\s\S]*?scroll-snap-type:\s*x proximity\s*;/,
+    );
+    expect(css).toMatch(
+      /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.operation-button\s*\{[\s\S]*?height:\s*2\.75rem\s*;[\s\S]*?min-height:\s*2\.75rem\s*;[\s\S]*?max-height:\s*2\.75rem\s*;/,
     );
     expect(css).toMatch(
       /@media\s*\(max-width:\s*40rem\)[\s\S]*?\.batch-lane\s*\{[\s\S]*?scroll-snap-align:\s*start\s*;/,
@@ -244,11 +284,11 @@ describe('responsive play surface CSS contract', () => {
     const memoryActiveBlock = extractBlock(css, '.memory-strip__segment--active');
     const memoryLabelBlock = extractBlock(css, '.memory-strip__label');
 
-    expect(scheduleBoardSource).toMatch(/export const CELL_WIDTH = 56;/);
-    expect(scheduleBoardSource).toMatch(/const WORK_BLOCK_HEIGHT = 38;/);
-    expect(scheduleBoardSource).toMatch(/const ROW_HEIGHT = 74;/);
-    expect(scheduleBoardSource).toMatch(/const DUALPIPE_ROW_HEIGHT = 116;/);
-    expect(scheduleBoardSource).toMatch(/const MIN_BOARD_WIDTH = 860;/);
+    expect(scheduleBoardSource).toMatch(/export const CELL_WIDTH = 60;/);
+    expect(scheduleBoardSource).toMatch(/const WORK_BLOCK_HEIGHT = 44;/);
+    expect(scheduleBoardSource).toMatch(/const ROW_HEIGHT = 84;/);
+    expect(scheduleBoardSource).toMatch(/const DUALPIPE_ROW_HEIGHT = 132;/);
+    expect(scheduleBoardSource).toMatch(/const MIN_BOARD_WIDTH = 920;/);
     expect(scheduleBoardSource).toMatch(
       /return operation\.direction === 'asc' \? 0 : WORK_BLOCK_HEIGHT \+ 4;/,
     );
@@ -268,20 +308,20 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-dasharray:\s*5 4\s*;/);
     expect(previewBlock).toMatch(/\.schedule-preview-rect\s*\{[^}]*\bstroke-width:\s*2\s*;/);
-    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/);
+    expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.62rem\s*;/);
     expect(scheduleLabelBlock).toMatch(
       /\.schedule-label\s*\{[^}]*\bfont-family:\s*var\(--font-mono\)\s*;/,
     );
     expect(scheduleLabelBlock).toMatch(/\.schedule-label\s*\{[^}]*\bpointer-events:\s*none\s*;/);
     const directionLabelBlock = extractBlock(css, '.schedule-direction-label');
     expect(directionLabelBlock).toMatch(
-      /\.schedule-direction-label\s*\{[^}]*\bfont-size:\s*0\.46rem\s*;/,
+      /\.schedule-direction-label\s*\{[^}]*\bfont-size:\s*0\.48rem\s*;/,
     );
     expect(directionLabelBlock).toMatch(
       /\.schedule-direction-label\s*\{[^}]*\btext-transform:\s*uppercase\s*;/,
     );
     expect(previewLabelBlock).toMatch(
-      /\.schedule-preview-label\s*\{[^}]*\bfont-size:\s*0\.58rem\s*;/,
+      /\.schedule-preview-label,\s*\.schedule-label\s*\{[^}]*\bfont-size:\s*0\.62rem\s*;/,
     );
 
     expect(memorySegmentBlock).toMatch(
@@ -295,23 +335,66 @@ describe('responsive play surface CSS contract', () => {
 
   it('keeps virtual-stage topology copy compact and horizontally scrollable', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
-    const topologyChipBlock = extractBlock(css, '.topology-chip');
     const topologyOwnersBlock = extractBlock(css, '.rank-owner-list');
 
-    expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bwhite-space:\s*nowrap\s*;/);
-    expect(topologyChipBlock).toMatch(/\.topology-chip\s*\{[^}]*\bmax-width:\s*100%\s*;/);
     expect(topologyOwnersBlock).toMatch(/\.rank-owner-list\s*\{[^}]*\boverflow-x:\s*auto\s*;/);
   });
 
-  it('keeps nonuniform-cost level guide chips compact', async () => {
+  it('keeps compact labels whole and supports two or three ready-queue stacks', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
-    const levelGuideChipBlock = extractBlock(css, '.level-guide-panel__chips span');
+    const guideChipBlock = extractBlock(css, '\n.level-guide-panel__chip {');
+    const batchStacksBlock = extractBlock(css, '\n.batch-lane__stacks {');
+    const batchThreeStackBlock = extractBlock(css, ".batch-lane__stacks[data-stack-count='3']");
+    const operationButtonBlock = extractBlock(css, '\n.operation-button {');
+    const operationCodeBlock = extractBlock(css, '\n.operation-button__code {');
 
-    expect(levelGuideChipBlock).toMatch(
-      /\.level-guide-panel__chips span\s*\{[^}]*\bwhite-space:\s*normal\s*;/,
+    expect(guideChipBlock).toMatch(
+      /\.level-guide-panel__chip\s*\{[^}]*\bwhite-space:\s*nowrap\s*;/,
     );
-    expect(levelGuideChipBlock).toMatch(
-      /\.level-guide-panel__chips span\s*\{[^}]*\boverflow-wrap:\s*anywhere\s*;/,
+    expect(guideChipBlock).toMatch(
+      /\.level-guide-panel__chip\s*\{[^}]*\btext-overflow:\s*ellipsis\s*;/,
+    );
+    expect(batchStacksBlock).toMatch(
+      /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,
+    );
+    expect(batchThreeStackBlock).toMatch(
+      /\.batch-lane__stacks\[data-stack-count='3'\]\s*\{[^}]*\bgrid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)\s*;/,
+    );
+    expect(operationButtonBlock).toMatch(/\.operation-button\s*\{[^}]*\bheight:\s*1\.875rem\s*;/);
+    expect(operationButtonBlock).toMatch(
+      /\.operation-button\s*\{[^}]*\bmin-height:\s*1\.875rem\s*;/,
+    );
+    expect(operationCodeBlock).toMatch(
+      /\.operation-button__code\s*\{[^}]*\bwhite-space:\s*nowrap\s*;/,
+    );
+  });
+
+  it('keeps queue and board scroll local and supports reduced motion', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const htmlBlock = extractBlock(css, 'html');
+    const bodyBlock = extractBlock(css, 'body');
+    const trayPanelBlock = extractBlock(css, '.tray-panel');
+    const operationTrayGridBlock = extractBlock(css, '.operation-tray-grid');
+    const boardScrollBlock = extractBlock(css, '.board-scroll-region');
+
+    expect(htmlBlock).toMatch(/\bmin-width:\s*0\s*;/);
+    expect(bodyBlock).toMatch(/\bmin-width:\s*0\s*;/);
+    expect(trayPanelBlock).toMatch(/\boverflow:\s*hidden\s*;/);
+    expect(operationTrayGridBlock).toMatch(/\boverflow-x:\s*auto\s*;/);
+    expect(boardScrollBlock).toMatch(/\boverflow-x:\s*auto\s*;/);
+    expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    expect(css).toMatch(/transition:\s*none !important/);
+  });
+
+  it('keeps keyboard focus visible on scrollable schedule regions', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+
+    expect(css).toMatch(/\.board-scroll-region:focus-visible\s*\{/);
+    expect(css).toMatch(
+      /\.board-scroll-region:focus-visible\s*\{[\s\S]*?outline:\s*var\(--focus-ring\)\s*;/,
+    );
+    expect(css).toMatch(
+      /\.board-scroll-region:focus-visible\s*\{[\s\S]*?outline-offset:\s*2px\s*;/,
     );
   });
 

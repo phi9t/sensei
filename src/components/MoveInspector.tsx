@@ -17,8 +17,7 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
   const operationIdentity = operationId === null ? null : parseOperationId(operationId);
   const ownerRank = ownerRankForExplanation(explanation);
   const showOwnerRank = operationIdentity !== null && ownerRank !== null;
-  const dependencySummary =
-    explanation && operationId !== null ? dependencySummaryText(explanation.dependencyIds) : null;
+  const selectedDirection = directionLabel(operationIdentity?.direction);
 
   return (
     <section className="panel inspector-panel" aria-labelledby="move-inspector-heading">
@@ -43,21 +42,20 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
             <div className="inspector-operation__copy">
               <strong>{formatOperationName(operationId)}</strong>
               <span className="mono">{formatOperationCode(operationId)}</span>
-              {showOwnerRank ? (
-                <span className="inspector-operation__owner">Owner rank {ownerRank}</span>
-              ) : null}
-              {directionLabel(operationIdentity?.direction) ? (
-                <span className="inspector-operation__owner">
-                  {directionLabel(operationIdentity?.direction)}
-                </span>
-              ) : null}
             </div>
             <span className="inspector-operation__status">{explanation.status}</span>
           </div>
+          <ul className="inspector-facts" aria-label="Selected block facts">
+            {showOwnerRank ? <li>Owner R{ownerRank}</li> : null}
+            {selectedDirection ? <li>{selectedDirection}</li> : null}
+            <li>{compactDependencyFact(explanation.dependencyIds)}</li>
+            {explanation.status === 'legal' && explanation.resourceDelay ? (
+              <li>{compactResourceDelayFact(explanation.resourceDelay)}</li>
+            ) : null}
+          </ul>
 
           {explanation.status === 'blocked' ? (
             <>
-              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
               <p>Blocked by:</p>
               <ul className="inspector-list">
                 {explanation.explanations.map((entry, index) => (
@@ -81,10 +79,6 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
                 Legal now. Earliest start {explanation.earliestStart}. Duration{' '}
                 {explanation.operation?.duration}. Memory after: {explanation.projectedMemory}.
               </p>
-              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
-              {explanation.resourceDelay ? (
-                <p className="inspector-note">{resourceDelayText(explanation.resourceDelay)}</p>
-              ) : null}
               {explanation.residencyEffect ? (
                 <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
               ) : null}
@@ -97,7 +91,6 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
                 Placed on rank {explanation.placement?.rank} from {explanation.placement?.start} to{' '}
                 {explanation.placement?.end}. Duration {explanation.operation?.duration}.
               </p>
-              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
               {explanation.residencyEffect ? (
                 <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
               ) : null}
@@ -125,9 +118,9 @@ function ownerRankForExplanation(explanation: InspectorExplanation | null): numb
 function directionLabel(direction: Operation['direction']): string | null {
   switch (direction) {
     case 'asc':
-      return 'Direction up';
+      return 'Direction Up';
     case 'desc':
-      return 'Direction down';
+      return 'Direction Down';
     case undefined:
       return null;
   }
@@ -152,17 +145,17 @@ function dependencyLabel(operationId: OperationId): string {
     : formatOperationCode(operationId);
 }
 
-function dependencySummaryText(dependencyIds: readonly OperationId[]): string {
+function compactDependencyFact(dependencyIds: readonly OperationId[]): string {
   if (dependencyIds.length === 0) {
-    return 'Deps none.';
+    return 'Deps none';
   }
-  return `Deps ${dependencyIds.map(dependencyLabel).join(', ')}.`;
+  return `Deps ${dependencyIds.map(dependencyLabel).join(', ')}`;
 }
 
-function resourceDelayText(delay: ResourceDelay): string {
+function compactResourceDelayFact(delay: ResourceDelay): string {
   const direction = compactDirectionLabel(delay.direction);
-  const directionText = direction ? `, ${direction}` : '';
-  return `Resource wait R${delay.rank} ${delay.start}->${delay.end}${directionText}; shared ${delay.sharedCapacity}, dir slots ${delay.directionalSlots}.`;
+  const directionText = direction ? ` ${direction}` : '';
+  return `Wait R${delay.rank} ${delay.start}->${delay.end}${directionText}`;
 }
 
 function humanBlockedMessage(reason: BlockReason): string {

@@ -49,6 +49,42 @@ function validationSummary(validation: BuildingBlockValidation): string {
   }
 }
 
+function validationWord(validation: BuildingBlockValidation): string {
+  return validation.ok ? 'valid' : 'blocked';
+}
+
+function compactValidationSummary(validation: BuildingBlockValidation): string {
+  if (validation.ok) {
+    return `Peak ${Math.max(...validation.projectedPeakMemory, 0)}`;
+  }
+
+  const first = validation.violations[0];
+  if (!first) {
+    return 'Check failed';
+  }
+
+  switch (first.kind) {
+    case 'invalid-period':
+      return `Period ${first.period}`;
+    case 'invalid-offset':
+      return 'Offset';
+    case 'unknown-operation':
+      return 'Unknown block';
+    case 'duplicate-operation':
+      return 'Duplicate';
+    case 'missing-operation':
+      return 'Missing';
+    case 'duplicate-rank-residue':
+      return `R${first.rank} conflict`;
+    case 'unsatisfied-dependency':
+      return 'Dependency';
+    case 'memory-cap':
+      return `R${first.rank} memory`;
+    default:
+      return assertNever(first);
+  }
+}
+
 function extraViolationLabel(validation: BuildingBlockValidation): string | null {
   const extra = validation.violations.length - 1;
   return extra > 0 ? `+${extra} more` : null;
@@ -61,16 +97,17 @@ export function PatternCheck({ check, onStamp }: PatternCheckProps) {
     <div
       className="pattern-check"
       role="group"
-      aria-label="Pattern check"
+      aria-label={`Pattern check: ${validationSummary(check.validation)}`}
       data-status={check.validation.ok ? 'valid' : 'invalid'}
+      data-compact="true"
     >
       <span className="control-cluster__label">Pattern</span>
       <span className="pattern-check__copy">
-        <strong>{check.label}</strong>
+        <strong>{validationWord(check.validation)}</strong>
         <span>period {check.period}</span>
       </span>
       <span className="pattern-check__status">
-        {validationSummary(check.validation)}
+        {compactValidationSummary(check.validation)}
         {extra ? <span className="pattern-check__extra"> {extra}</span> : null}
       </span>
       <button

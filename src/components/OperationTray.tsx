@@ -137,6 +137,14 @@ function batchPhaseLabel(group: BatchGroup): string {
   }
 }
 
+function batchVisualVars(microbatch: number): CSSProperties {
+  const hue = (184 + microbatch * 42) % 360;
+  return {
+    '--batch-hue': String(hue),
+    '--batch-accent': `hsl(${hue} 44% 40%)`,
+  } as CSSProperties;
+}
+
 export function OperationTray({
   level,
   classifications,
@@ -208,6 +216,8 @@ function BatchLane({
       data-phase={group.phase}
       data-ready-count={group.readyCount}
       data-group={groupLabel ?? undefined}
+      data-stack-count={operationKinds.length}
+      style={batchVisualVars(group.microbatch)}
     >
       <div className="batch-lane__heading">
         <h3>Batch {group.microbatch}</h3>

@@ -9,6 +9,20 @@ afterEach(() => {
 });
 
 describe('ScheduleBoard', () => {
+  it('uses readable board geometry for placed blocks and two-line labels', () => {
+    const schedule = expectState(replay(makeConfig(), placeIds('F:0:0')));
+
+    render(<ScheduleBoard schedule={schedule} selectedOperationId={null} preview={null} />);
+
+    const placed = screen.getByTestId('rank-tile-F:0:0');
+    const label = screen.getByTestId('rank-label-F:0:0');
+
+    expect(placed).toHaveAttribute('width', '60');
+    expect(placed).toHaveAttribute('height', '44');
+    expect(label).toHaveAccessibleName('F0:S0:B0');
+    expect(label.querySelectorAll('tspan')).toHaveLength(2);
+  });
+
   it('renders replay-owned activation and residency timeline segments', () => {
     const base = expectState(replay(makeConfig(), placeIds('F:0:0')));
     const schedule: ScheduleState = Object.freeze({

@@ -5,16 +5,16 @@ import type { Operation, OperationId, OperationKind, PipelineDirection } from '.
 import { topologyForLevel } from '../engine/topology';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
-export const CELL_WIDTH = 56;
+export const CELL_WIDTH = 60;
 const RIGHT_PADDING = 32;
 const MEMORY_STRIP_HEIGHT = 8;
 const MEMORY_STRIP_GAP = 8;
-const WORK_BLOCK_HEIGHT = 38;
-const ROW_HEIGHT = 74;
-const DUALPIPE_ROW_HEIGHT = 116;
+const WORK_BLOCK_HEIGHT = 44;
+const ROW_HEIGHT = 84;
+const DUALPIPE_ROW_HEIGHT = 132;
 const TOP_PADDING = 48;
 const LEFT_PADDING = 78;
-const MIN_BOARD_WIDTH = 860;
+const MIN_BOARD_WIDTH = 920;
 
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
@@ -199,15 +199,17 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
 
   return (
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
-      <h2 id="schedule-board-heading">Schedule board</h2>
-      <p className="panel-intro">Your pipeline, one move at a time.</p>
-      {rankOwners.length > 0 ? (
-        <div className="rank-owner-list" aria-label="Rank stage ownership">
-          {rankOwners.map((owner) => (
-            <span key={`rank-owner-${owner.rank}`}>{rankOwnerText(owner)}</span>
-          ))}
-        </div>
-      ) : null}
+      <div className="board-panel__header">
+        <h2 id="schedule-board-heading">Schedule board</h2>
+        <p className="panel-intro">Your pipeline, one move at a time.</p>
+        {rankOwners.length > 0 ? (
+          <div className="rank-owner-list" aria-label="Rank stage ownership">
+            {rankOwners.map((owner) => (
+              <span key={`rank-owner-${owner.rank}`}>{rankOwnerText(owner)}</span>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <div
         className="board-scroll-region"
         role="group"

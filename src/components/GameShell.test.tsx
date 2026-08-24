@@ -103,9 +103,6 @@ describe('Game shell', () => {
       within(guide).getByText(/Run all forward work first, then drain all backward work/i),
     ).toBeInTheDocument();
     expect(within(guide).getByText(/^AFAB$/i)).toBeInTheDocument();
-    expect(
-      within(guide).getByText(/Build the AFAB shape and notice the activation memory it holds/i),
-    ).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
@@ -117,7 +114,6 @@ describe('Game shell', () => {
     expect(within(guide).getByRole('heading', { name: /^Virtual Stages$/i })).toBeInTheDocument();
     expect(within(guide).getAllByText(/^Virtual Stages$/i)).toHaveLength(2);
     expect(within(guide).getByText(/^V-stage x2$/i)).toBeInTheDocument();
-    expect(within(guide).getByText(/^V-shape$/i)).toBeInTheDocument();
   });
 
   it('shows compact nonuniform-cost metadata without adding a rules panel', () => {
@@ -129,8 +125,26 @@ describe('Game shell', () => {
       within(guide).getByRole('heading', { name: /^Heavy Backward Tail$/i }),
     ).toBeInTheDocument();
     expect(within(guide).getByText(/^Nonuniform Cost$/i)).toBeInTheDocument();
-    expect(within(guide).getByText(/^B:S0 = 4t$/i)).toBeInTheDocument();
-    expect(within(guide).getByText(/^Cost-aware$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Variable cost$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the level guide concise and bounded for dense curriculum levels', () => {
+    render(<App initialLevelId="heavy-backward-tail" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const chips = within(guide).getAllByTestId('level-guide-chip');
+
+    expect(
+      within(guide).getByRole('heading', { name: /^Heavy Backward Tail$/i }),
+    ).toBeInTheDocument();
+    expect(within(guide).getByText(/^Nonuniform Cost$/i)).toBeInTheDocument();
+    expect(
+      within(guide).getByText(/A heavy first-stage backward creates a critical tail/i),
+    ).toBeInTheDocument();
+    expect(within(guide).getByText(/^Variable cost$/i)).toBeInTheDocument();
+    expect(chips.length).toBeLessThanOrEqual(4);
+    expect(within(guide).queryByText(/^B:S0 = 4t$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
@@ -151,6 +165,27 @@ describe('Game shell', () => {
     expect(within(weightStack).getByText(/^W1:S1:B0$/i)).toBeInTheDocument();
     expect(screen.getByTestId('tile-W:0:0')).toHaveAttribute('data-kind', 'W');
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('marks split-gradient batch lanes as three-stack groups without changing compact codes', () => {
+    render(<App initialLevelId="split-backward" />);
+
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    const batchZero = within(blocks).getByRole('region', { name: /batch 0 blocks/i });
+
+    expect(batchZero).toHaveAttribute('data-stack-count', '3');
+    expect(
+      within(batchZero).getByRole('group', { name: /batch 0 forward blocks/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(batchZero).getByRole('group', { name: /batch 0 backward blocks/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(batchZero).getByRole('group', { name: /batch 0 weight-gradient blocks/i }),
+    ).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(batchZero).getByText(/^W0:S0:B0$/i)).toBeInTheDocument();
   });
 
   it('shows zero-bubble guidance and internal-bubble scoring only where enabled', async () => {
@@ -232,7 +267,7 @@ describe('Game shell', () => {
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('data-duration', '4');
-    expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('width', '224');
+    expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('width', '240');
     expect(scheduleLabelIn(board, 'B:0:0')).toHaveAccessibleName('B0:S0:B0');
     expect(within(board).getByText(/Rank 0, start 10, end 14, duration 4/i)).toBeInTheDocument();
 
@@ -248,8 +283,9 @@ describe('Game shell', () => {
     await user.click(screen.getByTestId('tile-F:2:0'));
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
     expect(within(inspector).getByText(/^F2:S2:B0$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Owner rank 1$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Owner R1$/i)).toBeInTheDocument();
   });
 
   it('renders virtual-stage schedule tiles with compact rank ownership text', async () => {
@@ -309,19 +345,21 @@ describe('Game shell', () => {
     ).not.toBeNull();
   });
 
-  it('shows a compact pattern check only on building-block levels', () => {
+  it('keeps building-block validation as compact command-rail status', () => {
     render(<App initialLevelId="stamp-the-pattern" />);
 
     const rail = screen.getByRole('region', { name: /schedule command rail/i });
     const pattern = within(rail).getByRole('group', { name: /pattern check/i });
 
+    expect(pattern).toHaveAttribute('data-compact', 'true');
     expect(within(pattern).getByText(/^Pattern$/i)).toBeInTheDocument();
-    expect(within(pattern).getByText(/Two-rank periodic trajectory/i)).toBeInTheDocument();
-    expect(within(pattern).getByText(/period 3/i)).toBeInTheDocument();
-    expect(within(pattern).getByText(/Pattern valid\. Peak memory 2\./i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/^valid$/i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/^period 3$/i)).toBeInTheDocument();
+    expect(within(pattern).getByText(/Peak 2/i)).toBeInTheDocument();
     expect(
       within(pattern).getByRole('button', { name: /stamp building-block pattern/i }),
     ).toBeEnabled();
+    expect(within(pattern).queryByText(/Pattern valid\. Peak memory 2\./i)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
 
     cleanup();
@@ -387,8 +425,9 @@ describe('Game shell', () => {
     await user.keyboard('{Enter}');
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
-    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Deps F0:S0:B0, B1:S1:B0\.$/i)).toBeInTheDocument();
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
+    expect(within(facts).getByText(/^Owner R0$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Deps F0:S0:B0, B1:S1:B0$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/F0:S0:B0/)).toBeInTheDocument();
@@ -406,12 +445,13 @@ describe('Game shell', () => {
     await tabUntil(user, firstMove);
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
-    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
+    expect(within(facts).getByText(/^Owner R0$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Deps none$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Legal now\. Earliest start 0/i)).toBeInTheDocument();
     const preview = screen.getByTestId('preview-tile-F:0:0');
     expect(preview).toHaveAttribute('x', '0');
-    expect(preview).toHaveAttribute('width', '56');
+    expect(preview).toHaveAttribute('width', '60');
 
     await user.click(
       within(screen.getByRole('region', { name: /schedule command rail/i })).getByRole('button', {
@@ -439,7 +479,7 @@ describe('Game shell', () => {
     await tabUntil(user, screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
 
     const preview = screen.getByTestId('preview-tile-F:1:0');
-    expect(preview).toHaveAttribute('x', '56');
+    expect(preview).toHaveAttribute('x', '60');
     expect(preview).toHaveAttribute('data-duration', '1');
     expect(screen.getByTestId('preview-label-F:1:0')).toHaveAccessibleName('F1:S1:B0');
   });
@@ -561,7 +601,6 @@ describe('Game shell', () => {
     expect(within(guide).getByRole('heading', { name: /^Group The Pipe$/i })).toBeInTheDocument();
     expect(within(guide).getByText(/^Grouped$/i)).toBeInTheDocument();
     expect(within(guide).getByText(/^Group x2$/i)).toBeInTheDocument();
-    expect(within(guide).getByText(/^Group major$/i)).toBeInTheDocument();
     expect(within(batchZero).getByText(/^G0$/i)).toBeInTheDocument();
     expect(within(batchTwo).getByText(/^G1$/i)).toBeInTheDocument();
     expect(within(batchZero).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
@@ -579,6 +618,7 @@ describe('Game shell', () => {
       within(guide).getByRole('heading', { name: /^Gather Once, Reuse$/i }),
     ).toBeInTheDocument();
     expect(within(guide).getByText(/^FSDP Residency$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Residency$/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
     await user.click(screen.getByRole('button', { name: /inspect F stage 0 microbatch 0/i }));
@@ -649,7 +689,7 @@ describe('Game shell', () => {
 
     expect(within(guide).getByRole('heading', { name: /^DualPipe Balance$/i })).toBeInTheDocument();
     expect(within(guide).getByText(/^DualPipe$/i)).toBeInTheDocument();
-    expect(within(guide).getByText(/^Balanced$/i)).toBeInTheDocument();
+    expect(within(guide).getByText(/^Bidirectional$/i)).toBeInTheDocument();
     expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
     expect(within(forwardStack).getAllByText(/^F0:S0:B0$/i)).toHaveLength(2);
     expect(within(forwardStack).getAllByText(/^F1:S1:B0$/i)).toHaveLength(2);
@@ -687,7 +727,7 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
-  it('explains DualPipe resource waits without inflating block names', async () => {
+  it('keeps selected-block explanation compact while preserving resource facts', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dualpipe-conflict" />);
 
@@ -698,18 +738,21 @@ describe('Game shell', () => {
     );
 
     const delayed = screen.getByRole('button', {
-      name: /place F stage 0 microbatch 1 asc direction, 1 tick, ready/i,
+      name: /place F stage 0 microbatch 1 asc direction/i,
     });
     await tabUntil(user, delayed);
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
+
     expect(within(inspector).getByText(/^F0:S0:B1$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Direction up$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Owner R0$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Direction Up$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Deps none$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Wait R0 0->1 Up$/i)).toBeInTheDocument();
     expect(
-      within(inspector).getByText(/^Resource wait R0 0->1, Up; shared 1, dir slots 1\.$/i),
-    ).toBeInTheDocument();
+      within(inspector).queryByText(/Resource wait R0 0->1, Up; shared 1/i),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('preview-label-F:0:1:asc')).toHaveAccessibleName('F0:S0:B1');
   });
 
@@ -934,8 +977,8 @@ describe('Game shell', () => {
 
     const tile = screen.getByTestId('rank-tile-F:1:0');
     expect(tile).toHaveAttribute('data-duration', '1');
-    expect(tile).toHaveAttribute('x', '56');
-    expect(tile).toHaveAttribute('width', '56');
+    expect(tile).toHaveAttribute('x', '60');
+    expect(tile).toHaveAttribute('width', '60');
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     expect(
@@ -1053,8 +1096,9 @@ describe('Game shell', () => {
     });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
+    expect(within(facts).getByText(/^Owner R0$/i)).toBeInTheDocument();
+    expect(within(facts).getByText(/^Deps none$/i)).toBeInTheDocument();
     expect(scheduleLabelIn(board, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
     expect(completed).toHaveAttribute('aria-current', 'true');
   });
@@ -1097,7 +1141,8 @@ describe('Game shell', () => {
 
     expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
     const inspector = screen.getByRole('region', { name: /move inspector/i });
-    expect(within(inspector).getByText(/^Deps F0:S0:B0, B1:S1:B0\.$/i)).toBeInTheDocument();
+    const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
+    expect(within(facts).getByText(/^Deps F0:S0:B0, B1:S1:B0$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
   });
