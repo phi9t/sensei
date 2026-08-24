@@ -360,6 +360,18 @@ describe('validateLevelConfig', () => {
           dualPipeModel: {
             enabled: true,
             directions: ['asc', 'desc'],
+            resourceModel: { directionalSlots: 2, sharedCapacity: 2 },
+          },
+        }),
+      ),
+    ).toThrow(/dualPipeModel directionalSlots must equal 1 for the current model/);
+
+    expect(() =>
+      validateLevelConfig(
+        makeConfig({
+          dualPipeModel: {
+            enabled: true,
+            directions: ['asc', 'desc'],
             resourceModel: { directionalSlots: 1, sharedCapacity: 0 },
           },
         }),

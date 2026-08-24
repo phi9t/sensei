@@ -387,6 +387,8 @@ describe('Game shell', () => {
     await user.keyboard('{Enter}');
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Deps F0:S0:B0, B1:S1:B0\.$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/F0:S0:B0/)).toBeInTheDocument();
@@ -404,6 +406,8 @@ describe('Game shell', () => {
     await tabUntil(user, firstMove);
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Legal now\. Earliest start 0/i)).toBeInTheDocument();
     const preview = screen.getByTestId('preview-tile-F:0:0');
     expect(preview).toHaveAttribute('x', '0');
@@ -681,6 +685,32 @@ describe('Game shell', () => {
     expect(within(board).getAllByText(/^Up$/i).length).toBeGreaterThan(0);
     expect(within(board).getAllByText(/^Down$/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('explains DualPipe resource waits without inflating block names', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dualpipe-conflict" />);
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /place F stage 0 microbatch 0 asc direction/i,
+      }),
+    );
+
+    const delayed = screen.getByRole('button', {
+      name: /place F stage 0 microbatch 1 asc direction, 1 tick, ready/i,
+    });
+    await tabUntil(user, delayed);
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/^F0:S0:B1$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Direction up$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/^Resource wait R0 0->1, Up; shared 1, dir slots 1\.$/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('preview-label-F:0:1:asc')).toHaveAccessibleName('F0:S0:B1');
   });
 
   it('compares DualPipe completion against the one-direction baseline in compact metrics', async () => {
@@ -1023,6 +1053,8 @@ describe('Game shell', () => {
     });
 
     expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Owner rank 0$/i)).toBeInTheDocument();
+    expect(within(inspector).getByText(/^Deps none\.$/i)).toBeInTheDocument();
     expect(scheduleLabelIn(board, 'F:0:0')).toHaveAccessibleName('F0:S0:B0');
     expect(completed).toHaveAttribute('aria-current', 'true');
   });
@@ -1065,6 +1097,7 @@ describe('Game shell', () => {
 
     expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
     const inspector = screen.getByRole('region', { name: /move inspector/i });
+    expect(within(inspector).getByText(/^Deps F0:S0:B0, B1:S1:B0\.$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
   });

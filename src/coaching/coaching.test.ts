@@ -95,11 +95,13 @@ describe('coaching', () => {
       status: 'completed',
       operationId: 'F:0:0',
       placement: afterForward.placementById['F:0:0'],
+      dependencyIds: [],
     });
 
     expect(explainBlockedMove(afterForward, 'F:1:0')).toEqual({
       status: 'legal',
       operationId: 'F:1:0',
+      dependencyIds: ['F:0:0'],
       earliestStart: 1,
       projectedMemory: 1,
     });
@@ -107,6 +109,7 @@ describe('coaching', () => {
     expect(explainBlockedMove(initial, 'B:0:0')).toEqual({
       status: 'blocked',
       operationId: 'B:0:0',
+      dependencyIds: ['F:0:0', 'B:1:0'],
       explanations: [
         {
           kind: 'dependency-not-finished',
@@ -130,6 +133,7 @@ describe('coaching', () => {
     expect(explainBlockedMove(state, 'F:0:3')).toEqual({
       status: 'blocked',
       operationId: 'F:0:3',
+      dependencyIds: [],
       explanations: [
         {
           kind: 'memory-cap',
@@ -137,6 +141,35 @@ describe('coaching', () => {
           message: 'Rank 0 is at memory cap 3/3 and cannot place another forward activation.',
         },
       ],
+    });
+  });
+
+  it('carries DualPipe resource-delay facts for legal delayed moves', () => {
+    const config = makeConfig({
+      rankCount: 1,
+      stageCount: 1,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 1 },
+      },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0:asc')));
+
+    expect(explainBlockedMove(state, 'F:0:0:desc')).toEqual({
+      status: 'legal',
+      operationId: 'F:0:0:desc',
+      dependencyIds: [],
+      earliestStart: 1,
+      projectedMemory: 2,
+      resourceDelay: {
+        rank: 0,
+        start: 0,
+        end: 1,
+        direction: 'desc',
+        sharedCapacity: 1,
+        directionalSlots: 1,
+      },
     });
   });
 

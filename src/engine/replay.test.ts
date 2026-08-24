@@ -28,6 +28,12 @@ describe('initialState', () => {
     expect(Object.isFrozen(state.actions)).toBe(true);
     expect(Object.isFrozen(state.placementById)).toBe(true);
     expect(Object.isFrozen(state.operations)).toBe(true);
+    expect(Object.isFrozen(state.activationMemoryTimelineByRank)).toBe(true);
+    expect(Object.isFrozen(state.activationMemoryTimelineByRank[0])).toBe(true);
+    expect(Object.isFrozen(state.activationMemoryTimelineByRank[0]?.[0])).toBe(true);
+    expect(Object.isFrozen(state.weightResidencyTimelineByRank)).toBe(true);
+    expect(Object.isFrozen(state.weightResidencyTimelineByRank[0])).toBe(true);
+    expect(Object.isFrozen(state.weightResidencyTimelineByRank[0]?.[0])).toBe(true);
   });
 
   it('deep-freezes cloned algorithm metadata independently of the input config', () => {
@@ -346,6 +352,38 @@ describe('memory and activation', () => {
     expect(state.peakMemory).toEqual([1, 1]);
   });
 
+  it('stores replay-owned activation-memory timelines by rank', () => {
+    const config = makeConfig();
+    const state = expectState(replay(config, placeIds('F:0:0', 'F:1:0', 'B:1:0', 'B:0:0')));
+
+    expect(state.activationMemoryTimelineByRank[1]).toEqual([
+      { start: 0, end: 2, value: 0 },
+      { start: 2, end: 4, value: 1 },
+      { start: 4, end: 6, value: 0 },
+    ]);
+  });
+
+  it('stores replay-owned weight-residency timelines by rank', () => {
+    const config = makeConfig({
+      microbatchCount: 2,
+      memoryCaps: [3, 3],
+      residencyModel: { weightUnit: 1 },
+    });
+    const state = expectState(
+      replay(config, [
+        { type: 'place', operationId: 'F:0:0' },
+        { type: 'place', operationId: 'F:0:1' },
+        { type: 'wait', rank: 0 },
+      ]),
+    );
+
+    expect(state.weightResidencyTimelineByRank[0]).toEqual([
+      { start: 0, end: 1, value: 0 },
+      { start: 1, end: 2, value: 1 },
+      { start: 2, end: 3, value: 1 },
+    ]);
+  });
+
   it('F acquire followed by B release: current+peak memory correct', () => {
     const config = makeConfig({ memoryCaps: [2, 2] });
     const state = expectState(replay(config, [{ type: 'place', operationId: 'F:0:0' }]));
@@ -591,6 +629,34 @@ describe('replay', () => {
 });
 
 describe('DualPipe replay', () => {
+  it('reports resource delay for legal moves delayed by occupied directional slots', () => {
+    const config = makeConfig({
+      rankCount: 1,
+      stageCount: 1,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 1 },
+      },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0:asc')));
+
+    const classification = classifyOperation(state, 'F:0:0:desc');
+
+    expect(classification.status).toBe('legal');
+    if (classification.status === 'legal') {
+      expect(classification.dependencyIds).toEqual([]);
+      expect(classification.resourceDelay).toEqual({
+        rank: 0,
+        start: 0,
+        end: 1,
+        direction: 'desc',
+        sharedCapacity: 1,
+        directionalSlots: 1,
+      });
+    }
+  });
+
   it('allows opposite directions to overlap on a rank when shared capacity permits it', () => {
     const state = expectState(
       replay(

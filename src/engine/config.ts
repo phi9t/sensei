@@ -140,6 +140,9 @@ export function validateLevelConfig(config: LevelConfig): void {
     if (!isFinitePositiveInteger(config.dualPipeModel.resourceModel.directionalSlots)) {
       throw new Error('dualPipeModel directionalSlots must be a positive finite integer');
     }
+    if (config.dualPipeModel.resourceModel.directionalSlots !== 1) {
+      throw new Error('dualPipeModel directionalSlots must equal 1 for the current model');
+    }
     if (!isFinitePositiveInteger(config.dualPipeModel.resourceModel.sharedCapacity)) {
       throw new Error('dualPipeModel sharedCapacity must be a positive finite integer');
     }

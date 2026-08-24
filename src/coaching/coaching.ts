@@ -3,6 +3,7 @@ import {
   classifyMoves,
   type BlockReason,
   type MoveClassification,
+  type ResourceDelay,
   type ScheduleState,
 } from '../engine/replay';
 import { applyAction } from '../engine/replay';
@@ -48,18 +49,22 @@ export type ExplanationResult =
       status: 'completed';
       operationId: OperationId;
       placement: ScheduleState['placementById'][OperationId];
+      dependencyIds: readonly OperationId[];
       residencyEffect?: Extract<MoveClassification, { status: 'completed' }>['residencyEffect'];
     }
   | {
       status: 'legal';
       operationId: OperationId;
+      dependencyIds: readonly OperationId[];
       earliestStart: number;
       projectedMemory: number;
+      resourceDelay?: ResourceDelay;
       residencyEffect?: Extract<MoveClassification, { status: 'legal' }>['residencyEffect'];
     }
   | {
       status: 'blocked';
       operationId: OperationId;
+      dependencyIds: readonly OperationId[];
       explanations: readonly ExplanationEntry[];
     };
 
@@ -175,6 +180,7 @@ export function explainBlockedMove(
       status: 'completed' as const,
       operationId,
       placement: classification.placement,
+      dependencyIds: classification.dependencyIds,
       ...(classification.residencyEffect
         ? { residencyEffect: classification.residencyEffect }
         : {}),
@@ -185,8 +191,10 @@ export function explainBlockedMove(
     return Object.freeze({
       status: 'legal' as const,
       operationId,
+      dependencyIds: classification.dependencyIds,
       earliestStart: classification.earliestStart,
       projectedMemory: classification.projectedMemory,
+      ...(classification.resourceDelay ? { resourceDelay: classification.resourceDelay } : {}),
       ...(classification.residencyEffect
         ? { residencyEffect: classification.residencyEffect }
         : {}),
@@ -206,6 +214,7 @@ export function explainBlockedMove(
   return Object.freeze({
     status: 'blocked' as const,
     operationId,
+    dependencyIds: classification.dependencyIds,
     explanations,
   });
 }

@@ -80,6 +80,27 @@ describe('score', () => {
     });
   });
 
+  it('caps DualPipe capacity by directional slot capacity when shared capacity is larger', () => {
+    const config = makeConfig({
+      rankCount: 1,
+      stageCount: 1,
+      microbatchCount: 1,
+      dualPipeModel: {
+        enabled: true,
+        directions: ['asc', 'desc'],
+        resourceModel: { directionalSlots: 1, sharedCapacity: 8 },
+      },
+    });
+    const state = expectState(replay(config, placeIds('F:0:0:asc', 'F:0:0:desc')));
+
+    expect(score(state)).toMatchObject({
+      makespan: 1,
+      totalWork: 2,
+      capacity: 2,
+      bubbleRatio: 0,
+    });
+  });
+
   it('scores the empty state as zero with complete false and mastered false', () => {
     const state = expectState(replay(makeConfig(), []));
 

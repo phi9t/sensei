@@ -1,4 +1,11 @@
-import type { Action, LevelConfig, Operation, OperationId, ResidencyEffect } from './types';
+import type {
+  Action,
+  LevelConfig,
+  Operation,
+  OperationId,
+  PipelineDirection,
+  ResidencyEffect,
+} from './types';
 import {
   deriveOperations,
   operationIdFor,
@@ -22,6 +29,21 @@ export interface Gap {
   kind: 'dependency-forced' | 'intentional';
 }
 
+export interface MemoryTimelineSegment {
+  readonly start: number;
+  readonly end: number;
+  readonly value: number;
+}
+
+export interface ResourceDelay {
+  readonly rank: number;
+  readonly start: number;
+  readonly end: number;
+  readonly direction?: PipelineDirection;
+  readonly sharedCapacity: number;
+  readonly directionalSlots: number;
+}
+
 export type BlockReason =
   | { kind: 'already-placed'; operationId: OperationId }
   | { kind: 'dependency-not-finished'; operationId: OperationId }
@@ -43,15 +65,23 @@ export type MoveClassification =
   | {
       status: 'legal';
       operation: Operation;
+      dependencyIds: readonly OperationId[];
       earliestStart: number;
       projectedMemory: number;
+      resourceDelay?: ResourceDelay;
       residencyEffect?: ResidencyEffect;
     }
-  | { status: 'blocked'; operation: Operation; reasons: readonly BlockReason[] }
+  | {
+      status: 'blocked';
+      operation: Operation;
+      dependencyIds: readonly OperationId[];
+      reasons: readonly BlockReason[];
+    }
   | {
       status: 'completed';
       operation: Operation;
       placement: Placement;
+      dependencyIds: readonly OperationId[];
       residencyEffect?: ResidencyEffect;
     };
 
@@ -63,6 +93,8 @@ export interface ScheduleState {
   rankFrontiers: readonly number[];
   currentMemory: readonly number[];
   peakMemory: readonly number[];
+  activationMemoryTimelineByRank: readonly (readonly MemoryTimelineSegment[])[];
+  weightResidencyTimelineByRank: readonly (readonly MemoryTimelineSegment[])[];
   residentWeightsByRank: readonly (readonly number[])[];
   weightEventsByPlacement: Readonly<Partial<Record<OperationId, ResidencyEffect>>>;
   allGatherCount: number;
@@ -87,6 +119,128 @@ function createPlacementById(
     map[placement.operationId] = placement;
   }
   return Object.freeze(map);
+}
+
+function freezeMemoryTimelineSegments(
+  segments: readonly MemoryTimelineSegment[],
+): readonly MemoryTimelineSegment[] {
+  return Object.freeze(segments.map((segment) => Object.freeze({ ...segment })));
+}
+
+function emptyMemoryTimelines(rankCount: number): readonly (readonly MemoryTimelineSegment[])[] {
+  return Object.freeze(
+    Array.from({ length: rankCount }, () =>
+      freezeMemoryTimelineSegments([{ start: 0, end: 0, value: 0 }]),
+    ),
+  );
+}
+
+function maxEndTimeForPlacements(
+  placements: readonly Placement[],
+  rankFrontiers: readonly number[],
+): number {
+  const placementEnd = placements.reduce((max, placement) => Math.max(max, placement.end), 0);
+  const frontierEnd = rankFrontiers.reduce((max, frontier) => Math.max(max, frontier), 0);
+  return Math.max(placementEnd, frontierEnd, 2);
+}
+
+function computeActivationMemoryTimelineByRank(
+  config: LevelConfig,
+  operations: readonly Operation[],
+  placements: readonly Placement[],
+  rankFrontiers: readonly number[],
+): readonly (readonly MemoryTimelineSegment[])[] {
+  const horizon = maxEndTimeForPlacements(placements, rankFrontiers);
+  if (horizon === 0) {
+    return emptyMemoryTimelines(config.rankCount);
+  }
+
+  const operationById = new Map(operations.map((operation) => [operation.id, operation]));
+  return Object.freeze(
+    Array.from({ length: config.rankCount }, (_, rank) => {
+      const events = placements
+        .filter((placement) => placement.rank === rank)
+        .map((placement) => {
+          const operation = operationById.get(placement.operationId);
+          if (!operation) {
+            throw new Error(`Operation ${placement.operationId} not found`);
+          }
+          return {
+            time: placement.end,
+            delta: operation.kind === 'F' ? 1 : releasesActivation(config, operation.kind) ? -1 : 0,
+          };
+        })
+        .filter((event) => event.delta !== 0)
+        .sort((left, right) => left.time - right.time || right.delta - left.delta);
+
+      const segments: MemoryTimelineSegment[] = [];
+      let cursor = 0;
+      let value = 0;
+
+      for (const event of events) {
+        if (event.time > cursor) {
+          segments.push({ start: cursor, end: event.time, value });
+          cursor = event.time;
+        }
+        value += event.delta;
+      }
+
+      if (cursor < horizon) {
+        segments.push({ start: cursor, end: horizon, value });
+      }
+
+      if (segments.length === 0) {
+        segments.push({ start: 0, end: horizon, value: 0 });
+      }
+
+      return freezeMemoryTimelineSegments(segments);
+    }),
+  );
+}
+
+function computeWeightResidencyTimelineByRank(
+  config: LevelConfig,
+  placements: readonly Placement[],
+  rankFrontiers: readonly number[],
+  weightEventsByPlacement: Readonly<Partial<Record<OperationId, ResidencyEffect>>>,
+): readonly (readonly MemoryTimelineSegment[])[] {
+  const horizon = maxEndTimeForPlacements(placements, rankFrontiers);
+  if (horizon === 0) {
+    return emptyMemoryTimelines(config.rankCount);
+  }
+
+  return Object.freeze(
+    Array.from({ length: config.rankCount }, (_, rank) => {
+      const rankedPlacements = placements
+        .filter((placement) => placement.rank === rank)
+        .sort((left, right) => left.end - right.end || left.start - right.start);
+      const segments: MemoryTimelineSegment[] = [];
+      let cursor = 0;
+      let value = 0;
+
+      for (const placement of rankedPlacements) {
+        const effect = weightEventsByPlacement[placement.operationId];
+        if (!effect) {
+          continue;
+        }
+        if (placement.end > cursor) {
+          segments.push({ start: cursor, end: placement.end, value });
+          cursor = placement.end;
+        }
+        value = effect.residentWeightMemory;
+      }
+
+      if (cursor < horizon) {
+        segments.push({ start: cursor, end: horizon, value });
+      }
+
+      if (segments.length === 0) {
+        segments.push({ start: 0, end: horizon, value: 0 });
+      }
+
+      return freezeMemoryTimelineSegments(segments);
+    }),
+  );
 }
 
 function computePeakMemory(
@@ -348,6 +502,29 @@ function projectResidencyEffect(
   return Object.freeze({ ok: true as const, effect });
 }
 
+function timelineStateFields(
+  config: LevelConfig,
+  operations: readonly Operation[],
+  placements: readonly Placement[],
+  rankFrontiers: readonly number[],
+  weightEventsByPlacement: Readonly<Partial<Record<OperationId, ResidencyEffect>>>,
+): Pick<ScheduleState, 'activationMemoryTimelineByRank' | 'weightResidencyTimelineByRank'> {
+  return Object.freeze({
+    activationMemoryTimelineByRank: computeActivationMemoryTimelineByRank(
+      config,
+      operations,
+      placements,
+      rankFrontiers,
+    ),
+    weightResidencyTimelineByRank: computeWeightResidencyTimelineByRank(
+      config,
+      placements,
+      rankFrontiers,
+      weightEventsByPlacement,
+    ),
+  });
+}
+
 function validateWaitRank(rank: number, rankCount: number): BlockReason | null {
   if (!Number.isFinite(rank) || !Number.isInteger(rank)) {
     return { kind: 'invalid-rank', rank };
@@ -363,17 +540,29 @@ export function initialState(config: LevelConfig): ScheduleState {
   const frozenConfig = cloneConfig(config);
   const operations = deriveOperations(frozenConfig);
   const rankCount = frozenConfig.rankCount;
+  const rankFrontiers = Object.freeze(new Array<number>(rankCount).fill(0));
+  const placements = Object.freeze([] as readonly Placement[]);
+  const weightEventsByPlacement = Object.freeze({});
+  const timelines = timelineStateFields(
+    frozenConfig,
+    operations,
+    placements,
+    rankFrontiers,
+    weightEventsByPlacement,
+  );
 
   const state: ScheduleState = {
     config: frozenConfig,
     operations,
-    placements: Object.freeze([]),
+    placements,
     placementById: Object.freeze({}),
-    rankFrontiers: Object.freeze(new Array<number>(rankCount).fill(0)),
+    rankFrontiers,
     currentMemory: Object.freeze(new Array<number>(rankCount).fill(0)),
     peakMemory: Object.freeze(new Array<number>(rankCount).fill(0)),
+    activationMemoryTimelineByRank: timelines.activationMemoryTimelineByRank,
+    weightResidencyTimelineByRank: timelines.weightResidencyTimelineByRank,
     residentWeightsByRank: emptyResidentWeights(rankCount),
-    weightEventsByPlacement: Object.freeze({}),
+    weightEventsByPlacement,
     allGatherCount: 0,
     gaps: Object.freeze([]),
     actions: Object.freeze([]),
@@ -394,6 +583,7 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
       status: 'completed',
       operation,
       placement: existing,
+      dependencyIds: Object.freeze([...predecessorsOf(id, state.config)]),
       ...(residencyEffect ? { residencyEffect } : {}),
     };
   }
@@ -433,7 +623,12 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
   }
 
   if (reasons.length > 0) {
-    return { status: 'blocked', operation, reasons: Object.freeze(reasons) };
+    return {
+      status: 'blocked',
+      operation,
+      dependencyIds: Object.freeze([...predecessors]),
+      reasons: Object.freeze(reasons),
+    };
   }
 
   let projectedMemory = state.currentMemory[operation.rank] ?? 0;
@@ -443,13 +638,23 @@ export function classifyOperation(state: ScheduleState, id: OperationId): MoveCl
     projectedMemory = projectedMemory - 1;
   }
 
-  const start = computeEarliestStart(state, operation);
+  const dependencyStart = dependencyReadyTime(state, operation);
+  const waitStart = latestIntentionalWaitEnd(state, operation.rank);
+  const minimumStart = state.config.dualPipeModel
+    ? Math.max(dependencyStart, waitStart)
+    : Math.max(state.rankFrontiers[operation.rank] ?? 0, dependencyStart);
+  const start = state.config.dualPipeModel
+    ? earliestDualPipeResourceStart(state, operation, minimumStart)
+    : minimumStart;
+  const resourceDelay = resourceDelayForStart(state, operation, minimumStart, start);
   const residencyProjection = projectResidencyEffect(state, operation);
   return {
     status: 'legal',
     operation,
+    dependencyIds: Object.freeze([...predecessors]),
     earliestStart: start,
     projectedMemory,
+    ...(resourceDelay ? { resourceDelay } : {}),
     ...(residencyProjection?.ok === true ? { residencyEffect: residencyProjection.effect } : {}),
   };
 }
@@ -490,6 +695,26 @@ function latestIntentionalWaitEnd(state: ScheduleState, rank: number): number {
       gap.rank === rank && gap.kind === 'intentional' ? Math.max(latest, gap.end) : latest,
     0,
   );
+}
+
+function resourceDelayForStart(
+  state: ScheduleState,
+  operation: Operation,
+  minimumStart: number,
+  earliestStart: number,
+): ResourceDelay | undefined {
+  const model = state.config.dualPipeModel;
+  if (!model || earliestStart <= minimumStart) {
+    return undefined;
+  }
+  return Object.freeze({
+    rank: operation.rank,
+    start: minimumStart,
+    end: earliestStart,
+    ...(operation.direction ? { direction: operation.direction } : {}),
+    sharedCapacity: model.resourceModel.sharedCapacity,
+    directionalSlots: model.resourceModel.directionalSlots,
+  });
 }
 
 function intervalsOverlap(
@@ -692,6 +917,13 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
   }
 
   const newPlacementById = createPlacementById(state.config, state.operations, newPlacements);
+  const newTimelines = timelineStateFields(
+    state.config,
+    state.operations,
+    newPlacements,
+    newFrontiers,
+    newWeightEventsByPlacement,
+  );
 
   const newState: ScheduleState = Object.freeze({
     config: state.config,
@@ -701,6 +933,8 @@ export function applyAction(state: ScheduleState, action: Action): ApplyResult {
     rankFrontiers: Object.freeze(newFrontiers),
     currentMemory: newCurrentMemory,
     peakMemory: newPeakMemory,
+    activationMemoryTimelineByRank: newTimelines.activationMemoryTimelineByRank,
+    weightResidencyTimelineByRank: newTimelines.weightResidencyTimelineByRank,
     residentWeightsByRank: newResidentWeightsByRank,
     weightEventsByPlacement: newWeightEventsByPlacement,
     allGatherCount: newAllGatherCount,
@@ -735,6 +969,13 @@ function applyWait(state: ScheduleState, rank: number): ApplyResult {
     ...state.actions,
     Object.freeze({ type: 'wait', rank } as Action),
   ]);
+  const newTimelines = timelineStateFields(
+    state.config,
+    state.operations,
+    state.placements,
+    newFrontiers,
+    state.weightEventsByPlacement,
+  );
 
   const newState: ScheduleState = Object.freeze({
     config: state.config,
@@ -744,6 +985,8 @@ function applyWait(state: ScheduleState, rank: number): ApplyResult {
     rankFrontiers: Object.freeze(newFrontiers),
     currentMemory: state.currentMemory,
     peakMemory: state.peakMemory,
+    activationMemoryTimelineByRank: newTimelines.activationMemoryTimelineByRank,
+    weightResidencyTimelineByRank: newTimelines.weightResidencyTimelineByRank,
     residentWeightsByRank: state.residentWeightsByRank,
     weightEventsByPlacement: state.weightEventsByPlacement,
     allGatherCount: state.allGatherCount,

@@ -60,6 +60,16 @@ function isComplete(state: ScheduleState): boolean {
   return remaining.size === 0;
 }
 
+function rankCapacityMultiplier(state: ScheduleState): number {
+  const model = state.config.dualPipeModel;
+  if (!model) {
+    return 1;
+  }
+
+  const directionalCapacity = model.directions.length * model.resourceModel.directionalSlots;
+  return Math.min(model.resourceModel.sharedCapacity, directionalCapacity);
+}
+
 function internalBubbleRatio(state: ScheduleState): number {
   let internalIdle = 0;
   let internalCapacity = 0;
@@ -155,7 +165,7 @@ function satisfiesTarget(
 export function score(state: ScheduleState): ScoreResult {
   const makespan = state.rankFrontiers.reduce((max, frontier) => Math.max(max, frontier), 0);
   const totalWork = totalPlacedWork(state);
-  const capacityMultiplier = state.config.dualPipeModel?.resourceModel.sharedCapacity ?? 1;
+  const capacityMultiplier = rankCapacityMultiplier(state);
   const capacity = state.config.rankCount * makespan * capacityMultiplier;
   const bubbleRatio = capacity === 0 ? 0 : (capacity - totalWork) / capacity;
   const intentionalIdle = intentionalIdleDuration(state);

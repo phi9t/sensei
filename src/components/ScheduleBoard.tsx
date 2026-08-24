@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react';
-import type { Gap, Placement, ScheduleState } from '../engine/replay';
+import type { Gap, MemoryTimelineSegment, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { Operation, OperationId, OperationKind, PipelineDirection } from '../engine/types';
 import { topologyForLevel } from '../engine/topology';
-import { releasesActivation } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 export const CELL_WIDTH = 56;
@@ -35,12 +34,6 @@ function kindPatternId(kind: OperationKind): string {
     case 'W':
       return 'pattern-weight';
   }
-}
-
-interface MemorySegment {
-  readonly start: number;
-  readonly end: number;
-  readonly value: number;
 }
 
 interface RankOwnerLabel {
@@ -83,83 +76,13 @@ function rankRowTopForSchedule(state: ScheduleState, rank: number): number {
   return TOP_PADDING + rank * rowHeightForSchedule(state);
 }
 
-function memorySegmentsForRank(state: ScheduleState, rank: number): readonly MemorySegment[] {
-  const horizon = maxEndTime(state);
-  const events = state.placements
-    .filter((placement) => placement.rank === rank)
-    .map((placement) => {
-      const operation = operationById(state, placement.operationId);
-      return {
-        time: placement.end,
-        delta:
-          operation.kind === 'F' ? 1 : releasesActivation(state.config, operation.kind) ? -1 : 0,
-      };
-    })
-    .filter((event) => event.delta !== 0)
-    .sort((left, right) => left.time - right.time || right.delta - left.delta);
-
-  const segments: MemorySegment[] = [];
-  let cursor = 0;
-  let value = 0;
-
-  for (const event of events) {
-    if (event.time > cursor) {
-      segments.push({ start: cursor, end: event.time, value });
-      cursor = event.time;
-    }
-    value += event.delta;
-  }
-
-  if (cursor < horizon) {
-    segments.push({ start: cursor, end: horizon, value });
-  }
-
-  if (segments.length === 0) {
-    segments.push({ start: 0, end: horizon, value: 0 });
-  }
-
-  return Object.freeze(segments);
-}
-
-function memoryTimelineText(segments: readonly MemorySegment[], rank: number): string {
+function memoryTimelineText(segments: readonly MemoryTimelineSegment[], rank: number): string {
   return `Rank ${rank} memory timeline: ${segments
     .map((segment) => `${segment.start}-${segment.end} => ${segment.value} units`)
     .join('; ')}`;
 }
 
-function residencySegmentsForRank(state: ScheduleState, rank: number): readonly MemorySegment[] {
-  const horizon = maxEndTime(state);
-  const placements = state.placements
-    .filter((placement) => placement.rank === rank)
-    .sort((left, right) => left.end - right.end || left.start - right.start);
-  const segments: MemorySegment[] = [];
-  let cursor = 0;
-  let value = 0;
-
-  for (const placement of placements) {
-    const effect = state.weightEventsByPlacement[placement.operationId];
-    if (!effect) {
-      continue;
-    }
-    if (placement.end > cursor) {
-      segments.push({ start: cursor, end: placement.end, value });
-      cursor = placement.end;
-    }
-    value = effect.residentWeightMemory;
-  }
-
-  if (cursor < horizon) {
-    segments.push({ start: cursor, end: horizon, value });
-  }
-
-  if (segments.length === 0) {
-    segments.push({ start: 0, end: horizon, value: 0 });
-  }
-
-  return Object.freeze(segments);
-}
-
-function residencyTimelineText(segments: readonly MemorySegment[], rank: number): string {
+function residencyTimelineText(segments: readonly MemoryTimelineSegment[], rank: number): string {
   return `Rank ${rank} weight residency timeline: ${segments
     .map((segment) => `${segment.start}-${segment.end} => ${segment.value} units`)
     .join('; ')}`;
@@ -355,7 +278,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                   data-testid={`memory-strip-rank-${rank}`}
                   transform={`translate(${LEFT_PADDING} 0)`}
                 >
-                  {memorySegmentsForRank(schedule, rank).map((segment, index) => (
+                  {(schedule.activationMemoryTimelineByRank[rank] ?? []).map((segment, index) => (
                     <g key={`memory-${rank}-${segment.start}-${segment.end}-${segment.value}`}>
                       <rect
                         data-testid={`memory-segment-rank-${rank}-${index}`}
@@ -385,7 +308,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                     data-testid={`weight-strip-rank-${rank}`}
                     transform={`translate(${LEFT_PADDING} 0)`}
                   >
-                    {residencySegmentsForRank(schedule, rank).map((segment, index) => (
+                    {(schedule.weightResidencyTimelineByRank[rank] ?? []).map((segment, index) => (
                       <g key={`weight-${rank}-${segment.start}-${segment.end}-${segment.value}`}>
                         <rect
                           data-testid={`weight-segment-rank-${rank}-${index}`}
@@ -629,7 +552,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
             <h3 className="board-subheading">Activation memory</h3>
             <dl className="board-list">
               {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
-                const segments = memorySegmentsForRank(schedule, rank);
+                const segments = schedule.activationMemoryTimelineByRank[rank] ?? [];
                 return (
                   <div key={`memory-detail-${rank}`}>
                     <dt>Rank {rank}</dt>
@@ -644,7 +567,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
               <h3 className="board-subheading">Weight residency</h3>
               <dl className="board-list">
                 {Array.from({ length: schedule.config.rankCount }, (_, rank) => {
-                  const segments = residencySegmentsForRank(schedule, rank);
+                  const segments = schedule.weightResidencyTimelineByRank[rank] ?? [];
                   return (
                     <div key={`residency-detail-${rank}`}>
                       <dt>Rank {rank}</dt>

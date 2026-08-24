@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { ExplanationResult } from '../coaching/coaching';
-import type { BlockReason } from '../engine/replay';
-import type { Operation, OperationId, ResidencyEffect } from '../engine/types';
+import type { BlockReason, ResourceDelay } from '../engine/replay';
+import type { Operation, OperationId, PipelineDirection, ResidencyEffect } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { parseOperationId } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
@@ -16,8 +16,9 @@ interface MoveInspectorProps {
 export function MoveInspector({ operationId, explanation }: MoveInspectorProps) {
   const operationIdentity = operationId === null ? null : parseOperationId(operationId);
   const ownerRank = ownerRankForExplanation(explanation);
-  const showOwnerRank =
-    operationIdentity !== null && ownerRank !== null && ownerRank !== operationIdentity.stage;
+  const showOwnerRank = operationIdentity !== null && ownerRank !== null;
+  const dependencySummary =
+    explanation && operationId !== null ? dependencySummaryText(explanation.dependencyIds) : null;
 
   return (
     <section className="panel inspector-panel" aria-labelledby="move-inspector-heading">
@@ -56,12 +57,18 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
 
           {explanation.status === 'blocked' ? (
             <>
+              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
               <p>Blocked by:</p>
               <ul className="inspector-list">
                 {explanation.explanations.map((entry, index) => (
                   <li key={`${entry.kind}-${index}`}>
-                    <span>{humanBlockedMessage(entry.reason)}</span>{' '}
-                    <span className="mono">{typedReasonLabel(entry.reason)}</span>
+                    <span>{humanBlockedMessage(entry.reason)}</span>
+                    {typedReasonLabel(entry.reason) ? (
+                      <>
+                        {' '}
+                        <span className="mono">{typedReasonLabel(entry.reason)}</span>
+                      </>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -74,6 +81,10 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
                 Legal now. Earliest start {explanation.earliestStart}. Duration{' '}
                 {explanation.operation?.duration}. Memory after: {explanation.projectedMemory}.
               </p>
+              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
+              {explanation.resourceDelay ? (
+                <p className="inspector-note">{resourceDelayText(explanation.resourceDelay)}</p>
+              ) : null}
               {explanation.residencyEffect ? (
                 <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
               ) : null}
@@ -86,6 +97,7 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
                 Placed on rank {explanation.placement?.rank} from {explanation.placement?.start} to{' '}
                 {explanation.placement?.end}. Duration {explanation.operation?.duration}.
               </p>
+              {dependencySummary ? <p className="inspector-note">{dependencySummary}</p> : null}
               {explanation.residencyEffect ? (
                 <p className="inspector-note">{residencyEffectText(explanation.residencyEffect)}</p>
               ) : null}
@@ -121,6 +133,38 @@ function directionLabel(direction: Operation['direction']): string | null {
   }
 }
 
+function compactDirectionLabel(direction: PipelineDirection | undefined): string | null {
+  switch (direction) {
+    case 'asc':
+      return 'Up';
+    case 'desc':
+      return 'Down';
+    case undefined:
+      return null;
+  }
+}
+
+function dependencyLabel(operationId: OperationId): string {
+  const parsed = parseOperationId(operationId);
+  const direction = compactDirectionLabel(parsed.direction);
+  return direction
+    ? `${formatOperationCode(operationId)} ${direction}`
+    : formatOperationCode(operationId);
+}
+
+function dependencySummaryText(dependencyIds: readonly OperationId[]): string {
+  if (dependencyIds.length === 0) {
+    return 'Deps none.';
+  }
+  return `Deps ${dependencyIds.map(dependencyLabel).join(', ')}.`;
+}
+
+function resourceDelayText(delay: ResourceDelay): string {
+  const direction = compactDirectionLabel(delay.direction);
+  const directionText = direction ? `, ${direction}` : '';
+  return `Resource wait R${delay.rank} ${delay.start}->${delay.end}${directionText}; shared ${delay.sharedCapacity}, dir slots ${delay.directionalSlots}.`;
+}
+
 function humanBlockedMessage(reason: BlockReason): string {
   switch (reason.kind) {
     case 'dependency-not-finished':
@@ -138,10 +182,10 @@ function humanBlockedMessage(reason: BlockReason): string {
   }
 }
 
-function typedReasonLabel(reason: BlockReason): string {
+function typedReasonLabel(reason: BlockReason): string | null {
   switch (reason.kind) {
     case 'dependency-not-finished':
-      return formatOperationCode(reason.operationId);
+      return null;
     case 'memory-cap':
       return `memory-cap rank=${reason.rank} resident=${reason.resident} cap=${reason.cap}`;
     case 'residency-memory-cap':
