@@ -398,18 +398,22 @@ Write and approve a model record for DualPipe before implementation. The record
 must decide how bidirectional operation identity, dependency direction, paired
 work, and rank resource conflicts are represented.
 
+## Execution note
+
+Completed by `docs/superpowers/specs/2026-08-23-sensei-dualpipe-model-record.md`.
+
 ## Acceptance criteria
 
-- [ ] The model record explicitly decides whether direction belongs in
+- [x] The model record explicitly decides whether direction belongs in
       operation IDs, operation fields, or level-local metadata.
-- [ ] The record states that microbatch IDs must not be overloaded to encode
+- [x] The record states that microbatch IDs must not be overloaded to encode
       direction.
-- [ ] The record chooses whether paired work is true concurrent occupancy or a
+- [x] The record chooses whether paired work is true concurrent occupancy or a
       visual macro over serial operations.
-- [ ] Dependency rules for both directions are written as executable invariants
+- [x] Dependency rules for both directions are written as executable invariants
       before UI work begins.
-- [ ] Persistence and URL-versioning implications are called out.
-- [ ] The record includes clean-room provenance and avoids copying upstream code,
+- [x] Persistence and URL-versioning implications are called out.
+- [x] The record includes clean-room provenance and avoids copying upstream code,
       prose, fixtures, or diagrams.
 
 ## Blocked by
@@ -424,21 +428,28 @@ Implement playable DualPipe levels from the approved model record so learners
 can schedule opposite-direction work and reason about balance and resource
 conflict against a one-direction baseline.
 
+## Execution note
+
+Completed with `Two Directions`, `DualPipe Balance`, and `DualPipe Conflict`.
+The implementation keeps learner actions as ordinary `Action[]` placements with
+direction-bearing DualPipe operation IDs, while visible block codes remain in
+`F0:S0:B1` form.
+
 ## Acceptance criteria
 
-- [ ] Operation derivation supports the approved bidirectional model.
-- [ ] Dependency checks cover both increasing-stage and decreasing-stage flows.
-- [ ] Rank resource conflicts are represented and tested for paired or
+- [x] Operation derivation supports the approved bidirectional model.
+- [x] Dependency checks cover both increasing-stage and decreasing-stage flows.
+- [x] Rank resource conflicts are represented and tested for paired or
       concurrent work.
-- [ ] The board can show bidirectional flow without overloading the compact
+- [x] The board can show bidirectional flow without overloading the compact
       `F0:S0:B1` operation code.
-- [ ] The curriculum includes at least `Two Directions`, `DualPipe Balance`, and
+- [x] The curriculum includes at least `Two Directions`, `DualPipe Balance`, and
       `DualPipe Conflict` or equivalent original names.
-- [ ] Completion feedback compares against a one-direction baseline and names
+- [x] Completion feedback compares against a one-direction baseline and names
       the recognized DualPipe strategy when applicable.
-- [ ] Persistence, accessibility, responsive layout, and clean-room tests are
+- [x] Persistence, accessibility, responsive layout, and clean-room tests are
       updated for the new operation model.
-- [ ] `npm run verify` passes.
+- [x] `npm run verify` passes.
 
 ## Blocked by
 

@@ -1,6 +1,6 @@
 # Sensei Rest Curriculum Execution Design
 
-**Status:** Approved design, awaiting implementation-plan approval
+**Status:** Implemented and verified
 
 **Date:** 2026-08-22
 
@@ -256,3 +256,27 @@ The rest-curriculum implementation is complete when:
 5. Persistence stays versioned and recoverable.
 6. The cockpit remains focused on placing blocks.
 7. `npm run verify` passes at every landing point.
+
+## Post-Execution Review
+
+Date: 2026-08-23
+
+- Verifier: `npm run verify` passed after the final DualPipe slice, including
+  format, lint, typecheck, 20 Vitest files with 409 passing tests, and the
+  production build.
+- Coverage: `SENSEI-CURR-02` through `SENSEI-CURR-12` are implemented with
+  playable levels or, for `SENSEI-CURR-11`, the approved DualPipe model record.
+- Architecture: the canonical flow remains `LevelConfig + Action[]` through
+  replay, schedule state, score, and the React view model; added curriculum axes
+  stay level-scoped and do not replace the durable action log.
+- UI: the cockpit remains block-placement-first. Added details are compact and
+  level-local: policy comparison, building-block validation, `WGT`, `Gathers`,
+  and DualPipe direction cues.
+- Persistence: URL and local-storage tests cover the newer semantic axes while
+  keeping derived topology, duration, grouping, residency, and DualPipe resource
+  state out of learner attempts.
+- Plan improvement: future agent goal files should include a public-control
+  selector audit whenever operation identity gains an invisible or separately
+  rendered dimension. The final DualPipe full gate caught this because
+  direction was present in accessible labels but missing from the shared test
+  helper's regexp.

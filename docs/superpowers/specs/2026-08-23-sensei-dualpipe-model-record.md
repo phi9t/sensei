@@ -291,3 +291,34 @@ Required focused coverage before the full verifier:
 - `src/components/GameShell.test.tsx` and accessibility/responsive tests:
   compact code, direction cues, overlap rendering, keyboard reachability, and no
   long rules panel.
+
+## Post-Execution Review
+
+Date: 2026-08-23
+
+- Verifier: focused DualPipe coverage passed, then `npm run verify` passed with
+  20 test files and 409 tests passing, followed by a successful production
+  build.
+- Invariants: all preserved. Existing non-DualPipe IDs remain unchanged;
+  DualPipe IDs carry `asc` or `desc`; visible compact block codes remain
+  `F0:S0:B1`; learner persistence remains canonical `Action[]`.
+- Levels: `Two Directions`, `DualPipe Balance`, and `DualPipe Conflict` are
+  original playable levels backed by fixtures, golden score rows, policy
+  comparisons, public-control game-flow coverage, persistence coverage, and
+  compact UI tests.
+- Resource model: DualPipe replay now derives earliest starts from dependency
+  completion plus per-rank directional slots and shared capacity. Capacity-one
+  levels serialize otherwise compatible overlap; capacity-two levels allow
+  opposite-direction work to overlap where legal.
+- UI: direction is a compact separate cue (`Up` / `Down`) and accessible text,
+  not part of the learner-facing `F0:S0:B1` code. Schedule rows reserve
+  DualPipe sublanes so overlap is visible without adding a rules panel.
+- Plan corrections:
+  - The public-control game-flow helper had to include the optional direction
+    phrase in its accessible-name regexp, otherwise DualPipe `asc` and `desc`
+    buttons with the same compact code were ambiguous.
+  - `dualpipe-one-direction` needed explicit cross-direction dependency edges
+    to force all `asc` work before `desc` work without inventing a new action
+    type or serializing derived model state.
+  - `DualPipe Conflict` is clearer as a resource-capacity lesson with
+    `sharedCapacity: 1`, mastered makespan `12`, and peak activation memory `4`.
