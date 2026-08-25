@@ -343,6 +343,9 @@ describe('responsive play surface CSS contract', () => {
   it('keeps compact labels whole and supports two or three ready-queue stacks', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const guideChipBlock = extractBlock(css, '\n.level-guide-panel__chip {');
+    const guideDetailsBlock = extractBlock(css, '.level-guide-panel__details');
+    const guideConceptsBlock = extractBlock(css, '.level-guide-panel__concepts');
+    const guideConceptListBlock = extractBlock(css, '.level-guide-panel__concept-list');
     const batchStacksBlock = extractBlock(css, '\n.batch-lane__stacks {');
     const batchThreeStackBlock = extractBlock(css, ".batch-lane__stacks[data-stack-count='3']");
     const operationButtonBlock = extractBlock(css, '\n.operation-button {');
@@ -353,6 +356,21 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(guideChipBlock).toMatch(
       /\.level-guide-panel__chip\s*\{[^}]*\btext-overflow:\s*ellipsis\s*;/,
+    );
+    expect(guideDetailsBlock).toMatch(
+      /\.level-guide-panel__details\s*\{[^}]*\bmax-width:\s*min\(100%,\s*36rem\)\s*;/,
+    );
+    expect(guideConceptsBlock).toMatch(
+      /\.level-guide-panel__concepts\s*\{[^}]*\bmax-height:\s*6\.5rem\s*;/,
+    );
+    expect(guideConceptsBlock).toMatch(
+      /\.level-guide-panel__concepts\s*\{[^}]*\boverflow:\s*auto\s*;/,
+    );
+    expect(guideConceptListBlock).toMatch(
+      /\.level-guide-panel__concept-list\s*\{[^}]*\bdisplay:\s*flex\s*;/,
+    );
+    expect(guideConceptListBlock).toMatch(
+      /\.level-guide-panel__concept-list\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/,
     );
     expect(batchStacksBlock).toMatch(
       /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,

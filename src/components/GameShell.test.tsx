@@ -145,6 +145,32 @@ describe('Game shell', () => {
     expect(within(guide).getByText(/^Variable cost$/i)).toBeInTheDocument();
     expect(chips.length).toBeLessThanOrEqual(4);
     expect(within(guide).queryByText(/^B:S0 = 4t$/i)).not.toBeInTheDocument();
+    expect(within(guide).getByTestId('level-guide-concepts')).not.toHaveAttribute('open');
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('shows compact curriculum progress and optional concept detail in the guide', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="gpipe-afab" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const concepts = within(guide).getByTestId('level-guide-concepts');
+    const chips = within(guide).getAllByTestId('level-guide-chip');
+
+    expect(within(guide).getByText(/^Level 5\/25$/i)).toBeInTheDocument();
+    expect(chips).toHaveLength(4);
+    expect(concepts).not.toHaveAttribute('open');
+
+    await user.click(within(guide).getByText(/^Concepts$/i));
+
+    expect(concepts).toHaveAttribute('open');
+    expect(within(concepts).getByText(/^Set step 1\/1$/i)).toBeInTheDocument();
+    expect(within(concepts).getByText(/^Next Warm Up Then Alternate$/i)).toBeInTheDocument();
+    expect(
+      within(concepts).getByText(/Build the AFAB shape and notice the activation memory it holds/i),
+    ).toBeInTheDocument();
+    expect(within(concepts).getByText(/^all-forward\/all-backward policy$/i)).toBeInTheDocument();
+    expect(within(concepts).getByText(/^activation accumulation$/i)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 

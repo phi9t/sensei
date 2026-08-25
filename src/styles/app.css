@@ -346,6 +346,10 @@ summary:focus-visible {
   padding: 0.7rem 0.85rem;
 }
 
+.level-guide-panel__copy-block {
+  min-width: min(20rem, 100%);
+}
+
 .level-guide-panel h2 {
   margin-bottom: 0.15rem;
 }
@@ -355,6 +359,14 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.35;
+}
+
+.level-guide-panel__details {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+  max-width: min(100%, 36rem);
+  min-width: 0;
 }
 
 .level-guide-panel__chips {
@@ -376,6 +388,63 @@ summary:focus-visible {
   border-radius: 999px;
   background: var(--paper-strong);
   padding: 0.24rem 0.46rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.level-guide-panel__concepts {
+  max-width: 100%;
+  max-height: 6.5rem;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--paper-strong) 62%, transparent);
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.level-guide-panel__concepts summary {
+  padding: 0.28rem 0.5rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.level-guide-panel__concept-body {
+  display: grid;
+  gap: 0.38rem;
+  padding: 0 0.58rem 0.58rem;
+}
+
+.level-guide-panel__concept-body p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.level-guide-panel__concept-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.level-guide-panel__concept-list li,
+.level-guide-panel__next {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-soft);
+  padding: 0.14rem 0.4rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
