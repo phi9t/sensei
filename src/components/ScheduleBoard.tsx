@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import type { Gap, MemoryTimelineSegment, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { Operation, OperationId, OperationKind, PipelineDirection } from '../engine/types';
@@ -23,6 +23,7 @@ interface ScheduleBoardProps {
     readonly operationId: OperationId;
     readonly earliestStart: number;
   } | null;
+  readonly onInspect: (operationId: OperationId) => void;
 }
 
 function kindPatternId(kind: OperationKind): string {
@@ -62,6 +63,11 @@ function gapLabel(gap: Gap): string {
 function placementSummary(state: ScheduleState, placement: Placement): string {
   const operation = operationById(state, placement.operationId);
   return `Rank ${placement.rank}, start ${placement.start}, end ${placement.end}, duration ${operation.duration}`;
+}
+
+function placementActionLabel(operation: Operation, placement: Placement): string {
+  const tickLabel = operation.duration === 1 ? '1 tick' : `${operation.duration} ticks`;
+  return `Inspect ${formatOperationName(operation)}, placed on rank ${placement.rank} from ${placement.start} to ${placement.end}, ${tickLabel}`;
 }
 
 function timelineExtent(state: ScheduleState): number {
@@ -180,7 +186,25 @@ function operationLaneOffset(operation: Operation, hasDualPipe: boolean): number
   return operation.direction === 'asc' ? 0 : WORK_BLOCK_HEIGHT + 4;
 }
 
-export function ScheduleBoard({ schedule, selectedOperationId, preview }: ScheduleBoardProps) {
+function handleTileKeyDown(
+  event: KeyboardEvent<SVGGElement>,
+  operationId: OperationId,
+  onInspect: (operationId: OperationId) => void,
+): void {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  event.preventDefault();
+  onInspect(operationId);
+}
+
+export function ScheduleBoard({
+  schedule,
+  selectedOperationId,
+  preview,
+  onInspect,
+}: ScheduleBoardProps) {
   const hasResidency = schedule.config.residencyModel !== undefined;
   const hasDualPipe = schedule.config.dualPipeModel !== undefined;
   const resourceStripHeight = hasResidency ? MEMORY_STRIP_HEIGHT * 2 + 2 : MEMORY_STRIP_HEIGHT;
@@ -223,7 +247,7 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
           height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           aria-labelledby="schedule-svg-title schedule-svg-desc"
-          role="img"
+          role="group"
         >
           <title id="schedule-svg-title">Pipeline schedule board</title>
           <desc id="schedule-svg-desc">
@@ -398,9 +422,21 @@ export function ScheduleBoard({ schedule, selectedOperationId, preview }: Schedu
                 operationLaneOffset(operation, hasDualPipe);
               const isSelected = selectedOperationId === placement.operationId;
 
+              const actionLabel = placementActionLabel(operation, placement);
+
               return (
-                <g key={placement.operationId}>
-                  <title>{`${formatOperationName(operation)} on rank ${placement.rank} from ${placement.start} to ${placement.end}`}</title>
+                <g
+                  key={placement.operationId}
+                  className="schedule-tile-control"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={actionLabel}
+                  aria-current={isSelected ? 'true' : undefined}
+                  onClick={() => onInspect(placement.operationId)}
+                  onFocus={() => onInspect(placement.operationId)}
+                  onKeyDown={(event) => handleTileKeyDown(event, placement.operationId, onInspect)}
+                >
+                  <title>{actionLabel}</title>
                   <rect
                     data-testid={`rank-tile-${operation.id}`}
                     x={x}

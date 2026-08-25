@@ -209,6 +209,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
             schedule={game.schedule}
             selectedOperationId={game.selectedOperationId}
             preview={preview}
+            onInspect={game.selectOperation}
           />
 
           <aside className="score-rail" aria-label="Score rail">

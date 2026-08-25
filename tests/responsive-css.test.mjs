@@ -296,7 +296,17 @@ describe('responsive play surface CSS contract', () => {
       'utf8',
     );
     const boardSvgBlock = extractBlock(css, '.schedule-board-svg');
-    const scheduleRectBlock = extractBlock(css, '.schedule-rect');
+    const scheduleTileControlBlock = extractBlock(css, '.schedule-tile-control');
+    const scheduleTileFocusBlock = extractBlock(css, '.schedule-tile-control:focus-visible');
+    const scheduleTileHoverRectBlock = extractBlock(
+      css,
+      '.schedule-tile-control:hover .schedule-rect',
+    );
+    const scheduleTileFocusRectBlock = extractBlock(
+      css,
+      '.schedule-tile-control:focus-visible .schedule-rect',
+    );
+    const scheduleRectBlock = extractBlock(css, '\n.schedule-rect {');
     const scheduleLabelBlock = extractBlock(css, '\n.schedule-label {');
     const previewBlock = extractBlock(css, '.schedule-preview-rect');
     const previewLabelBlock = extractBlock(css, '.schedule-preview-label');
@@ -313,8 +323,22 @@ describe('responsive play surface CSS contract', () => {
     expect(scheduleBoardSource).toMatch(
       /return operation\.direction === 'asc' \? 0 : WORK_BLOCK_HEIGHT \+ 4;/,
     );
+    expect(scheduleBoardSource).toMatch(/role="group"/);
+    expect(scheduleBoardSource).toMatch(/className="schedule-tile-control"/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bwidth:\s*100%\s*;/);
     expect(boardSvgBlock).toMatch(/\.schedule-board-svg\s*\{[^}]*\bmax-width:\s*none\s*;/);
+    expect(scheduleTileControlBlock).toMatch(
+      /\.schedule-tile-control\s*\{[^}]*\bcursor:\s*pointer\s*;/,
+    );
+    expect(scheduleTileFocusBlock).toMatch(
+      /\.schedule-tile-control:focus-visible\s*\{[^}]*\boutline:\s*none\s*;/,
+    );
+    expect(scheduleTileHoverRectBlock).toMatch(
+      /\.schedule-tile-control:hover \.schedule-rect\s*\{[^}]*\bfilter:\s*drop-shadow/,
+    );
+    expect(scheduleTileFocusRectBlock).toMatch(
+      /\.schedule-tile-control:focus-visible \.schedule-rect\s*\{[^}]*\bstroke-width:\s*3\s*;/,
+    );
     expect(scheduleRectBlock).toMatch(
       /\.schedule-rect\s*\{[^}]*\bstroke:\s*var\(--operation-accent\)\s*;/,
     );

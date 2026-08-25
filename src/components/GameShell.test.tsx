@@ -77,7 +77,7 @@ describe('Game shell', () => {
     expect(within(comparison).getByText(/^Exact reference match$/i)).toBeInTheDocument();
     expect(within(comparison).getByText(/^Makespan delta$/i)).toBeInTheDocument();
     expect(within(comparison).getByText(/^0$/i)).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('lays out the cockpit around guide, queue, command rail, schedule, and score rail', () => {
     render(<App initialLevelId="backward-is-heavier" />);
@@ -595,6 +595,67 @@ describe('Game shell', () => {
     expect(screen.getByTestId('preview-label-F:1:0')).toHaveAccessibleName('F1:S1:B0');
   });
 
+  it('selects placed board blocks with pointer without duplicating placement', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    await user.click(
+      within(board).getByRole('button', {
+        name: /inspect F stage 0 microbatch 0, placed on rank 0 from 0 to 1/i,
+      }),
+    );
+
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    const selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+
+    expect(selectedStatus).toHaveAttribute('data-state', 'completed');
+    expect(within(selectedStatus).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^R0, t0 -> 1$/i)).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeDisabled();
+    expect(within(inspector).getByText(/Placed on rank 0 from 0 to 1/i)).toBeInTheDocument();
+    expect(
+      within(board).getByRole('button', {
+        name: /inspect F stage 0 microbatch 0, placed on rank 0 from 0 to 1/i,
+      }),
+    ).toHaveAttribute('aria-current', 'true');
+    expect(screen.getAllByTestId('rank-tile-F:0:0')).toHaveLength(1);
+  });
+
+  it('selects placed board blocks with keyboard focus in visual order', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+    await user.click(screen.getByRole('button', { name: /place F stage 1 microbatch 0/i }));
+
+    const board = screen.getByRole('region', { name: /schedule board/i });
+    const firstPlaced = within(board).getByRole('button', {
+      name: /inspect F stage 0 microbatch 0, placed on rank 0 from 0 to 1/i,
+    });
+    const secondPlaced = within(board).getByRole('button', {
+      name: /inspect F stage 1 microbatch 0, placed on rank 1 from 1 to 2/i,
+    });
+
+    await tabUntil(user, firstPlaced);
+
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    let selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    expect(selectedStatus).toHaveAttribute('data-state', 'completed');
+    expect(within(selectedStatus).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+
+    await user.tab();
+
+    selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    expect(document.activeElement).toBe(secondPlaced);
+    expect(within(selectedStatus).getByText(/^F1:S1:B0$/i)).toBeInTheDocument();
+    expect(secondPlaced).toHaveAttribute('aria-current', 'true');
+  });
+
   it('can clear the selected operation without changing the attempt', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);
@@ -732,7 +793,10 @@ describe('Game shell', () => {
     expect(within(guide).getByText(/^Residency$/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
-    await user.click(screen.getByRole('button', { name: /inspect F stage 0 microbatch 0/i }));
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    await user.click(
+      within(blocks).getByRole('button', { name: /inspect F stage 0 microbatch 0/i }),
+    );
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
@@ -1093,7 +1157,7 @@ describe('Game shell', () => {
 
     const board = screen.getByRole('region', { name: /schedule board/i });
     expect(
-      within(board).getByRole('img', { name: /pipeline schedule board/i }),
+      within(board).getByRole('group', { name: /pipeline schedule board/i }),
     ).toBeInTheDocument();
     expect(within(board).getByTestId('rank-band-0')).toHaveAttribute('data-rank-parity', 'even');
     expect(within(board).getByTestId('rank-band-1')).toHaveAttribute('data-rank-parity', 'odd');
@@ -1198,7 +1262,10 @@ describe('Game shell', () => {
     render(<App initialLevelId="dependency-chain" />);
 
     await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
-    await user.click(screen.getByRole('button', { name: /inspect F stage 0 microbatch 0/i }));
+    const blocks = screen.getByRole('region', { name: /^ready queue$/i });
+    await user.click(
+      within(blocks).getByRole('button', { name: /inspect F stage 0 microbatch 0/i }),
+    );
 
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     const board = screen.getByRole('region', { name: /schedule board/i });

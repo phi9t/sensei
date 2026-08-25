@@ -962,6 +962,25 @@ summary:focus-visible {
   fill: rgba(0, 137, 149, 0.04);
 }
 
+.schedule-tile-control {
+  cursor: pointer;
+}
+
+.schedule-tile-control:focus-visible {
+  outline: none;
+}
+
+.schedule-tile-control:hover .schedule-rect {
+  filter: drop-shadow(0 4px 7px rgba(23, 33, 35, 0.16));
+}
+
+.schedule-tile-control:focus-visible .schedule-rect {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 6 3;
+  filter: drop-shadow(0 0 0.18rem rgba(224, 169, 40, 0.68));
+}
+
 .tick-line {
   stroke-dasharray: 2 5;
 }
