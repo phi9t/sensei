@@ -57,6 +57,14 @@ interface GameState {
   readonly lastRecordedAttemptKey: string | null;
 }
 
+export interface SelectedBlockStatus {
+  readonly state: 'empty' | 'legal' | 'blocked' | 'completed';
+  readonly label: string;
+  readonly code: string | null;
+  readonly detail: string;
+  readonly canPlace: boolean;
+}
+
 export interface GameViewModel {
   readonly levelId: LevelId;
   readonly level: ReturnType<typeof getLevel>;
@@ -70,6 +78,7 @@ export interface GameViewModel {
   readonly policyComparison: PolicyComparison | null;
   readonly moveClassifications: readonly MoveClassification[];
   readonly selectedExplanation: SelectedExplanation | null;
+  readonly selectedBlockStatus: SelectedBlockStatus;
   readonly suggestion: Suggestion | null;
   readonly readySet: ReturnType<typeof revealReadySet>;
   readonly persistenceNotice: string | null;
@@ -290,6 +299,53 @@ function selectedExplanationFor(
     ...explainBlockedMove(schedule, operationId),
     operation,
   });
+}
+
+function selectedBlockStatusFor(explanation: SelectedExplanation | null): SelectedBlockStatus {
+  if (explanation === null) {
+    return Object.freeze({
+      state: 'empty',
+      label: 'No block selected',
+      code: null,
+      detail: 'Choose a ready block',
+      canPlace: false,
+    });
+  }
+
+  const code = formatOperationCode(explanation.operation);
+
+  switch (explanation.status) {
+    case 'legal':
+      return Object.freeze({
+        state: 'legal',
+        label: 'Ready',
+        code,
+        detail: `R${explanation.operation.rank}, t${explanation.earliestStart} -> ${
+          explanation.earliestStart + explanation.operation.duration
+        }`,
+        canPlace: true,
+      });
+    case 'blocked': {
+      const blockerCount = explanation.explanations.length;
+      return Object.freeze({
+        state: 'blocked',
+        label: 'Blocked',
+        code,
+        detail: `${blockerCount} ${blockerCount === 1 ? 'blocker' : 'blockers'}`,
+        canPlace: false,
+      });
+    }
+    case 'completed':
+      return Object.freeze({
+        state: 'completed',
+        label: 'Placed',
+        code,
+        detail: explanation.placement
+          ? `R${explanation.placement.rank}, t${explanation.placement.start} -> ${explanation.placement.end}`
+          : 'Already on board',
+        canPlace: false,
+      });
+  }
 }
 
 function formatBlockedSummary(operationId: OperationId, count: number): string {
@@ -651,6 +707,7 @@ export function useGame(
   const policyComparison = compareToReferencePolicy(schedule);
   const selectedOperationId = coherentSelection(game.selectedOperationId, schedule.operations);
   const selectedExplanation = selectedExplanationFor(schedule, selectedOperationId);
+  const selectedBlockStatus = selectedBlockStatusFor(selectedExplanation);
   const suggestion = level.coaching.suggest ? suggestMove(schedule) : null;
   const canReadySet = canUseReadySet(game.progress, game.levelId);
   const readySet = canReadySet ? revealReadySet(schedule) : [];
@@ -1045,6 +1102,7 @@ export function useGame(
     policyComparison,
     moveClassifications,
     selectedExplanation,
+    selectedBlockStatus,
     suggestion,
     readySet,
     persistenceNotice: game.persistenceNotice,

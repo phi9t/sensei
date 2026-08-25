@@ -174,6 +174,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
 
           <GameControls
             level={game.level}
+            selectedBlockStatus={game.selectedBlockStatus}
             canUndo={game.cursor > 0}
             canRedo={game.cursor < game.actions.length}
             canReadySet={game.canReadySet}

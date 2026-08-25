@@ -1,8 +1,10 @@
 import type { LevelConfig } from '../engine/types';
+import type { SelectedBlockStatus } from '../app/useGame';
 import { PatternCheck, type PatternCheckModel } from './PatternCheck';
 
 interface GameControlsProps {
   readonly level: LevelConfig;
+  readonly selectedBlockStatus: SelectedBlockStatus;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly canReadySet: boolean;
@@ -25,6 +27,7 @@ interface GameControlsProps {
 
 export function GameControls({
   level,
+  selectedBlockStatus,
   canUndo,
   canRedo,
   canReadySet,
@@ -71,9 +74,22 @@ export function GameControls({
           className="command-button command-button--primary"
           aria-label="Place selected operation"
           onClick={onPlaceSelected}
+          disabled={!selectedBlockStatus.canPlace}
         >
           Place
         </button>
+        <div
+          className="selected-block-status"
+          role="group"
+          aria-label="Selected block status"
+          data-state={selectedBlockStatus.state}
+        >
+          <span className="selected-block-status__label">{selectedBlockStatus.label}</span>
+          {selectedBlockStatus.code ? (
+            <span className="selected-block-status__code">{selectedBlockStatus.code}</span>
+          ) : null}
+          <span className="selected-block-status__meta">{selectedBlockStatus.detail}</span>
+        </div>
         <button
           type="button"
           className="command-button"

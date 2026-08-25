@@ -470,9 +470,56 @@ describe('Game shell', () => {
     expect(within(rail).getByText(/^Schedule$/i)).toBeInTheDocument();
     expect(within(rail).getByRole('button', { name: /undo last action/i })).toBeDisabled();
     expect(within(rail).getByRole('button', { name: /redo next action/i })).toBeDisabled();
-    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeEnabled();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeDisabled();
     expect(within(rail).getByRole('button', { name: /clear selected operation/i })).toBeEnabled();
     expect(within(rail).getByRole('button', { name: /wait one tick on rank 0/i })).toBeEnabled();
+    const selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    expect(selectedStatus).toHaveAttribute('data-state', 'empty');
+    expect(within(selectedStatus).getByText(/^No block selected$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^Choose a ready block$/i)).toBeInTheDocument();
+  });
+
+  it('shows selected block placeability in the command rail', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    const firstMove = screen.getByRole('button', {
+      name: /place F stage 0 microbatch 0, 1 tick, ready/i,
+    });
+
+    await tabUntil(user, firstMove);
+
+    let selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    expect(selectedStatus).toHaveAttribute('data-state', 'legal');
+    expect(within(selectedStatus).getByText(/^Ready$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^R0, t0 -> 1$/i)).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeEnabled();
+
+    await user.click(within(rail).getByRole('button', { name: /place selected operation/i }));
+
+    selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+    expect(selectedStatus).toHaveAttribute('data-state', 'completed');
+    expect(within(selectedStatus).getByText(/^Placed$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^R0, t0 -> 1$/i)).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeDisabled();
+  });
+
+  it('keeps place disabled for a selected blocked block and shows blocker count', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /inspect B stage 0 microbatch 0/i }));
+
+    const rail = screen.getByRole('region', { name: /schedule command rail/i });
+    const selectedStatus = within(rail).getByRole('group', { name: /selected block status/i });
+
+    expect(selectedStatus).toHaveAttribute('data-state', 'blocked');
+    expect(within(selectedStatus).getByText(/^Blocked$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(selectedStatus).getByText(/^2 blockers$/i)).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /place selected operation/i })).toBeDisabled();
   });
 
   it('keeps blocked operations focusable and explains every blocker', async () => {

@@ -98,11 +98,14 @@ describe('responsive play surface CSS contract', () => {
     expect(boardScrollBlock).toMatch(/\.board-scroll-region\s*\{[^}]*\bmin-height:\s*0\s*;/);
   });
 
-  it('uses comfortable controls, visible feedback, and a compact two-row block dock on mobile', async () => {
+  it('uses a comfortable command rail, visible feedback, and a compact two-row block dock on mobile', async () => {
     const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
     const commandRailBlock = extractBlock(css, '.schedule-command-rail');
-    const commandRailPrimaryBlock = extractBlock(css, '.schedule-command-rail__primary');
+    const commandRailPrimarySharedBlock = extractBlock(css, '.schedule-command-rail__primary,');
+    const commandRailPrimaryBlock = extractBlock(css, '\n.schedule-command-rail__primary {');
     const commandRailSecondaryBlock = extractBlock(css, '.schedule-command-rail__secondary');
+    const selectedBlockStatusBlock = extractBlock(css, '.selected-block-status');
+    const selectedBlockMetaBlock = extractBlock(css, '.selected-block-status__meta');
     const commandButtonBlock = extractBlock(css, '.command-button');
     const commandFeedbackBlock = extractBlock(css, '.command-feedback');
     const trayPanelBlock = extractBlock(css, '.tray-panel');
@@ -122,11 +125,29 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(commandRailBlock).toMatch(/\.schedule-command-rail\s*\{[^}]*\bdisplay:\s*flex\s*;/);
     expect(commandRailBlock).toMatch(/\.schedule-command-rail\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/);
-    expect(commandRailPrimaryBlock).toMatch(
+    expect(commandRailPrimarySharedBlock).toMatch(
       /\.schedule-command-rail__primary,\s*\.schedule-command-rail__secondary\s*\{[^}]*\bdisplay:\s*flex\s*;/,
+    );
+    expect(commandRailPrimaryBlock).toMatch(
+      /\.schedule-command-rail__primary\s*\{[^}]*\bflex:\s*1 1 34rem\s*;/,
+    );
+    expect(commandRailPrimaryBlock).toMatch(
+      /\.schedule-command-rail__primary\s*\{[^}]*\bflex-wrap:\s*nowrap\s*;/,
     );
     expect(commandRailSecondaryBlock).toMatch(
       /\.schedule-command-rail__secondary\s*\{[^}]*\bmin-width:\s*0\s*;/,
+    );
+    expect(selectedBlockStatusBlock).toMatch(
+      /\.selected-block-status\s*\{[^}]*\bdisplay:\s*grid\s*;/,
+    );
+    expect(selectedBlockStatusBlock).toMatch(
+      /\.selected-block-status\s*\{[^}]*\bgrid-template-columns:\s*auto minmax\(0,\s*auto\) minmax\(0,\s*1fr\)\s*;/,
+    );
+    expect(selectedBlockStatusBlock).toMatch(
+      /\.selected-block-status\s*\{[^}]*\bmax-width:\s*min\(100%,\s*20rem\)\s*;/,
+    );
+    expect(selectedBlockMetaBlock).toMatch(
+      /\.selected-block-status__meta\s*\{[^}]*\btext-overflow:\s*ellipsis\s*;/,
     );
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bmin-height:\s*2\.25rem\s*;/);
     expect(commandButtonBlock).toMatch(/\.command-button\s*\{[^}]*\bborder-radius:\s*6px\s*;/);

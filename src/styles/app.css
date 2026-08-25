@@ -1389,6 +1389,15 @@ summary:focus-visible {
   min-width: 0;
 }
 
+.schedule-command-rail__primary {
+  flex: 1 1 34rem;
+  flex-wrap: nowrap;
+}
+
+.schedule-command-rail__secondary {
+  flex: 999 1 23rem;
+}
+
 .schedule-command-rail__primary h2 {
   margin: 0 0.25rem 0 0;
   font-family: var(--font-mono);
@@ -1420,6 +1429,12 @@ summary:focus-visible {
   color: var(--paper);
 }
 
+.command-button.command-button--primary:disabled {
+  border-color: var(--line-strong);
+  background: #cfd8d4;
+  color: #697777;
+}
+
 .command-button--danger {
   border-color: rgba(151, 63, 41, 0.35);
   color: var(--danger);
@@ -1434,6 +1449,66 @@ summary:focus-visible {
   background: var(--paper-soft);
   color: #8a9695;
   cursor: not-allowed;
+}
+
+.selected-block-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.1rem 0.4rem;
+  flex: 1 1 12rem;
+  max-width: min(100%, 20rem);
+  min-width: 0;
+  min-height: 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.32rem 0.5rem;
+}
+
+.selected-block-status[data-state='legal'] {
+  border-color: color-mix(in srgb, var(--ready) 44%, var(--line));
+  background: color-mix(in srgb, var(--ready) 10%, var(--paper-strong));
+}
+
+.selected-block-status[data-state='blocked'] {
+  border-color: color-mix(in srgb, var(--blocked) 42%, var(--line));
+  background: color-mix(in srgb, var(--blocked) 8%, var(--paper-strong));
+}
+
+.selected-block-status[data-state='completed'] {
+  border-color: color-mix(in srgb, var(--completed) 38%, var(--line));
+  background: color-mix(in srgb, var(--completed) 8%, var(--paper-strong));
+}
+
+.selected-block-status__label,
+.selected-block-status__code,
+.selected-block-status__meta {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-block-status__label {
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.selected-block-status__code {
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.selected-block-status__meta {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
 }
 
 .control-cluster {
@@ -1641,6 +1716,14 @@ summary:focus-visible {
 }
 
 @media (max-width: 48rem) {
+  .schedule-command-rail__primary {
+    flex-wrap: wrap;
+  }
+
+  .selected-block-status {
+    flex-basis: min(100%, 14rem);
+  }
+
   .pattern-check {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
