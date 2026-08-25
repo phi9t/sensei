@@ -1,19 +1,30 @@
 import type { CSSProperties } from 'react';
 import type { ExplanationResult } from '../coaching/coaching';
 import type { BlockReason, ResourceDelay } from '../engine/replay';
-import type { Operation, OperationId, PipelineDirection, ResidencyEffect } from '../engine/types';
+import type {
+  LevelConfig,
+  Operation,
+  OperationId,
+  PipelineDirection,
+  ResidencyEffect,
+} from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
-import { parseOperationId } from '../engine/operations';
+import {
+  operationKindsForLevel,
+  operationNotationKey,
+  parseOperationId,
+} from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 type InspectorExplanation = ExplanationResult & { readonly operation?: Operation };
 
 interface MoveInspectorProps {
+  readonly level: LevelConfig;
   readonly operationId: OperationId | null;
   readonly explanation: InspectorExplanation | null;
 }
 
-export function MoveInspector({ operationId, explanation }: MoveInspectorProps) {
+export function MoveInspector({ level, operationId, explanation }: MoveInspectorProps) {
   const operationIdentity = operationId === null ? null : parseOperationId(operationId);
   const ownerRank = ownerRankForExplanation(explanation);
   const showOwnerRank = operationIdentity !== null && ownerRank !== null;
@@ -24,7 +35,7 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
       <h2 id="move-inspector-heading">Move inspector</h2>
       {operationId === null || explanation === null ? <p>Select a block to inspect it.</p> : null}
 
-      {operationId !== null && explanation !== null ? (
+      {operationId !== null && explanation !== null && operationIdentity !== null ? (
         <div className="inspector-content">
           <div className="inspector-operation">
             <span
@@ -96,6 +107,50 @@ export function MoveInspector({ operationId, explanation }: MoveInspectorProps) 
               ) : null}
             </>
           ) : null}
+
+          <details className="inspector-learning" data-testid="inspector-learning-disclosure">
+            <summary>Why this block?</summary>
+            <div className="inspector-learning__body">
+              <p className="inspector-learning__decode">
+                {formatOperationCode(operationId)} means{' '}
+                {operationKindLabel(explanation.operation?.kind ?? operationIdentity.kind)} on stage{' '}
+                {explanation.operation?.stage ?? operationIdentity.stage}, microbatch{' '}
+                {explanation.operation?.microbatch ?? operationIdentity.microbatch}.
+              </p>
+              <p className="inspector-learning__notation">
+                Naming: {operationNotationKey(operationKindsForLevel(level))}.
+              </p>
+              <p className="inspector-learning__status">{learningStatusText(explanation)}</p>
+              <ul className="inspector-learning__facts" aria-label="Selected block decoded facts">
+                {showOwnerRank ? <li>Rank R{ownerRank}</li> : null}
+                {explanation.operation ? <li>Duration {explanation.operation.duration}t</li> : null}
+                {selectedDirection ? <li>{selectedDirection}</li> : null}
+                <li>Status {explanation.status}</li>
+              </ul>
+              <div>
+                <p className="inspector-learning__label">Dependency gates</p>
+                {explanation.dependencyIds.length === 0 ? (
+                  <p className="inspector-learning__empty">No dependency gates.</p>
+                ) : (
+                  <ul className="inspector-gates" aria-label="Dependency gates">
+                    {explanation.dependencyIds.map((dependencyId) => {
+                      const waiting = waitingDependencyIds(explanation).has(dependencyId);
+                      return (
+                        <li
+                          key={dependencyId}
+                          className="inspector-gate"
+                          data-state={waiting ? 'waiting' : 'satisfied'}
+                        >
+                          <span className="mono">{formatOperationCode(dependencyId)}</span>
+                          <span>{waiting ? 'waiting' : 'satisfied'}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </details>
         </div>
       ) : null}
     </section>
@@ -156,6 +211,46 @@ function compactResourceDelayFact(delay: ResourceDelay): string {
   const direction = compactDirectionLabel(delay.direction);
   const directionText = direction ? ` ${direction}` : '';
   return `Wait R${delay.rank} ${delay.start}->${delay.end}${directionText}`;
+}
+
+function learningStatusText(explanation: InspectorExplanation): string {
+  switch (explanation.status) {
+    case 'blocked': {
+      const count = explanation.explanations.length;
+      return `Status: blocked by ${count} dependency gate${count === 1 ? '' : 's'}.`;
+    }
+    case 'legal':
+      return `Status: ready at t=${explanation.earliestStart}; memory after ${explanation.projectedMemory}.`;
+    case 'completed':
+      return explanation.placement
+        ? `Status: placed on R${explanation.placement.rank} from t=${explanation.placement.start} to t=${explanation.placement.end}.`
+        : 'Status: completed.';
+  }
+}
+
+function operationKindLabel(kind: Operation['kind']): string {
+  switch (kind) {
+    case 'F':
+      return 'forward pass';
+    case 'B':
+      return 'backward pass';
+    case 'W':
+      return 'weight-gradient pass';
+  }
+}
+
+function waitingDependencyIds(explanation: InspectorExplanation): ReadonlySet<OperationId> {
+  if (explanation.status !== 'blocked') {
+    return new Set<OperationId>();
+  }
+
+  return new Set(
+    explanation.explanations
+      .map((entry) =>
+        entry.reason.kind === 'dependency-not-finished' ? entry.reason.operationId : null,
+      )
+      .filter((operationId): operationId is OperationId => operationId !== null),
+  );
 }
 
 function humanBlockedMessage(reason: BlockReason): string {

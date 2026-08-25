@@ -31,6 +31,12 @@ export function operationKindsForLevel(config: LevelConfig): readonly OperationK
   return isSplitBackwardLevel(config) ? (['F', 'B', 'W'] as const) : (['F', 'B'] as const);
 }
 
+export function operationNotationKey(kinds: readonly OperationKind[]): string {
+  return kinds.includes('W')
+    ? '(F/B/W, stage_id, micro_batch_id)'
+    : '(F/B, stage_id, micro_batch_id)';
+}
+
 export function directionsForLevel(config: LevelConfig): readonly PipelineDirection[] {
   return config.dualPipeModel ? config.dualPipeModel.directions : (['asc'] as const);
 }

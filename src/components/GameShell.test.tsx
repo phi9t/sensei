@@ -299,7 +299,9 @@ describe('Game shell', () => {
 
     await user.click(screen.getByTestId('tile-B:0:0'));
     const inspector = screen.getByRole('region', { name: /move inspector/i });
-    expect(within(inspector).getByText(/Duration 4/i)).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/^Placed on rank 0 from 10 to 14\. Duration 4\.$/i),
+    ).toBeInTheDocument();
   });
 
   it('shows compact code and owner rank when selecting a virtual-stage block', async () => {
@@ -456,8 +458,8 @@ describe('Game shell', () => {
     expect(within(facts).getByText(/^Deps F0:S0:B0, B1:S1:B0$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
-    expect(within(inspector).getByText(/F0:S0:B0/)).toBeInTheDocument();
-    expect(within(inspector).getByText(/B1:S1:B0/)).toBeInTheDocument();
+    expect(within(facts).getByText(/F0:S0:B0/)).toBeInTheDocument();
+    expect(within(facts).getByText(/B1:S1:B0/)).toBeInTheDocument();
     expect(blocked).toHaveAccessibleName(/inspect B stage 0 microbatch 0, 2 ticks, blocked/i);
   });
 
@@ -1165,11 +1167,82 @@ describe('Game shell', () => {
 
     await user.click(screen.getByRole('button', { name: /inspect B stage 0 microbatch 0/i }));
 
-    expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    const readyQueue = screen.getByRole('region', { name: /ready queue/i });
+    expect(within(readyQueue).getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
     const inspector = screen.getByRole('region', { name: /move inspector/i });
     const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
     expect(within(facts).getByText(/^Deps F0:S0:B0, B1:S1:B0$/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for F stage 0 microbatch 0/i)).toBeInTheDocument();
     expect(within(inspector).getByText(/Waiting for B stage 1 microbatch 0/i)).toBeInTheDocument();
+  });
+
+  it('keeps selected-block learning behind an inspector disclosure', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    expect(screen.queryByTestId('inspector-learning-disclosure')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /inspect B stage 0 microbatch 0/i }));
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    const learning = within(inspector).getByTestId('inspector-learning-disclosure');
+    expect(learning).not.toHaveAttribute('open');
+    expect(within(learning).getByText(/^Why this block\?$/i)).toBeInTheDocument();
+
+    await user.click(within(learning).getByText(/^Why this block\?$/i));
+
+    expect(learning).toHaveAttribute('open');
+    expect(
+      within(learning).getByText(/means backward pass on stage 0, microbatch 0/i),
+    ).toBeInTheDocument();
+    expect(within(learning).getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+    expect(within(learning).getByText(/^Rank R0$/i)).toBeInTheDocument();
+    expect(within(learning).getByText(/^Duration 2t$/i)).toBeInTheDocument();
+    expect(
+      within(learning).getByText(/^Status: blocked by 2 dependency gates\.$/i),
+    ).toBeInTheDocument();
+
+    const gates = within(learning).getByRole('list', { name: /dependency gates/i });
+    expect(within(gates).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
+    expect(within(gates).getByText(/^B1:S1:B0$/i)).toBeInTheDocument();
+    expect(within(gates).getAllByText(/^waiting$/i)).toHaveLength(2);
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
+  it('uses split-backward notation in the inspector learning disclosure only when W blocks exist', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="split-backward" />);
+
+    await user.click(screen.getByRole('button', { name: /inspect W stage 0 microbatch 0/i }));
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    const learning = within(inspector).getByTestId('inspector-learning-disclosure');
+    await user.click(within(learning).getByText(/^Why this block\?$/i));
+
+    expect(
+      within(learning).getByText(/\(F\/B\/W, stage_id, micro_batch_id\)/i),
+    ).toBeInTheDocument();
+    expect(
+      within(learning).getByText(/means weight-gradient pass on stage 0, microbatch 0/i),
+    ).toBeInTheDocument();
+  });
+
+  it('does not invent dependency gates for dependency-free selected blocks', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+
+    const inspector = screen.getByRole('region', { name: /move inspector/i });
+    const learning = within(inspector).getByTestId('inspector-learning-disclosure');
+    await user.click(within(learning).getByText(/^Why this block\?$/i));
+
+    expect(within(learning).getByText(/^No dependency gates\.$/i)).toBeInTheDocument();
+    expect(
+      within(learning).queryByRole('list', { name: /dependency gates/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(learning).getByText(/^Status: placed on R0 from t=0 to t=1\.$/i),
+    ).toBeInTheDocument();
   });
 });

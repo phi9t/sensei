@@ -3,6 +3,7 @@ import type { MoveClassification } from '../engine/replay';
 import type { LevelConfig, OperationId, OperationKind } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { microbatchGroupLabel } from '../engine/microbatchGroups';
+import { operationNotationKey } from '../engine/operations';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
 const OPERATION_KIND_ORDER: readonly OperationKind[] = ['F', 'B', 'W'];
@@ -159,9 +160,7 @@ export function OperationTray({
   const operationKinds = OPERATION_KIND_ORDER.filter((kind) =>
     classifications.some((classification) => classification.operation.kind === kind),
   );
-  const notationKey = operationKinds.includes('W')
-    ? '(F/B/W, stage_id, micro_batch_id)'
-    : '(F/B, stage_id, micro_batch_id)';
+  const notationKey = operationNotationKey(operationKinds);
 
   return (
     <section className="panel tray-panel" aria-label="Ready queue">

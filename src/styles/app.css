@@ -1177,6 +1177,116 @@ summary:focus-visible {
   font-size: 0.78rem;
 }
 
+.inspector-learning {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper-strong) 70%, transparent);
+}
+
+.inspector-learning summary {
+  padding: 0.34rem 0.52rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspector-learning__body {
+  display: grid;
+  gap: 0.48rem;
+  max-height: min(14rem, 48dvh);
+  overflow: auto;
+  padding: 0 0.58rem 0.58rem;
+}
+
+.inspector-learning__decode,
+.inspector-learning__notation,
+.inspector-learning__status,
+.inspector-learning__empty,
+.inspector-learning__label {
+  margin: 0;
+}
+
+.inspector-learning__status,
+.inspector-learning__empty {
+  color: var(--muted);
+}
+
+.inspector-learning__label {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspector-learning__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspector-learning__facts li {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-soft);
+  padding: 0.14rem 0.4rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-gates {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0.28rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspector-gate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.26rem 0.38rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.inspector-gate span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-gate[data-state='satisfied'] span:last-child {
+  color: var(--ready);
+}
+
+.inspector-gate[data-state='waiting'] span:last-child {
+  color: var(--blocked);
+}
+
 .schedule-command-rail {
   grid-area: commands;
   display: flex;

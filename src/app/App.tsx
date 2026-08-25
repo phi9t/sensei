@@ -212,6 +212,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
 
           <aside className="score-rail" aria-label="Score rail">
             <MoveInspector
+              level={game.level}
               operationId={game.selectedOperationId}
               explanation={game.selectedExplanation}
             />

@@ -445,4 +445,24 @@ describe('responsive play surface CSS contract', () => {
     expect(policyComparisonBlock).toMatch(/\.policy-comparison\s*\{[^}]*\boverflow:\s*hidden\s*;/);
     expect(policyComparisonBlock).not.toMatch(/\bposition:\s*absolute\s*;/);
   });
+
+  it('keeps the inspector learning disclosure bounded inside the score rail', async () => {
+    const css = await readFile(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+    const learningBlock = extractBlock(css, '.inspector-learning');
+    const learningBodyBlock = extractBlock(css, '.inspector-learning__body');
+    const gateListBlock = extractBlock(css, '.inspector-gates');
+    const gateBlock = extractBlock(css, '.inspector-gate {');
+
+    expect(learningBlock).toMatch(/\.inspector-learning\s*\{[^}]*\bmax-width:\s*100%\s*;/);
+    expect(learningBlock).toMatch(/\.inspector-learning\s*\{[^}]*\boverflow:\s*hidden\s*;/);
+    expect(learningBodyBlock).toMatch(
+      /\.inspector-learning__body\s*\{[^}]*\bmax-height:\s*min\(14rem,\s*48dvh\)\s*;/,
+    );
+    expect(learningBodyBlock).toMatch(/\.inspector-learning__body\s*\{[^}]*\boverflow:\s*auto\s*;/);
+    expect(gateListBlock).toMatch(/\.inspector-gates\s*\{[^}]*\bdisplay:\s*grid\s*;/);
+    expect(gateBlock).toMatch(
+      /\.inspector-gate\s*\{[^}]*\bgrid-template-columns:\s*minmax\(0,\s*1fr\) auto\s*;/,
+    );
+    expect(gateBlock).not.toMatch(/\bposition:\s*absolute\s*;/);
+  });
 });
