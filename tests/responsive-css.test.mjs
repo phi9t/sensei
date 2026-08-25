@@ -345,6 +345,8 @@ describe('responsive play surface CSS contract', () => {
     const guideChipBlock = extractBlock(css, '\n.level-guide-panel__chip {');
     const guideDetailsBlock = extractBlock(css, '.level-guide-panel__details');
     const guideConceptsBlock = extractBlock(css, '.level-guide-panel__concepts');
+    const curriculumPathBlock = extractBlock(css, '.curriculum-path {');
+    const curriculumPathNodeBlock = extractBlock(css, '.curriculum-path__node {');
     const guideConceptListBlock = extractBlock(css, '.level-guide-panel__concept-list');
     const batchStacksBlock = extractBlock(css, '\n.batch-lane__stacks {');
     const batchThreeStackBlock = extractBlock(css, ".batch-lane__stacks[data-stack-count='3']");
@@ -371,6 +373,17 @@ describe('responsive play surface CSS contract', () => {
     );
     expect(guideConceptListBlock).toMatch(
       /\.level-guide-panel__concept-list\s*\{[^}]*\bflex-wrap:\s*wrap\s*;/,
+    );
+    expect(curriculumPathBlock).toMatch(/\.curriculum-path\s*\{[^}]*\bdisplay:\s*flex\s*;/);
+    expect(curriculumPathBlock).toMatch(/\.curriculum-path\s*\{[^}]*\boverflow-x:\s*auto\s*;/);
+    expect(curriculumPathBlock).toMatch(
+      /\.curriculum-path\s*\{[^}]*\bscroll-snap-type:\s*x proximity\s*;/,
+    );
+    expect(curriculumPathNodeBlock).toMatch(
+      /\.curriculum-path__node\s*\{[^}]*\bflex:\s*0 0 min\(9\.5rem,\s*72vw\)\s*;/,
+    );
+    expect(curriculumPathNodeBlock).toMatch(
+      /\.curriculum-path__node\s*\{[^}]*\bgrid-template-columns:\s*minmax\(0,\s*1fr\) auto\s*;/,
     );
     expect(batchStacksBlock).toMatch(
       /\.batch-lane__stacks\s*\{[^}]*\bgrid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/,

@@ -162,7 +162,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
 
       <main className="app-shell">
         <div className="cockpit-grid" id="play-surface">
-          <LevelGuide level={game.level} score={game.score} />
+          <LevelGuide level={game.level} score={game.score} levelOptions={game.levelOptions} />
 
           <OperationTray
             level={game.level}

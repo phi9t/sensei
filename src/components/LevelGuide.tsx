@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import type { ScoreResult } from '../engine/score';
+import type { LevelOptionState } from '../app/useGame';
 import type { LevelConfig, MasteryTarget, MetricMasteryTarget } from '../engine/types';
 import { LEVEL_IDS, getLevel } from '../levels/levels';
 
 interface LevelGuideProps {
   readonly level: LevelConfig;
   readonly score: ScoreResult;
+  readonly levelOptions: readonly LevelOptionState[];
 }
 
 interface CurriculumProgress {
@@ -13,6 +16,13 @@ interface CurriculumProgress {
   readonly setIndex: number;
   readonly setCount: number;
   readonly nextTitle: string | null;
+}
+
+interface CurriculumPathNode {
+  readonly setTitle: string;
+  readonly state: 'current' | 'open' | 'locked';
+  readonly currentIndex: number | null;
+  readonly levelCount: number;
 }
 
 function primaryGoal(level: LevelConfig): string {
@@ -90,8 +100,66 @@ function curriculumProgress(level: LevelConfig): CurriculumProgress {
   });
 }
 
-export function LevelGuide({ level, score }: LevelGuideProps) {
+function curriculumPath(
+  level: LevelConfig,
+  levelOptions: readonly LevelOptionState[],
+): readonly CurriculumPathNode[] {
+  const groups = new Map<string, LevelOptionState[]>();
+
+  for (const option of levelOptions) {
+    const group = groups.get(option.setTitle);
+    if (group) {
+      group.push(option);
+      continue;
+    }
+
+    groups.set(option.setTitle, [option]);
+  }
+
+  return Object.freeze(
+    Array.from(groups, ([setTitle, options]) => {
+      const currentIndex = options.findIndex((option) => option.levelId === level.id);
+      const unlocked = options.some((option) => option.unlocked);
+      return Object.freeze({
+        setTitle,
+        state: currentIndex >= 0 ? 'current' : unlocked ? 'open' : 'locked',
+        currentIndex: currentIndex >= 0 ? currentIndex + 1 : null,
+        levelCount: options.length,
+      });
+    }),
+  );
+}
+
+function pathNodeLabel(node: CurriculumPathNode): string {
+  if (node.currentIndex !== null) {
+    return `${node.setTitle} set, current, level ${node.currentIndex} of ${node.levelCount}`;
+  }
+  return `${node.setTitle} set, ${node.state}, ${node.levelCount} ${
+    node.levelCount === 1 ? 'level' : 'levels'
+  }`;
+}
+
+function pathNodeProgress(node: CurriculumPathNode): string {
+  return node.currentIndex === null
+    ? `${node.levelCount} ${node.levelCount === 1 ? 'level' : 'levels'}`
+    : `${node.currentIndex}/${node.levelCount}`;
+}
+
+function pathNodeStateLabel(state: CurriculumPathNode['state']): string {
+  switch (state) {
+    case 'current':
+      return 'Current';
+    case 'open':
+      return 'Open';
+    case 'locked':
+      return 'Locked';
+  }
+}
+
+export function LevelGuide({ level, score, levelOptions }: LevelGuideProps) {
+  const [conceptsOpen, setConceptsOpen] = useState(false);
   const progress = curriculumProgress(level);
+  const pathNodes = curriculumPath(level, levelOptions);
 
   return (
     <section className="panel level-guide-panel" aria-label="Level guide">
@@ -108,10 +176,36 @@ export function LevelGuide({ level, score }: LevelGuideProps) {
             </span>
           ))}
         </div>
-        <details className="level-guide-panel__concepts" data-testid="level-guide-concepts">
+        <details
+          className="level-guide-panel__concepts"
+          data-testid="level-guide-concepts"
+          onToggle={(event) => setConceptsOpen(event.currentTarget.open)}
+        >
           <summary>Concepts</summary>
           <div className="level-guide-panel__concept-body">
             <p>{level.algorithm.objective}</p>
+            {conceptsOpen ? (
+              <div className="curriculum-path-block">
+                <p className="level-guide-panel__concept-label">Course path</p>
+                <ul className="curriculum-path" aria-label="Curriculum course path">
+                  {pathNodes.map((node) => (
+                    <li
+                      key={node.setTitle}
+                      className="curriculum-path__node"
+                      data-state={node.state}
+                      data-testid="curriculum-path-node"
+                      aria-label={pathNodeLabel(node)}
+                    >
+                      <span className="curriculum-path__title">{node.setTitle}</span>
+                      <span className="curriculum-path__progress">{pathNodeProgress(node)}</span>
+                      <span className="curriculum-path__state">
+                        {pathNodeStateLabel(node.state)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <ul className="level-guide-panel__concept-list" aria-label="Introduced concepts">
               {level.algorithm.introducedModel.map((concept) => (
                 <li key={concept}>{concept}</li>

@@ -174,6 +174,42 @@ describe('Game shell', () => {
     expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
   });
 
+  it('shows a compact curriculum path inside the concepts disclosure', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="gpipe-afab" />);
+
+    const guide = screen.getByRole('region', { name: /level guide/i });
+    const concepts = within(guide).getByTestId('level-guide-concepts');
+
+    expect(concepts).not.toHaveAttribute('open');
+
+    await user.click(within(guide).getByText(/^Concepts$/i));
+
+    expect(within(concepts).getByText(/^Course path$/i)).toBeInTheDocument();
+    const path = within(concepts).getByRole('list', { name: /curriculum course path/i });
+    const nodes = within(path).getAllByTestId('curriculum-path-node');
+
+    expect(nodes.length).toBeGreaterThan(8);
+    expect(within(path).getByText(/^Foundations$/i)).toBeInTheDocument();
+    expect(within(path).getByText(/^GPipe$/i)).toBeInTheDocument();
+    expect(within(path).getByText(/^1F1B$/i)).toBeInTheDocument();
+    expect(within(path).getByText(/^DualPipe$/i)).toBeInTheDocument();
+
+    const gpipe = within(path).getByLabelText(/GPipe set, current, level 1 of 1/i);
+    expect(gpipe).toHaveAttribute('data-state', 'current');
+    expect(within(gpipe).getByText(/^Current$/i)).toBeInTheDocument();
+    expect(within(gpipe).getByText(/^1\/1$/i)).toBeInTheDocument();
+
+    const foundations = within(path).getByLabelText(/Foundations set, open, 4 levels/i);
+    expect(foundations).toHaveAttribute('data-state', 'open');
+    expect(within(foundations).getByText(/^Open$/i)).toBeInTheDocument();
+
+    const oneFOneB = within(path).getByLabelText(/1F1B set, locked, 3 levels/i);
+    expect(oneFOneB).toHaveAttribute('data-state', 'locked');
+    expect(within(oneFOneB).getByText(/^Locked$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
+  });
+
   it('renders split-backward blocks with a compact WGT stack and split notation', () => {
     render(<App initialLevelId="split-backward" />);
 
