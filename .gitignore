@@ -1,5 +1,8 @@
 .worktrees/
+.agentic/
+.roborev/
 node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+.kata.local.toml
