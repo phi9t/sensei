@@ -131,3 +131,43 @@ The command still exited `0`.
 - Dependency setup requires npm registry access.
 - Hostile-code sandboxing is unavailable because `bwrap` is not installed on
   this macOS host.
+
+## Bootstrap Execution Evidence
+
+The following evidence was collected in the bootstrap worktree before sealing
+this final evidence update. The final handoff reruns the verifier against the
+evidence commit's own `HEAD`.
+
+| Check                           | Command                                                                             | Outcome                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Linked worktree Kata binding    | `git worktree add ... --detach HEAD && kata --workspace ... list --agent`           | passed; temporary worktree resolved the same `sensei` Kata issue ledger |
+| Agentic smoke tests             | `npm run agentic:test`                                                              | passed; 1 test file, 8 tests                                            |
+| Agentic doctor                  | `scripts/agentic/doctor`                                                            | passed; tools, hooks, ignored runtime paths, and adapters verified      |
+| Fast deterministic gate         | `scripts/agentic/check-fast`                                                        | passed; format, lint, typecheck, and 22 Vitest files / 442 tests        |
+| Full deterministic gate         | `scripts/agentic/check-full`                                                        | passed; `npm run verify`, production build, and `git diff --check`      |
+| Branch review gate              | `scripts/agentic/review-branch`                                                     | passed; reran full gate and roborev branch review                       |
+| Latest per-commit roborev check | `roborev wait --sha d3efbc442494c5ed1ffbdc4e623060f5e744d04c --quiet`               | passed                                                                  |
+| Latest branch roborev review    | `roborev show 34` for `637f8b172fb153197223841500d6f32418061173..d3efbc442494c5...` | passed; no issues found                                                 |
+
+## Review Resolution Notes
+
+- roborev job `3` was addressed by commit `a440557`, which added the missing
+  Kata instruction reference, ignore rules, and TOML Prettier exclusions.
+- roborev job `9` was addressed by commit `ed9a1c6`, which added the missing
+  roborev runtime ignore and documented review-plane integration.
+- roborev job `12` was addressed by commit `9c767ae`; the `rg` fallback was
+  fixed and the manifest-writing path received regression coverage.
+- roborev job `22` was addressed by commit `95687e1`, which added the missing
+  architecture-level sandbox and remote execution summary.
+- roborev job `25` was addressed by commits `3f03af2` and `8f3e7a7`, which
+  removed positional `node -e` argument dependence and formatted the test.
+- roborev job `29` was addressed by commit `0b4850c`, which preserves
+  `started_at` when refreshing an existing run manifest.
+- roborev job `31` was addressed by commit `d3efbc4`, which guards missing
+  manifest paths and keeps manifest creation coverage separate from refresh
+  coverage.
+
+roborev jobs `19` and `21` failed at the runner/tool layer because the
+Antigravity headless agent lacked read-file permission. No global agent profile
+was changed. The same commit was reviewed by a Codex fallback in job `22`, and
+later Gemini per-commit plus branch reviews passed.

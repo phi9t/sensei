@@ -63,7 +63,7 @@ Expected: `.kata.toml` binds to project `sensei`; Kata guidance is present.
 Create `kata#m08q` plus children `pxcs`, `y3v5`, `aqva`, `n5rk`, `6xf9`,
 `19pe`, `871q`, `nxcn`, and `vkqd`.
 
-- [ ] **Step 5: Verify linked worktree project resolution**
+- [x] **Step 5: Verify linked worktree project resolution**
 
 Run:
 
@@ -76,7 +76,7 @@ git worktree remove "$tmp"
 
 Expected: temporary worktree resolves project `sensei`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -130,7 +130,7 @@ Create `CLAUDE.md` containing:
 
 Create the `docs/agentic-engineering/` docs listed above.
 
-- [ ] **Step 5: Verify formatting**
+- [x] **Step 5: Verify formatting**
 
 Run:
 
@@ -140,7 +140,7 @@ npx prettier --check CONSTITUTION.md AGENTS.md CLAUDE.md docs/agentic-engineerin
 
 Expected: all files match Prettier formatting.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -179,7 +179,7 @@ Expected: `gemini` and `codex` healthy; configure `gemini`.
 Use `agent = "gemini"`, `snapshot_dir = ".roborev"`, `kata_context.mode =
 "current"`, and a Kata review hook with labels `roborev` and `from-review`.
 
-- [ ] **Step 3: Initialize roborev hook**
+- [x] **Step 3: Initialize roborev hook**
 
 Run:
 
@@ -190,7 +190,7 @@ roborev status
 
 Expected: daemon reachable and post-commit hook installed.
 
-- [ ] **Step 4: Verify hook content**
+- [x] **Step 4: Verify hook content**
 
 Run:
 
@@ -202,7 +202,7 @@ grep -n 'roborev post-commit' "$hook"
 
 Expected: hook invokes roborev.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -264,7 +264,7 @@ npm pkg set scripts.agentic:doctor="scripts/agentic/doctor" \
   scripts.agentic:test="vitest run tests/agentic/agentic-scripts.test.mjs"
 ```
 
-- [ ] **Step 4: Verify focused smoke tests pass**
+- [x] **Step 4: Verify focused smoke tests pass**
 
 Run:
 
@@ -274,7 +274,7 @@ npm run agentic:test
 
 Expected: all agentic smoke tests pass.
 
-- [ ] **Step 5: Verify fast gate**
+- [x] **Step 5: Verify fast gate**
 
 Run:
 
@@ -284,7 +284,7 @@ scripts/agentic/check-fast
 
 Expected: formatter, lint, typecheck, and tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -305,7 +305,7 @@ Expected: commit succeeds and roborev review is enqueued.
 - Update: `docs/superpowers/plans/2026-08-29-agentic-engineering-bootstrap.md`
 - Kata issue comments and closures
 
-- [ ] **Step 1: Run doctor**
+- [x] **Step 1: Run doctor**
 
 Run:
 
@@ -315,7 +315,7 @@ scripts/agentic/doctor
 
 Expected: exits `0`.
 
-- [ ] **Step 2: Run full deterministic gate**
+- [x] **Step 2: Run full deterministic gate**
 
 Run:
 
@@ -325,7 +325,7 @@ scripts/agentic/check-full
 
 Expected: exits `0`.
 
-- [ ] **Step 3: Run roborev branch gate**
+- [x] **Step 3: Run roborev branch gate**
 
 Run:
 
@@ -336,7 +336,7 @@ scripts/agentic/review-branch
 Expected: exits `0`. If it fails, inspect exact findings with `roborev show`,
 use `receiving-code-review`, and address valid blocking items.
 
-- [ ] **Step 4: Backfill review for earlier commits**
+- [x] **Step 4: Backfill review for earlier commits**
 
 Run:
 
@@ -351,7 +351,7 @@ Expected: all bootstrap commits pass review.
 Run `kata close` for each completed child with commit and test evidence. Leave
 any blocked external-only work open with a concrete comment.
 
-- [ ] **Step 6: Append post-execution review**
+- [x] **Step 6: Append post-execution review**
 
 Append a section below with:
 
@@ -386,4 +386,79 @@ git status --porcelain=v1 -uall
 
 ## Post-Execution Review
 
-This section must be updated after execution and before final handoff.
+### What Changed From The Initial Plan
+
+- Kata `v0.14.3` does not support `kata quickstart --format contract`; this
+  bootstrap used `kata quickstart --format agent` and recorded the ruling in
+  Kata.
+- The worktree path caused Kata to infer `agentic-engineering-bootstrap` as the
+  project name at first. The project was renamed and rebound to `sensei` so
+  the committed `.kata.toml` is repository-oriented instead of
+  worktree-oriented.
+- `roborev --version` and `kata --version` are not valid on the installed tool
+  versions. The repository adapters and docs use `roborev version` and
+  `kata version`.
+- `npx prettier --check .` cannot parse the committed TOML files or the pinned
+  constitution mirror in this repository setup, so `.prettierignore` excludes
+  `.kata.toml`, `.roborev.toml`, `agentic.toml`, and `CONSTITUTION.md`.
+- Headless Gemini/Antigravity roborev failed for two jobs when global
+  read-file permissions were unavailable. The bootstrap did not edit global
+  agent profiles; it used a bounded Codex fallback review for the affected
+  commit and later passed Gemini per-commit and branch reviews.
+
+### Review-Driven Improvements
+
+- roborev job `3` identified missing Kata binding support files. Commit
+  `a440557` added `AGENTS.md`, `.gitignore`, and `.prettierignore`.
+- roborev job `9` identified missing roborev review-plane documentation and
+  ignore rules. Commit `ed9a1c6` added them.
+- roborev job `12` identified an `rg` availability failure path in
+  `scripts/agentic/doctor`. Commit `9c767ae` added a `grep` fallback.
+- roborev job `22` identified that architecture docs needed the sandbox and
+  remote execution summary, not only the dedicated remote execution doc. Commit
+  `95687e1` added that summary.
+- roborev jobs `25`, `29`, and `31` hardened run-manifest behavior: the helper
+  now avoids positional `node -e` argument dependence, preserves `started_at`
+  when refreshing manifests, guards missing manifest paths, and keeps creation
+  and refresh smoke coverage separate.
+
+### Verification Evidence
+
+Before the final evidence commit, the bootstrap passed:
+
+```bash
+npm run agentic:test
+scripts/agentic/doctor
+scripts/agentic/check-fast
+scripts/agentic/check-full
+scripts/agentic/review-branch
+```
+
+The latest implementation-head evidence was:
+
+- `npm run agentic:test`: 1 file passed, 8 tests passed.
+- `scripts/agentic/doctor`: exited `0`.
+- `scripts/agentic/check-fast`: format, lint, typecheck, and 22 Vitest files /
+  442 tests passed.
+- `scripts/agentic/check-full`: `npm run verify`, production build, and
+  `git diff --check` passed.
+- `scripts/agentic/review-branch`: reran the full gate and passed roborev
+  branch review.
+- `roborev show 34`: branch range
+  `637f8b172fb153197223841500d6f32418061173..d3efbc442494c5ed1ffbdc4e623060f5e744d04c`
+  had no review findings.
+
+The final handoff must rerun the verifier after committing this evidence
+update, because this section itself changes the branch head.
+
+### Future Plan Improvements
+
+- Prefer environment variables or JSON files over `node -e` positional
+  arguments in Bash helpers. It is easier to review and avoids runtime-version
+  assumptions.
+- Treat committed evidence docs as pre-final snapshots unless they are written
+  after all repository changes. The live handoff and Kata closure should carry
+  the final head SHA and final verifier output.
+- Keep review-generated Kata issues open until the fixing commit has both
+  deterministic evidence and a passing roborev review. Then close both the
+  review record and the Kata issue explicitly.
