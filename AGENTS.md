@@ -50,6 +50,8 @@ agent execution, not agent authority.
 - `docs/agentic-engineering/COMMANDS.md`
 - Applicable design and implementation plan
 - Current Kata issue
+- `README.md` and `docs/clean-room-audit.md` when touching tutor-inspired
+  concepts, UI, or scheduling behavior
 
 ## Task Ledger
 
