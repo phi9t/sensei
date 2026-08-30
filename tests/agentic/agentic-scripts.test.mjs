@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { access, mkdtemp, readFile, stat } from 'node:fs/promises';
+import { access, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -134,6 +134,10 @@ describe('agentic bootstrap scripts', () => {
 
   it('writes run manifests with correctly mapped fields', async () => {
     const manifestPath = join(await mkdtemp(join(tmpdir(), 'sensei-agentic-')), 'manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify({ started_at: '2026-08-28T00:00:00Z' }, null, 2) + '\n',
+    );
     const result = run(
       'bash',
       [
@@ -163,6 +167,7 @@ describe('agentic bootstrap scripts', () => {
       review_agent: 'gemini',
       branch: 'chore/agentic-engineering-bootstrap',
       head_sha: 'abc123',
+      started_at: '2026-08-28T00:00:00Z',
       finished_at: '2026-08-29T00:00:00Z',
     });
   });

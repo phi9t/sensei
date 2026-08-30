@@ -148,6 +148,17 @@ write_run_manifest() {
     node -e '
     const fs = require("node:fs");
     const env = process.env;
+    let startedAt = new Date().toISOString();
+    if (fs.existsSync(env.AGENTIC_MANIFEST_PATH)) {
+      try {
+        const previous = JSON.parse(fs.readFileSync(env.AGENTIC_MANIFEST_PATH, "utf8"));
+        if (typeof previous.started_at === "string" && previous.started_at.length > 0) {
+          startedAt = previous.started_at;
+        }
+      } catch {
+        // Invalid existing manifests are overwritten with a fresh start time.
+      }
+    }
     const data = {
       schema_version: 1,
       kata_ref: env.AGENTIC_KATA_REF,
@@ -158,7 +169,7 @@ write_run_manifest() {
       branch: env.AGENTIC_BRANCH,
       base_sha: env.AGENTIC_BASE_SHA,
       head_sha: env.AGENTIC_HEAD_SHA === "null" ? null : env.AGENTIC_HEAD_SHA,
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
       finished_at: env.AGENTIC_FINISHED_AT === "null" ? null : env.AGENTIC_FINISHED_AT,
       test_commands: [],
       test_results: [],
