@@ -17,7 +17,13 @@
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
-    "release:check": "npm ci && npm run verify && git diff --check && git status --short"
+    "release:check": "npm ci && npm run verify && git diff --check && git status --short",
+    "agentic:doctor": "scripts/agentic/doctor",
+    "agentic:setup": "scripts/agentic/setup",
+    "agentic:check-fast": "scripts/agentic/check-fast",
+    "agentic:check-full": "scripts/agentic/check-full",
+    "agentic:review-branch": "scripts/agentic/review-branch",
+    "agentic:test": "vitest run tests/agentic/agentic-scripts.test.mjs"
   },
   "dependencies": {
     "react": "19.2.8",

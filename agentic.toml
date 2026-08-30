@@ -1,0 +1,48 @@
+schema_version = 1
+base_branch = "master"
+worktree_root = ".worktrees"
+runtime_root = ".agentic"
+single_writer_per_worktree = true
+commit_per_task = true
+push_requires_human = true
+merge_requires_human = true
+deploy_requires_human = true
+force_push_requires_human = true
+remote_review_ci_enabled = false
+primary_agent = "traecode"
+review_agent = "gemini"
+
+[commands]
+setup = "scripts/agentic/setup"
+check_fast = "scripts/agentic/check-fast"
+check_full = "scripts/agentic/check-full"
+review_branch = "scripts/agentic/review-branch"
+
+[kata]
+required = true
+project = "sensei"
+commit_footer = "Kata: kata#%s"
+close_requires_commit = true
+close_requires_test = true
+
+[roborev]
+required = true
+agent = "gemini"
+review_every_commit = true
+branch_gate = true
+max_automatic_fix_rounds = 3
+
+[sandbox]
+trusted_mode = "worktree"
+untrusted_mode = "fail-closed"
+network_default = "deny"
+bubblewrap_available = false
+
+[repository]
+language = "TypeScript"
+runtime = "Node.js >=24.13.0"
+package_manager = "npm >=11.7.0"
+framework = "React 19 + Vite 8"
+test_runner = "Vitest"
+formatter = "Prettier"
+linter = "ESLint"

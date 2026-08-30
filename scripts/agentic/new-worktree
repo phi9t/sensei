@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(git rev-parse --show-toplevel)"
+cd "$repo"
+
+source "$repo/scripts/agentic/lib.sh"
+
+if [[ "${1:-}" == "--help" || $# -ne 2 ]]; then
+  cat <<'USAGE'
+Usage: scripts/agentic/new-worktree <kata-ref> <slug>
+
+Claims an open Kata issue, creates a dedicated worktree and branch, runs setup,
+and records a local run manifest.
+USAGE
+  [[ "${1:-}" == "--help" ]] && exit 0
+  exit 2
+fi
+
+kata_ref="$1"
+kata_cli_ref="$(normalize_kata_ref "$kata_ref")"
+slug="$(slugify "$2")"
+if [[ -z "$slug" ]]; then
+  printf 'Slug must contain at least one letter or digit.\n' >&2
+  exit 2
+fi
+
+status="$(issue_status "$kata_cli_ref")"
+if [[ "$status" != "open" ]]; then
+  printf 'Kata issue %s is %s; refusing to create a worktree.\n' "$kata_ref" "$status" >&2
+  exit 1
+fi
+
+refuse_when_owned_by_other "$kata_cli_ref"
+
+owner="$(issue_owner "$kata_cli_ref")"
+if [[ -z "$owner" ]]; then
+  run_cmd kata claim "$kata_cli_ref"
+fi
+
+short_id="$(ref_short_id "$kata_cli_ref")"
+base_branch="$(config_value base_branch)"
+worktree_root="$(config_value worktree_root)"
+branch="kata/$short_id-$slug"
+main_root="$(main_worktree_root)"
+path="$main_root/$worktree_root/$short_id-$slug"
+base_sha="$(git rev-parse "$base_branch")"
+
+if [[ -e "$path" ]]; then
+  printf 'Worktree path already exists: %s\n' "$path" >&2
+  exit 1
+fi
+
+run_cmd git worktree add "$path" -b "$branch" "$base_sha"
+(
+  cd "$path"
+  run_cmd scripts/agentic/setup
+  run_cmd scripts/agentic/check-fast
+  manifest_path="$(run_manifest_path "$kata_cli_ref")"
+  write_run_manifest "$kata_cli_ref" "$manifest_path"
+  run_cmd kata meta set "$kata_cli_ref" work.attention ok
+  run_cmd kata meta set "$kata_cli_ref" work.branch "$branch"
+  printf 'worktree=%s\n' "$path"
+  printf 'next=cd %q && scripts/agentic/task-start %q\n' "$path" "kata#$short_id"
+)

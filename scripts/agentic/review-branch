@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(git rev-parse --show-toplevel)"
+cd "$repo"
+
+source "$repo/scripts/agentic/lib.sh"
+
+base_branch="$(config_value base_branch)"
+commands=(
+  "scripts/agentic/check-full"
+  "roborev review --branch --base $base_branch --wait --quiet"
+)
+
+if dry_run_requested "${1:-}"; then
+  print_plan "${commands[@]}"
+  exit 0
+fi
+
+run_cmd scripts/agentic/check-full
+run_cmd roborev review --branch --base "$base_branch" --wait --quiet
