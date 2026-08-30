@@ -51,6 +51,10 @@ roborev is configured in `.roborev.toml` with:
 - local snapshots in ignored `.roborev/`;
 - review findings hooked back into Kata with labels `roborev` and `from-review`.
 
+The repository-level ignore rules intentionally keep `.roborev/` out of Git so
+review snapshots, local databases, and transient review artifacts cannot be
+committed with source changes.
+
 The selected reviewer is `gemini` because `roborev check-agents` reported
 `gemini` and `codex` healthy, while `claude` failed authentication. The primary
 implementation family for this bootstrap is TraeCode/Codex-style, so `gemini`

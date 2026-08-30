@@ -88,6 +88,11 @@ SHA="$(git rev-parse HEAD)"
 roborev wait --sha "$SHA" --quiet
 ```
 
+If `roborev wait` reports a blocking finding, inspect the concrete review with
+`roborev show <sha-or-job>`, verify the claim against the repository, and commit
+the fix with the original Kata reference plus any review-created Kata issue that
+was addressed.
+
 Branch gate:
 
 ```bash
