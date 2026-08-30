@@ -64,6 +64,17 @@ Remote roborev CI is intentionally disabled. Enabling it requires an explicit
 human decision because it can comment on external repositories and consume
 provider credentials.
 
+## Sandbox And Remote Execution
+
+Trusted execution uses one worktree per writer and is not a hostile-code
+sandbox. Untrusted or generated code fails closed on this host because `bwrap`
+is unavailable; do not run unknown code as though it were isolated.
+
+Remote SSH or GPU-host work must use session-local paths and caches, avoid
+global package changes, preserve other users' allocations, and record host,
+runtime, GPU visibility, and process identifiers. The detailed policy lives in
+`docs/agentic-engineering/REMOTE_EXECUTION.md`.
+
 ## Git Hook Strategy
 
 There is no configured `core.hooksPath` in the bootstrap baseline. In a linked
