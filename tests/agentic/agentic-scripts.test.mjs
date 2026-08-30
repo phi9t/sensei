@@ -72,6 +72,7 @@ describe('agentic bootstrap scripts', () => {
     const agents = await read('AGENTS.md');
     const claude = await read('CLAUDE.md');
     const gitignore = await read('.gitignore');
+    const doctor = await read('scripts/agentic/doctor');
 
     expect(agenticConfig).toContain('base_branch = "master"');
     expect(agenticConfig).toContain('review_agent = "gemini"');
@@ -83,6 +84,8 @@ describe('agentic bootstrap scripts', () => {
     expect(claude.trim()).toBe('@AGENTS.md');
     expect(gitignore).toMatch(/^\.agentic\/$/m);
     expect(gitignore).toMatch(/^\.roborev\/$/m);
+    expect(doctor).toContain('command -v rg');
+    expect(doctor).toContain('grep -R -n -E');
 
     const disallowedMarkers = [
       'T'.concat('BD'),
@@ -124,6 +127,25 @@ describe('agentic bootstrap scripts', () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout.trim().split('\n')).toEqual(['y3v5', 'y3v5']);
+  });
+
+  it('writes run manifests with correctly mapped fields', () => {
+    const result = run('bash', [
+      '-lc',
+      [
+        'set -euo pipefail',
+        'source scripts/agentic/lib.sh',
+        'ref_short_id() { printf "y3v5\\n"; }',
+        'current_actor() { printf "agent@example:bootstrap\\n"; }',
+        'config_value() { case "$1" in base_branch) printf "master\\n" ;; review_agent) printf "gemini\\n" ;; *) return 1 ;; esac; }',
+        'manifest_dir="$(mktemp -d)"',
+        'manifest_path="$manifest_dir/manifest.json"',
+        'write_run_manifest kata#y3v5 "$manifest_path" "2026-08-29T00:00:00Z" "abc123"',
+        'node -e \'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (data.kata_ref !== "kata#y3v5" || data.actor !== "agent@example:bootstrap" || data.review_agent !== "gemini" || data.branch !== "chore/agentic-engineering-bootstrap" || data.head_sha !== "abc123" || data.finished_at !== "2026-08-29T00:00:00Z") { console.error(JSON.stringify(data, null, 2)); process.exit(1); }\' "$manifest_path"',
+      ].join('; '),
+    ]);
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
   });
 
   it('makes the agentic documentation reachable from the root docs', async () => {

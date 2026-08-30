@@ -105,7 +105,14 @@ for script in scripts/agentic/setup scripts/agentic/check-fast scripts/agentic/c
 done
 
 marker_pattern="$(printf '%s\n' 'T''BD' 'TO''DO' 'REVIEW''_AGENT' 'PRIMARY''_AGENT' | paste -sd '|' -)"
-if rg -n "\b($marker_pattern)\b" AGENTS.md CLAUDE.md agentic.toml .roborev.toml docs/agentic-engineering scripts/agentic >/dev/null; then
+if command -v rg >/dev/null 2>&1; then
+  placeholder_hits="$(rg -n "\b($marker_pattern)\b" AGENTS.md CLAUDE.md agentic.toml .roborev.toml docs/agentic-engineering scripts/agentic || true)"
+else
+  placeholder_hits="$(grep -R -n -E "\b($marker_pattern)\b" AGENTS.md CLAUDE.md agentic.toml .roborev.toml docs/agentic-engineering scripts/agentic || true)"
+fi
+
+if [[ -n "$placeholder_hits" ]]; then
+  printf '%s\n' "$placeholder_hits" >&2
   check_fail "no unresolved placeholders in agentic files"
 else
   check_ok "no unresolved placeholders in agentic files"
