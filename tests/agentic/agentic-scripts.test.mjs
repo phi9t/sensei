@@ -1,7 +1,9 @@
 // @vitest-environment node
 
-import { access, readFile, stat } from 'node:fs/promises';
+import { access, mkdtemp, readFile, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
@@ -17,10 +19,11 @@ const scriptPaths = [
   'scripts/agentic/task-finish',
 ];
 
-function run(command, args) {
+function run(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: repoRoot,
     encoding: 'utf8',
+    ...options,
   });
 }
 
@@ -129,7 +132,8 @@ describe('agentic bootstrap scripts', () => {
     expect(result.stdout.trim().split('\n')).toEqual(['y3v5', 'y3v5']);
   });
 
-  it('writes run manifests with correctly mapped fields', () => {
+  it('writes run manifests with correctly mapped fields', async () => {
+    const manifestPath = join(await mkdtemp(join(tmpdir(), 'sensei-agentic-')), 'manifest.json');
     const result = run('bash', [
       '-lc',
       [
@@ -138,14 +142,25 @@ describe('agentic bootstrap scripts', () => {
         'ref_short_id() { printf "y3v5\\n"; }',
         'current_actor() { printf "agent@example:bootstrap\\n"; }',
         'config_value() { case "$1" in base_branch) printf "master\\n" ;; review_agent) printf "gemini\\n" ;; *) return 1 ;; esac; }',
-        'manifest_dir="$(mktemp -d)"',
-        'manifest_path="$manifest_dir/manifest.json"',
         'write_run_manifest kata#y3v5 "$manifest_path" "2026-08-29T00:00:00Z" "abc123"',
-        'node -e \'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (data.kata_ref !== "kata#y3v5" || data.actor !== "agent@example:bootstrap" || data.review_agent !== "gemini" || data.branch !== "chore/agentic-engineering-bootstrap" || data.head_sha !== "abc123" || data.finished_at !== "2026-08-29T00:00:00Z") { console.error(JSON.stringify(data, null, 2)); process.exit(1); }\' "$manifest_path"',
       ].join('; '),
-    ]);
+    ], {
+      env: {
+        ...process.env,
+        manifest_path: manifestPath,
+      },
+    });
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
+    const data = JSON.parse(await readFile(manifestPath, 'utf8'));
+    expect(data).toMatchObject({
+      kata_ref: 'kata#y3v5',
+      actor: 'agent@example:bootstrap',
+      review_agent: 'gemini',
+      branch: 'chore/agentic-engineering-bootstrap',
+      head_sha: 'abc123',
+      finished_at: '2026-08-29T00:00:00Z',
+    });
   });
 
   it('makes the agentic documentation reachable from the root docs', async () => {

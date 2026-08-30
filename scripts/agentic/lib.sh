@@ -137,20 +137,29 @@ write_run_manifest() {
   branch="$(git branch --show-current)"
   base_sha="$(git merge-base HEAD "$(config_value base_branch)" 2>/dev/null || git rev-parse HEAD)"
   review_agent="$(config_value review_agent)"
-  node -e '
+  AGENTIC_KATA_REF="kata#$short_id" \
+    AGENTIC_ACTOR="$actor" \
+    AGENTIC_REVIEW_AGENT="$review_agent" \
+    AGENTIC_BRANCH="$branch" \
+    AGENTIC_BASE_SHA="$base_sha" \
+    AGENTIC_HEAD_SHA="$head_sha" \
+    AGENTIC_FINISHED_AT="$finished_at" \
+    AGENTIC_MANIFEST_PATH="$manifest_path" \
+    node -e '
     const fs = require("node:fs");
+    const env = process.env;
     const data = {
       schema_version: 1,
-      kata_ref: process.argv[1],
-      actor: process.argv[2],
+      kata_ref: env.AGENTIC_KATA_REF,
+      actor: env.AGENTIC_ACTOR,
       primary_agent: "traecode",
-      review_agent: process.argv[3],
+      review_agent: env.AGENTIC_REVIEW_AGENT,
       worktree: process.cwd(),
-      branch: process.argv[4],
-      base_sha: process.argv[5],
-      head_sha: process.argv[6] === "null" ? null : process.argv[6],
+      branch: env.AGENTIC_BRANCH,
+      base_sha: env.AGENTIC_BASE_SHA,
+      head_sha: env.AGENTIC_HEAD_SHA === "null" ? null : env.AGENTIC_HEAD_SHA,
       started_at: new Date().toISOString(),
-      finished_at: process.argv[7] === "null" ? null : process.argv[7],
+      finished_at: env.AGENTIC_FINISHED_AT === "null" ? null : env.AGENTIC_FINISHED_AT,
       test_commands: [],
       test_results: [],
       commit_shas: [],
@@ -158,6 +167,6 @@ write_run_manifest() {
       rulings: [],
       blockers: [],
     };
-    fs.writeFileSync(process.argv[8], JSON.stringify(data, null, 2) + "\n");
-  ' "kata#$short_id" "$actor" "$review_agent" "$branch" "$base_sha" "$head_sha" "$finished_at" "$manifest_path"
+    fs.writeFileSync(env.AGENTIC_MANIFEST_PATH, JSON.stringify(data, null, 2) + "\n");
+  '
 }
