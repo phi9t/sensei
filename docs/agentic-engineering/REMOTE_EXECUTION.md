@@ -62,6 +62,10 @@ Remote roborev CI is disabled by default. Enabling it requires explicit human
 authorization because it may comment on external repositories, consume model
 budget, and require provider or repository credentials.
 
+The same defaults are recorded for tools in `agentic.toml`: trusted execution
+uses worktrees, untrusted execution fails closed on this host, and network is
+denied by default for future sandbox profiles.
+
 If later authorized, document:
 
 - chosen CI runner;
