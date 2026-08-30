@@ -149,15 +149,15 @@ write_run_manifest() {
     const fs = require("node:fs");
     const env = process.env;
     let startedAt = new Date().toISOString();
-    if (fs.existsSync(env.AGENTIC_MANIFEST_PATH)) {
-      try {
+    try {
+      if (env.AGENTIC_MANIFEST_PATH && fs.existsSync(env.AGENTIC_MANIFEST_PATH)) {
         const previous = JSON.parse(fs.readFileSync(env.AGENTIC_MANIFEST_PATH, "utf8"));
         if (typeof previous.started_at === "string" && previous.started_at.length > 0) {
           startedAt = previous.started_at;
         }
-      } catch {
-        // Invalid existing manifests are overwritten with a fresh start time.
       }
+    } catch {
+      // Invalid existing manifests are overwritten with a fresh start time.
     }
     const data = {
       schema_version: 1,

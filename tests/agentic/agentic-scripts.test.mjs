@@ -134,10 +134,6 @@ describe('agentic bootstrap scripts', () => {
 
   it('writes run manifests with correctly mapped fields', async () => {
     const manifestPath = join(await mkdtemp(join(tmpdir(), 'sensei-agentic-')), 'manifest.json');
-    await writeFile(
-      manifestPath,
-      JSON.stringify({ started_at: '2026-08-28T00:00:00Z' }, null, 2) + '\n',
-    );
     const result = run(
       'bash',
       [
@@ -167,9 +163,42 @@ describe('agentic bootstrap scripts', () => {
       review_agent: 'gemini',
       branch: 'chore/agentic-engineering-bootstrap',
       head_sha: 'abc123',
-      started_at: '2026-08-28T00:00:00Z',
       finished_at: '2026-08-29T00:00:00Z',
     });
+    expect(new Date(data.started_at).toString()).not.toBe('Invalid Date');
+  });
+
+  it('preserves the original start time when refreshing a run manifest', async () => {
+    const manifestPath = join(await mkdtemp(join(tmpdir(), 'sensei-agentic-')), 'manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify({ started_at: '2026-08-28T00:00:00Z' }, null, 2) + '\n',
+    );
+    const result = run(
+      'bash',
+      [
+        '-lc',
+        [
+          'set -euo pipefail',
+          'source scripts/agentic/lib.sh',
+          'ref_short_id() { printf "y3v5\\n"; }',
+          'current_actor() { printf "agent@example:bootstrap\\n"; }',
+          'config_value() { case "$1" in base_branch) printf "master\\n" ;; review_agent) printf "gemini\\n" ;; *) return 1 ;; esac; }',
+          'write_run_manifest kata#y3v5 "$manifest_path" "2026-08-29T00:00:00Z" "abc123"',
+        ].join('; '),
+      ],
+      {
+        env: {
+          ...process.env,
+          manifest_path: manifestPath,
+        },
+      },
+    );
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    const data = JSON.parse(await readFile(manifestPath, 'utf8'));
+    expect(data.started_at).toBe('2026-08-28T00:00:00Z');
+    expect(data.finished_at).toBe('2026-08-29T00:00:00Z');
   });
 
   it('makes the agentic documentation reachable from the root docs', async () => {
