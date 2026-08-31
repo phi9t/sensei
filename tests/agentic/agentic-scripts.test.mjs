@@ -157,11 +157,13 @@ describe('agentic bootstrap scripts', () => {
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
     const data = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const branch = run('git', ['branch', '--show-current']);
+    expect(branch.status, branch.stderr).toBe(0);
     expect(data).toMatchObject({
       kata_ref: 'kata#y3v5',
       actor: 'agent@example:bootstrap',
       review_agent: 'gemini',
-      branch: 'chore/agentic-engineering-bootstrap',
+      branch: branch.stdout.trim(),
       head_sha: 'abc123',
       finished_at: '2026-08-29T00:00:00Z',
     });
