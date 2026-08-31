@@ -32,9 +32,7 @@ export function operationKindsForLevel(config: LevelConfig): readonly OperationK
 }
 
 export function operationNotationKey(kinds: readonly OperationKind[]): string {
-  return kinds.includes('W')
-    ? '(F/B/W, stage_id, micro_batch_id)'
-    : '(F/B, stage_id, micro_batch_id)';
+  return kinds.includes('W') ? '(F/B/W, stage_id, data_id)' : '(F/B, stage_id, data_id)';
 }
 
 export function directionsForLevel(config: LevelConfig): readonly PipelineDirection[] {

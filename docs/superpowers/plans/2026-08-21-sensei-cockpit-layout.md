@@ -29,8 +29,8 @@ Keep these UI constraints:
 
 - The first screen stays focused on placing blocks.
 - Do not add a visible long rules panel.
-- Keep the naming note `(F/B, stage_id, micro_batch_id)` visible in the ready queue.
-- Keep visible operation codes in the compact `F0:S0:B1` style.
+- Keep the naming note `(F/B, stage_id, data_id)` visible in the ready queue.
+- Keep visible operation codes in the compact `F0:S0:D1` style.
 - Keep accessible operation labels descriptive, for example `Place F stage 0 microbatch 1, 1 tick, ready`.
 - Ready queue tokens become smaller than schedule blocks.
 - Schedule blocks become larger and easier to read on a 13-inch laptop screen.
@@ -70,7 +70,7 @@ it('lays out the cockpit around guide, queue, command rail, schedule, and score 
   expect(screen.getByRole('region', { name: /schedule board/i })).toBeInTheDocument();
   expect(screen.getByRole('complementary', { name: /score rail/i })).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: /pipeline rules/i })).not.toBeInTheDocument();
-  expect(screen.getByText(/\(F\/B, stage_id, micro_batch_id\)/i)).toBeInTheDocument();
+  expect(screen.getByText(/\(F\/B, stage_id, data_id\)/i)).toBeInTheDocument();
 });
 ```
 

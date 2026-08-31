@@ -20,7 +20,7 @@ The current model deliberately stays small: one physical rank per stage, integer
 The page is arranged as a compact scheduling cockpit:
 
 - **Level guide:** a short level note and goal stay above play without becoming a rules panel.
-- **Ready queue:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, micro_batch_id)`.
+- **Ready queue:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, data_id)`.
 - **Schedule command rail:** undo, redo, place, clear, wait, coaching, sharing, and reset stay close to the schedule, with a thin feedback line for the latest interaction.
 - **Schedule board:** the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank activation memory.
 - **Score rail:** the move inspector and metrics stay together so selection state, completion, makespan, bubble ratio, activation peaks, and the ranking tuple remain scannable.

@@ -100,8 +100,8 @@ Rules:
 
 For Sensei:
 
-- visible code: `F0:S0:B1`;
-- notation key: `(F/B, stage_id, micro_batch_id)`;
+- visible code: `F0:S0:D1`;
+- notation key: `(F/B, stage_id, data_id)`;
 - accessible label: `Place F stage 0 microbatch 1, 1 tick, ready`;
 - secondary metadata can be visually hidden when it makes the token taller than a placed board block.
 

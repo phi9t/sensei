@@ -40,8 +40,8 @@ F:stage:microbatch
 B:stage:microbatch
 ```
 
-The UI renders those IDs as `F0:S0:B1` and keeps the notation key
-`(F/B, stage_id, micro_batch_id)`. Existing levels assume `stageCount ===
+The UI renders those IDs as `F0:S0:D1` and keeps the notation key
+`(F/B, stage_id, data_id)`. Existing levels assume `stageCount ===
 rankCount`, and `deriveOperations` currently sets `operation.rank = stage`.
 
 `SENSEI-CURR-03` proved that new curriculum representations can be level-local
@@ -222,7 +222,7 @@ Keep the cockpit layout and avoid new persistent rule panels.
 Visible behavior:
 
 - schedule board lanes remain physical ranks;
-- operation labels remain `F0:S4:B2` style;
+- operation labels remain `F0:S4:D2` style;
 - ready queue meta continues to show owner rank, e.g. `R1 - 2t`;
 - level guide gets one concise topology chip, such as `V-stage x2`;
 - inspector text names both logical stage and owner rank when a block is
@@ -290,7 +290,7 @@ Add focused coverage:
 5. Placement legality, rank frontiers, waits, memory, and board lanes use
    physical rank ownership.
 6. The catalog includes one playable virtual-stage ownership level.
-7. Labels remain compact and readable, using `F0:S4:B2` style with owner rank
+7. Labels remain compact and readable, using `F0:S4:D2` style with owner rank
    shown separately.
 8. No later curriculum semantics leak into this slice.
 9. `npm run verify` passes before landing.

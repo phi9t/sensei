@@ -37,7 +37,7 @@ Constraints:
 
 - Preserve keyboard and pointer play.
 - Keep minimum interactive targets at least `2.75rem`.
-- Keep `(F/B, stage_id, micro_batch_id)` visible once as a notation key.
+- Keep `(F/B, stage_id, data_id)` visible once as a notation key.
 - Do not reintroduce a rules panel.
 - Do not rely on color alone; pass kind and state must remain textually/pattern distinguishable.
 - Keep `src/engine` as the owner of schedule truth.
@@ -52,9 +52,9 @@ Each microbatch renders as one lane:
 Batch 0
 +-------------+-------------+
 | FWD         | BWD         |
-| F0:S0:B0    | B0:S0:B0    |
-| F1:S1:B0    | B1:S1:B0    |
-| F2:S2:B0    | B2:S2:B0    |
+| F0:S0:D0    | B0:S0:D0    |
+| F1:S1:D0    | B1:S1:D0    |
+| F2:S2:D0    | B2:S2:D0    |
 +-------------+-------------+
 ```
 
@@ -91,7 +91,7 @@ R2 - 1t
 Ready
 ```
 
-Use the display form `F0:S0:B1`, where the first segment is pass plus stage index, `S#` is stage, and `B#` is microbatch. The full tuple meaning remains available through the single notation key and explicit accessible labels.
+Use the display form `F0:S0:D1`, where the first segment is pass plus stage index, `S#` is stage, and `B#` is microbatch. The full tuple meaning remains available through the single notation key and explicit accessible labels.
 
 ### Color Identity
 

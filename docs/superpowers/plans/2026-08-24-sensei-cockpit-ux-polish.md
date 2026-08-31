@@ -20,7 +20,7 @@ Definition of done:
 - The schedule board owns the lower workspace on a 13-inch laptop viewport.
 - The ready queue is visually subordinate to the board and uses compact batch lanes.
 - `FWD` and `BWD` stacks remain vertical; split-gradient levels render `FWD`, `BWD`, and `WGT` without awkward wrapping.
-- Visible block codes remain `F0:S0:B1`; notation key remains `(F/B, stage_id, micro_batch_id)` or `(F/B/W, stage_id, micro_batch_id)`.
+- Visible block codes remain `F0:S0:D1`; notation key remains `(F/B, stage_id, data_id)` or `(F/B/W, stage_id, data_id)`.
 - DualPipe direction remains separate from visible block code.
 - Keyboard and pointer placement remain first-class; no drag-only interaction is introduced.
 - Existing engine, scoring, level, and persistence tests still pass.
@@ -144,9 +144,9 @@ it('marks split-gradient batch lanes as three-stack groups without changing comp
   expect(
     within(batchZero).getByRole('group', { name: /batch 0 weight-gradient blocks/i }),
   ).toBeInTheDocument();
-  expect(within(batchZero).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
-  expect(within(batchZero).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
-  expect(within(batchZero).getByText(/^W0:S0:B0$/i)).toBeInTheDocument();
+  expect(within(batchZero).getByText(/^F0:S0:D0$/i)).toBeInTheDocument();
+  expect(within(batchZero).getByText(/^B0:S0:D0$/i)).toBeInTheDocument();
+  expect(within(batchZero).getByText(/^W0:S0:D0$/i)).toBeInTheDocument();
 });
 ```
 
@@ -703,7 +703,7 @@ it('uses readable board geometry for placed blocks and two-line labels', () => {
 
   expect(placed).toHaveAttribute('width', '60');
   expect(placed).toHaveAttribute('height', '44');
-  expect(label).toHaveAccessibleName('F0:S0:B0');
+  expect(label).toHaveAccessibleName('F0:S0:D0');
   expect(label.querySelectorAll('tspan')).toHaveLength(2);
 });
 ```
@@ -884,7 +884,7 @@ it('keeps selected-block explanation compact while preserving resource facts', a
   const inspector = screen.getByRole('region', { name: /move inspector/i });
   const facts = within(inspector).getByRole('list', { name: /selected block facts/i });
 
-  expect(within(inspector).getByText(/^F0:S0:B1$/i)).toBeInTheDocument();
+  expect(within(inspector).getByText(/^F0:S0:D1$/i)).toBeInTheDocument();
   expect(within(facts).getByText(/^Owner R0$/i)).toBeInTheDocument();
   expect(within(facts).getByText(/^Direction Up$/i)).toBeInTheDocument();
   expect(within(facts).getByText(/^Deps none$/i)).toBeInTheDocument();
@@ -892,7 +892,7 @@ it('keeps selected-block explanation compact while preserving resource facts', a
   expect(
     within(inspector).queryByText(/Resource wait R0 0->1, Up; shared 1/i),
   ).not.toBeInTheDocument();
-  expect(screen.getByTestId('preview-label-F:0:1:asc')).toHaveAccessibleName('F0:S0:B1');
+  expect(screen.getByTestId('preview-label-F:0:1:asc')).toHaveAccessibleName('F0:S0:D1');
 });
 ```
 

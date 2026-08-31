@@ -98,7 +98,7 @@ export interface OperationDurationOverride {
 
 - Duration resolution is deterministic: exact `(kind, stage)` override first, then `config.durations[kind]`.
 - Existing operation IDs remain unchanged: `F:stage:microbatch` and `B:stage:microbatch`.
-- Visible compact labels stay in the `F0:S0:B1` style, and the notation key stays `(F/B, stage_id, micro_batch_id)`.
+- Visible compact labels stay in the `F0:S0:D1` style, and the notation key stays `(F/B, stage_id, data_id)`.
 - Replay, score, policy projection, and UI geometry consume `operation.duration`; they do not re-derive duration directly from config.
 - Persistence schema remains version 1 and stores only `schemaVersion`, `levelId`, `levelVersion`, and `actions`.
 - If a level's duration semantics change after release, bump that level's `version` so old URL/local attempts are treated as historical.
@@ -785,7 +785,7 @@ it('renders overridden durations in ready queue, inspector, preview, and board g
   const board = screen.getByRole('region', { name: /schedule board/i });
   expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('data-duration', '4');
   expect(screen.getByTestId('rank-tile-B:0:0')).toHaveAttribute('width', '224');
-  expect(scheduleLabelIn(board, 'B:0:0')).toHaveAccessibleName('B0:S0:B0');
+  expect(scheduleLabelIn(board, 'B:0:0')).toHaveAccessibleName('B0:S0:D0');
   expect(within(board).getByText(/Rank 0, start 10, end 14, duration 4/i)).toBeInTheDocument();
 
   await user.click(screen.getByTestId('tile-B:0:0'));
@@ -1105,7 +1105,7 @@ Date: 2026-08-23
 
 - Verifier: `npm run verify` passed with 20 test files and 315 tests passing, followed by a successful production build.
 - Known warning: the jsdom `HTMLCanvasElement.getContext()` warning appeared during accessibility tests and was the only accepted warning observed.
-- Invariants: all preserved. Base V1 durations remain `F=1` and `B=2`; operation IDs remain `F:stage:microbatch` / `B:stage:microbatch`; visible compact notation remains `F0:S0:B1` style with the `(F/B, stage_id, micro_batch_id)` key.
+- Invariants: all preserved. Base V1 durations remain `F=1` and `B=2`; operation IDs remain `F:stage:microbatch` / `B:stage:microbatch`; visible compact notation remains `F0:S0:D1` style with the `(F/B, stage_id, data_id)` key.
 - Level scope: `heavy-backward-tail` teaches stage-specific cost through one `B:S0 = 4t` override, a cost-aware fixture, and compact guide/inspector cues without introducing split backward, zero-bubble, DualPipe, FSDP residency, dynamic durations, per-microbatch overrides, or a rules panel.
 - Persistence: URL and local attempts remain canonical `Action[]`; `durationOverrides`, `durations`, and `topology` are not serialized into attempt payloads.
 - Plan corrections:

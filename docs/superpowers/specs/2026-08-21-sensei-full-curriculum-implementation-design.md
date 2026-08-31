@@ -41,7 +41,7 @@ V1:
 
 - operation kinds are only `F` and `B`;
 - operation IDs are `F:stage:microbatch` and `B:stage:microbatch`;
-- displayed operation codes are compact, such as `F0:S0:B1`;
+- displayed operation codes are compact, such as `F0:S0:D1`;
 - `stageCount === rankCount`;
 - each logical stage maps directly to the same physical rank;
 - durations are validated as exactly `F=1` and `B=2`;
@@ -152,14 +152,14 @@ W:stage:microbatch
 Keep UI codes compact:
 
 ```text
-F0:S0:B1
-W2:S2:B3
+F0:S0:D1
+W2:S2:D3
 ```
 
 The notation key is level-aware:
 
-- normal levels: `(F/B, stage_id, micro_batch_id)`;
-- split levels: `(F/B/W, stage_id, micro_batch_id)`.
+- normal levels: `(F/B, stage_id, data_id)`;
+- split levels: `(F/B/W, stage_id, data_id)`.
 
 DualPipe must not overload `microbatch` to encode direction. It needs either an
 explicit direction field on `Operation` or a future ID extension decided in a
@@ -336,7 +336,7 @@ Acceptance:
 - `stageCount` may exceed `rankCount`;
 - one-to-one V1 levels still behave unchanged;
 - wrap and V-shape placement are tested with original Sensei fixtures;
-- ready queue and board labels remain readable with `F0:S4:B2` style codes;
+- ready queue and board labels remain readable with `F0:S4:D2` style codes;
 - interleaved 1F1B and ragged rounds are playable.
 
 ### Slice 5: Nonuniform Cost
@@ -358,7 +358,7 @@ Add `W` operations and split-gradient memory release.
 Acceptance:
 
 - split levels render `FWD`, `BWD`, and `WGT` stacks;
-- notation key updates to `(F/B/W, stage_id, micro_batch_id)`;
+- notation key updates to `(F/B/W, stage_id, data_id)`;
 - `W` is visually distinct from `F` and `B`;
 - activation release is tested on `W`, not `B`;
 - zero-bubble levels score internal bubble.

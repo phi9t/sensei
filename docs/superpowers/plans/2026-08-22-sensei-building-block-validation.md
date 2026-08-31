@@ -63,7 +63,7 @@ It does not implement virtual stages, interleaved 1F1B, nonuniform duration supp
 - Validation failures are typed values, not UI exceptions.
 - Existing levels have no `buildingBlock` metadata and remain behaviorally unchanged.
 - Stamp does not merge with partial manual attempts in this slice. If the learner has placed or undone into a non-empty current prefix, the command reports `Reset before stamping pattern.`
-- Compact labels remain `F0:S0:B1`; the notation key remains `(F/B, stage_id, micro_batch_id)`.
+- Compact labels remain `F0:S0:D1`; the notation key remains `(F/B, stage_id, data_id)`.
 - The cockpit remains placement-first. Pattern feedback stays inside the command rail and never becomes a rules panel.
 
 ---
@@ -1012,8 +1012,8 @@ Add these tests to `src/components/GameShell.test.tsx`:
       /Completed\. Mastered\./i,
     );
     expect(screen.getAllByText(/mastered/i).length).toBeGreaterThan(0);
-    expect(screen.getByTestId('rank-label-F:0:2')).toHaveAccessibleName('F0:S0:B2');
-    expect(screen.getByTestId('rank-label-B:0:2')).toHaveAccessibleName('B0:S0:B2');
+    expect(screen.getByTestId('rank-label-F:0:2')).toHaveAccessibleName('F0:S0:D2');
+    expect(screen.getByTestId('rank-label-B:0:2')).toHaveAccessibleName('B0:S0:D2');
 
     await user.click(screen.getByRole('button', { name: /undo last action/i }));
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(

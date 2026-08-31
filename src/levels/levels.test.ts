@@ -682,7 +682,7 @@ const EXPECTED_CONFIGS = {
       family: 'dualpipe',
       setTitle: 'DualPipe',
       concept: 'Two directions carry independent microbatches through the same rank lanes.',
-      objective: 'Place Up and Down blocks while keeping the code shape F0:S0:B0.',
+      objective: 'Place Up and Down blocks while keeping the code shape F0:S0:D0.',
       patternLabel: 'Bidirectional',
       introducedModel: ['direction cue', 'opposite stage flow', 'direction-bearing ID'],
     },

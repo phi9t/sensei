@@ -213,7 +213,7 @@ levels while adding wrap and V-shaped placement options.
 - [ ] Existing one-to-one levels replay, score, persist, and render unchanged.
 - [ ] Operation derivation and dependency checks use logical stage identity,
       while placement legality uses physical rank ownership.
-- [ ] Compact operation labels remain readable in `F0:S4:B2` style, with owner
+- [ ] Compact operation labels remain readable in `F0:S4:D2` style, with owner
       rank shown separately by lane.
 - [ ] Ready queue grouping and schedule board rendering remain usable when one
       rank owns multiple stage identities.
@@ -296,7 +296,7 @@ and activation release happens at `W`.
 - [ ] Existing unsplit levels continue to use only `F/B` and preserve their
       current behavior.
 - [ ] Split levels render ready queue stacks for `FWD`, `BWD`, and `WGT`, with
-      a level-aware notation key `(F/B/W, stage_id, micro_batch_id)`.
+      a level-aware notation key `(F/B/W, stage_id, data_id)`.
 - [ ] Activation memory release is tested on `W`, not `B`, for split-gradient
       levels.
 - [ ] At least one playable split-backward level can be completed and mastered.
@@ -433,7 +433,7 @@ conflict against a one-direction baseline.
 Completed with `Two Directions`, `DualPipe Balance`, and `DualPipe Conflict`.
 The implementation keeps learner actions as ordinary `Action[]` placements with
 direction-bearing DualPipe operation IDs, while visible block codes remain in
-`F0:S0:B1` form.
+`F0:S0:D1` form.
 
 ## Acceptance criteria
 
@@ -442,7 +442,7 @@ direction-bearing DualPipe operation IDs, while visible block codes remain in
 - [x] Rank resource conflicts are represented and tested for paired or
       concurrent work.
 - [x] The board can show bidirectional flow without overloading the compact
-      `F0:S0:B1` operation code.
+      `F0:S0:D1` operation code.
 - [x] The curriculum includes at least `Two Directions`, `DualPipe Balance`, and
       `DualPipe Conflict` or equivalent original names.
 - [x] Completion feedback compares against a one-direction baseline and names

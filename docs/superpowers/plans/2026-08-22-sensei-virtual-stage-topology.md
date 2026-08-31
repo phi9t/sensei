@@ -710,7 +710,7 @@ In `src/components/GameShell.test.tsx`, add tests that switch to the virtual-sta
 
     await user.click(screen.getByTestId('tile-F:2:0'));
 
-    expect(screen.getByText('F2:S2:B0')).toBeInTheDocument();
+    expect(screen.getByText('F2:S2:D0')).toBeInTheDocument();
     expect(screen.getByText(/Owner rank 1/)).toBeInTheDocument();
   });
 

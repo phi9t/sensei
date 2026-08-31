@@ -20,7 +20,7 @@ feel like a compact scheduling cockpit:
 - ready blocks remain the primary interaction;
 - explanations stay contextual and optional;
 - algorithm progression is visible without becoming a rules panel;
-- compact labels preserve the `F0:S0:B1` visual code while accessible labels
+- compact labels preserve the `F0:S0:D1` visual code while accessible labels
   spell out pass, stage, microbatch, direction, duration, and status.
 
 The design direction is a data-dense learning cockpit with restrained color,

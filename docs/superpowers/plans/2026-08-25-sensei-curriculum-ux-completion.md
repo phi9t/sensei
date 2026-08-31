@@ -11,7 +11,7 @@ and redeploy the result.
 - Keep block placement as the primary interaction.
 - Keep the board visually dominant.
 - Do not wire in a long visible `Pipeline rules` panel.
-- Preserve visible operation codes such as `F0:S0:B1`.
+- Preserve visible operation codes such as `F0:S0:D1`.
 - Do not touch unrelated untracked work unless it becomes part of this plan.
 
 ## Design Direction

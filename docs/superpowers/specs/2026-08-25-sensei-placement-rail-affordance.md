@@ -34,9 +34,9 @@ The command rail should include a compact selected-block status near `Place`.
 States:
 
 - no selection: `No block selected` and `Choose a ready block`.
-- legal selection: `Ready F0:S0:B0` and placement timing/rank.
-- blocked selection: `Blocked B0:S0:B0` and blocker count.
-- completed selection: `Placed F0:S0:B0` and board timing.
+- legal selection: `Ready F0:S0:D0` and placement timing/rank.
+- blocked selection: `Blocked B0:S0:D0` and blocker count.
+- completed selection: `Placed F0:S0:D0` and board timing.
 
 `Place` should only be enabled for a legal selected block. Direct clicking a
 ready block in the ready queue should still place immediately.

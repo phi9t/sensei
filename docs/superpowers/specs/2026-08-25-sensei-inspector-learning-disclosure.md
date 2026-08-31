@@ -21,7 +21,7 @@ visible tutorial surface.
   is testing.
 - Audience: engineers repeatedly trying pipeline schedules on a laptop.
 - Tone: dense, calm, cockpit-like, and inspectable.
-- Memorable detail: the selected token keeps its `F0:S0:B1` identity while the
+- Memorable detail: the selected token keeps its `F0:S0:D1` identity while the
   inspector decodes it into pass, stage, microbatch, direction, duration, and
   dependency gates.
 - Constraints: keep block placement primary; do not add a `Pipeline rules`
@@ -37,8 +37,8 @@ under the existing compact selected-block summary.
 When opened, it should show:
 
 - a one-line decode of the compact visible token;
-- the `(F/B, stage_id, micro_batch_id)` naming convention, extended to
-  `(F/B/W, stage_id, micro_batch_id)` only on levels with split weight-gradient
+- the `(F/B, stage_id, data_id)` naming convention, extended to
+  `(F/B/W, stage_id, data_id)` only on levels with split weight-gradient
   blocks;
 - the selected block's rank, duration, direction when present, and readiness
   state;
@@ -70,8 +70,8 @@ The disclosure must stay within the right rail:
 
 - Selecting a blocked block exposes a closed `Why this block?` disclosure in the
   move inspector.
-- Opening the disclosure decodes the token using `F0:S0:B1` style and explains
-  the level-appropriate `(F/B, stage_id, micro_batch_id)` naming.
+- Opening the disclosure decodes the token using `F0:S0:D1` style and explains
+  the level-appropriate `(F/B, stage_id, data_id)` naming.
 - Dependency gates are visible as compact satisfied/waiting items.
 - The disclosure is absent when no block is selected.
 - The normal cockpit still has no `Pipeline rules` region.

@@ -70,7 +70,7 @@ UI Pro Max's dense-dashboard, compact-label, accessibility, and responsive rules
 The existing implementation already has strong foundations:
 
 - real button controls in `OperationTray.tsx` and `GameControls.tsx`;
-- compact visible block codes like `F0:S0:B1`;
+- compact visible block codes like `F0:S0:D1`;
 - explicit accessible operation labels;
 - local horizontal scroll for the ready queue and schedule board;
 - grouped batch lanes and pass stacks;
@@ -181,9 +181,9 @@ Keep:
 - `FWD` and `BWD` vertical stacks;
 - optional `WGT` stack for split-backward levels;
 - phase-aware lane treatment for `ready`, `waiting`, and `done`;
-- compact visible block code `F0:S0:B1`;
-- the notation key `(F/B, stage_id, micro_batch_id)` or
-  `(F/B/W, stage_id, micro_batch_id)` once per queue;
+- compact visible block code `F0:S0:D1`;
+- the notation key `(F/B, stage_id, data_id)` or
+  `(F/B/W, stage_id, data_id)` once per queue;
 - full identity in button accessible labels.
 
 Improve:
@@ -242,9 +242,9 @@ MIN_BOARD_WIDTH:        920px
 Requirements:
 
 - placed blocks are visually larger than ready queue tokens;
-- labels remain split as `F0` over `S0:B1`;
+- labels remain split as `F0` over `S0:D1`;
 - direction remains a separate cue for DualPipe and does not change visible
-  `F0:S0:B1` code;
+  `F0:S0:D1` code;
 - rank owner chips remain compact and horizontally scrollable;
 - memory and residency strips remain aligned to time;
 - board details stay collapsed by default;
@@ -276,7 +276,7 @@ Improve:
 Visible block code remains:
 
 ```text
-F0:S0:B1
+F0:S0:D1
 ```
 
 Where:
@@ -290,13 +290,13 @@ Where:
 The notation key remains:
 
 ```text
-(F/B, stage_id, micro_batch_id)
+(F/B, stage_id, data_id)
 ```
 
 or:
 
 ```text
-(F/B/W, stage_id, micro_batch_id)
+(F/B/W, stage_id, data_id)
 ```
 
 DualPipe direction remains separate. Do not encode direction into the visible
@@ -397,7 +397,7 @@ Before landing implementation:
 - Confirm the board is the largest visual region in the first viewport.
 - Confirm a long level name and a split-gradient level do not break the guide or
   ready queue.
-- Confirm DualPipe shows `F0:S0:B1` plus separate `Up`/`Down` cues.
+- Confirm DualPipe shows `F0:S0:D1` plus separate `Up`/`Down` cues.
 - Confirm keyboard tabbing reaches ready tokens, command controls, board scroll
   region, score details, and level selector in visual order.
 - Confirm reduced motion removes nonessential transitions.

@@ -30,7 +30,7 @@ describe('ScheduleBoard', () => {
 
     expect(placed).toHaveAttribute('width', '60');
     expect(placed).toHaveAttribute('height', '44');
-    expect(label).toHaveAccessibleName('F0:S0:B0');
+    expect(label).toHaveAccessibleName('F0:S0:D0');
     expect(label.querySelectorAll('tspan')).toHaveLength(2);
     expect(interactiveTile).toHaveAttribute('tabindex', '0');
   });

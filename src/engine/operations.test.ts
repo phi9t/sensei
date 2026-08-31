@@ -199,9 +199,9 @@ describe('deriveOperations', () => {
 });
 
 describe('operationNotationKey', () => {
-  it('uses F/B notation for fused backward levels and F/B/W when weight-gradient blocks exist', () => {
-    expect(operationNotationKey(['F', 'B'])).toBe('(F/B, stage_id, micro_batch_id)');
-    expect(operationNotationKey(['F', 'B', 'W'])).toBe('(F/B/W, stage_id, micro_batch_id)');
+  it('uses D to mark the data or microbatch segment in compact operation labels', () => {
+    expect(operationNotationKey(['F', 'B'])).toBe('(F/B, stage_id, data_id)');
+    expect(operationNotationKey(['F', 'B', 'W'])).toBe('(F/B/W, stage_id, data_id)');
   });
 });
 

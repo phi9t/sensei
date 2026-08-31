@@ -10,7 +10,7 @@ panel.
 
 - Keep block placement as the main interaction.
 - Keep the schedule board visually dominant.
-- Preserve visible operation codes such as `F0:S0:B1`.
+- Preserve visible operation codes such as `F0:S0:D1`.
 - Keep algorithm explanation contextual and optional.
 - Do not stage `src/components/PipelineLessonPanel.tsx`.
 
@@ -70,7 +70,7 @@ curl -I -L --max-time 20 https://groovy.gf-preview.bytedance.net/
 ### Completed Changes
 
 - Added a closed-by-default `Why this block?` disclosure to `MoveInspector`.
-- The disclosure decodes the selected `F0:S0:B1`-style token into pass, stage,
+- The disclosure decodes the selected `F0:S0:D1`-style token into pass, stage,
   microbatch, rank, duration, direction when present, and current status.
 - Dependency gates are shown as compact `satisfied` or `waiting` rows using the
   existing `ExplanationResult` dependency data.

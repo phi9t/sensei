@@ -84,13 +84,13 @@ inspection, and optional details. Do not add a long visible rules panel.
 Visible operation names use:
 
 ```text
-F0:S0:B1
+F0:S0:D1
 ```
 
 The notation key remains visible once:
 
 ```text
-(F/B, stage_id, micro_batch_id)
+(F/B, stage_id, data_id)
 ```
 
 The same operation identity must travel through:
@@ -117,9 +117,9 @@ Each microbatch lane has two vertical stacks:
 Batch 2  |  1 ready
 +---------+---------+
 | FWD     | BWD     |
-| F0:S0:B2| B0:S0:B2|
-| F1:S1:B2| B1:S1:B2|
-| F2:S2:B2| B2:S2:B2|
+| F0:S0:D2| B0:S0:D2|
+| F1:S1:D2| B1:S1:D2|
+| F2:S2:D2| B2:S2:D2|
 +---------+---------+
 ```
 
@@ -165,7 +165,7 @@ Feedback text should be short and causal:
 
 - `Placed F stage 0 microbatch 1 on rank 0.`
 - `B stage 1 microbatch 0 is blocked by 2 blockers.`
-- `Automation stopped at a memory boundary before F0:S0:B3.`
+- `Automation stopped at a memory boundary before F0:S0:D3.`
 
 ### 7. Board Polish Rules
 
@@ -318,7 +318,7 @@ Engine additions:
 - support stage placement strategies such as wrap and V-shaped placement;
 - render rank lanes that host multiple stage identities;
 - extend operation codes to preserve compact readability, likely
-  `F0:S4:B2` for pass/stage/microbatch while a separate rank label shows owner.
+  `F0:S4:D2` for pass/stage/microbatch while a separate rank label shows owner.
 
 ### Set 5: Nonuniform Cost
 

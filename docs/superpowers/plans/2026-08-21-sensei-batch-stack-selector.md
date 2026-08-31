@@ -115,12 +115,12 @@ it('groups compact block tokens by microbatch and pass stack', () => {
   expect(within(batchZero).getByText(/^Batch 0$/i)).toBeInTheDocument();
   expect(within(forwardStack).getByText(/^FWD$/i)).toBeInTheDocument();
   expect(within(backwardStack).getByText(/^BWD$/i)).toBeInTheDocument();
-  expect(within(forwardStack).getByText(/^F0:S0:B0$/i)).toBeInTheDocument();
-  expect(within(forwardStack).getByText(/^F1:S1:B0$/i)).toBeInTheDocument();
-  expect(within(forwardStack).getByText(/^F2:S2:B0$/i)).toBeInTheDocument();
-  expect(within(backwardStack).getByText(/^B0:S0:B0$/i)).toBeInTheDocument();
-  expect(within(backwardStack).getByText(/^B1:S1:B0$/i)).toBeInTheDocument();
-  expect(within(backwardStack).getByText(/^B2:S2:B0$/i)).toBeInTheDocument();
+  expect(within(forwardStack).getByText(/^F0:S0:D0$/i)).toBeInTheDocument();
+  expect(within(forwardStack).getByText(/^F1:S1:D0$/i)).toBeInTheDocument();
+  expect(within(forwardStack).getByText(/^F2:S2:D0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B0:S0:D0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B1:S1:D0$/i)).toBeInTheDocument();
+  expect(within(backwardStack).getByText(/^B2:S2:D0$/i)).toBeInTheDocument();
   expect(within(batchZero).queryByText(/^F:0:0$/)).not.toBeInTheDocument();
   expect(
     within(forwardStack).getByRole('button', {

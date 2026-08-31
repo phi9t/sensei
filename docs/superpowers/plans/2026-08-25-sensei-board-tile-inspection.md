@@ -11,7 +11,7 @@ preserving the compact placement cockpit.
 - Do not add or wire a `Pipeline rules` panel.
 - Reuse the existing selected-operation state, command rail, and inspector.
 - Keep direct click-to-place from the ready queue unchanged.
-- Keep compact block IDs like `F0:S0:B1`.
+- Keep compact block IDs like `F0:S0:D1`.
 - Keep board and queue scroll local; no page-level horizontal overflow.
 - Do not touch or stage `src/components/PipelineLessonPanel.tsx`.
 

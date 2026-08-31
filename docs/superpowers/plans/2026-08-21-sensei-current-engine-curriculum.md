@@ -23,8 +23,8 @@ this slice lands.
 Preserve these invariants:
 
 - no visible long rules panel;
-- visible operation codes stay in `F0:S0:B1` style;
-- the notation key stays visible as `(F/B, stage_id, micro_batch_id)`;
+- visible operation codes stay in `F0:S0:D1` style;
+- the notation key stays visible as `(F/B, stage_id, data_id)`;
 - current persisted attempts for the original four levels still decode;
 - level versions do not change for metadata-only edits to the original four
   levels;

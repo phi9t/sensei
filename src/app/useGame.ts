@@ -267,7 +267,7 @@ export function formatOperationName(value: OperationId | Operation): string {
 
 export function formatOperationCode(value: OperationId | Operation): string {
   const parsed = typeof value === 'string' ? parseOperationId(value) : value;
-  return `${parsed.kind}${parsed.stage}:S${parsed.stage}:B${parsed.microbatch}`;
+  return `${parsed.kind}${parsed.stage}:S${parsed.stage}:D${parsed.microbatch}`;
 }
 
 function coherentSelection(

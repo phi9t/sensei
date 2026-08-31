@@ -104,7 +104,7 @@ Operation dependencies use logical stage identity. Placement, rank frontiers,
 memory, and board lanes use physical rank ownership.
 
 The board continues to render rank lanes. Compact labels keep the
-`F0:S4:B2` style, with owner rank shown by lane and inspector text.
+`F0:S4:D2` style, with owner rank shown by lane and inspector text.
 
 ### Wave 4: Interleaved 1F1B And Nonuniform Cost
 
@@ -152,7 +152,7 @@ For unsplit levels, behavior stays `F/B` only. For split levels:
 - `W` means weight-gradient work;
 - activation release happens at `W`, not `B`;
 - ready queue stacks become `FWD`, `BWD`, and `WGT`;
-- notation key becomes `(F/B/W, stage_id, micro_batch_id)`.
+- notation key becomes `(F/B/W, stage_id, data_id)`.
 
 Zero-bubble levels then add policy projection, recognition, and internal-bubble
 scoring only for levels that enable the metric.

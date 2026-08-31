@@ -64,13 +64,13 @@ required in DualPipe IDs and required on every DualPipe operation object.
 Visible block codes stay compact:
 
 ```text
-F0:S0:B1
-B3:S3:B0
+F0:S0:D1
+B3:S3:D0
 ```
 
 Direction is shown as a separate compact badge or lane marker and in accessible
-text. The code itself must not become `F0:S0:B1:asc`; learners already use
-`F0:S0:B1` as the stable block identity pattern.
+text. The code itself must not become `F0:S0:D1:asc`; learners already use
+`F0:S0:D1` as the stable block identity pattern.
 
 ## Dependencies
 
@@ -231,7 +231,7 @@ Keep the cockpit focused on placing blocks.
 Required UI behavior:
 
 - ready queue remains grouped by microbatch and pass stack;
-- visible block code remains `F0:S0:B1`;
+- visible block code remains `F0:S0:D1`;
 - direction appears as a separate compact non-color cue and in accessible text;
 - board can show overlap without nesting cards or adding a rules panel;
 - move inspector names direction, owner rank, duration, dependencies, and any
@@ -301,7 +301,7 @@ Date: 2026-08-23
   build.
 - Invariants: all preserved. Existing non-DualPipe IDs remain unchanged;
   DualPipe IDs carry `asc` or `desc`; visible compact block codes remain
-  `F0:S0:B1`; learner persistence remains canonical `Action[]`.
+  `F0:S0:D1`; learner persistence remains canonical `Action[]`.
 - Levels: `Two Directions`, `DualPipe Balance`, and `DualPipe Conflict` are
   original playable levels backed by fixtures, golden score rows, policy
   comparisons, public-control game-flow coverage, persistence coverage, and
@@ -311,7 +311,7 @@ Date: 2026-08-23
   levels serialize otherwise compatible overlap; capacity-two levels allow
   opposite-direction work to overlap where legal.
 - UI: direction is a compact separate cue (`Up` / `Down`) and accessible text,
-  not part of the learner-facing `F0:S0:B1` code. Schedule rows reserve
+  not part of the learner-facing `F0:S0:D1` code. Schedule rows reserve
   DualPipe sublanes so overlap is visible without adding a rules panel.
 - Plan corrections:
   - The public-control game-flow helper had to include the optional direction

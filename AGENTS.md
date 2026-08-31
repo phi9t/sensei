@@ -182,8 +182,8 @@ reviewed skill only after it has repeated.
 
 ### Scheduling Model
 
-- Operation notation is `(F/B/W, stage_id, micro_batch_id)`. UI labels may use
-  compact forms such as `F0:S1:B2` when space is tight.
+- Operation notation is `(F/B/W, stage_id, data_id)`. UI labels may use
+  compact forms such as `F0:S1:D2` when space is tight.
 - Treat split `W` activation release, DualPipe resources, and residency models
   as explicit model boundaries. Do not silently approximate them in generic
   scheduling code.

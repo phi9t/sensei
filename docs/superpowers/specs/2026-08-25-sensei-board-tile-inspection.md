@@ -26,9 +26,9 @@ board component, app wiring, tests, and CSS.
 - Selecting a placed board block updates the same selected-block command-rail
   capsule and move inspector used by ready-queue selection.
 - Selection never places another copy of the block.
-- The board keeps compact visible codes such as `F0:S0:B1`.
-- The notation key remains `(F/B, stage_id, micro_batch_id)` unless `W` blocks
-  exist, where it becomes `(F/B/W, stage_id, micro_batch_id)`.
+- The board keeps compact visible codes such as `F0:S0:D1`.
+- The notation key remains `(F/B, stage_id, data_id)` unless `W` blocks
+  exist, where it becomes `(F/B/W, stage_id, data_id)`.
 - Direct ready-block click placement remains fast and unchanged.
 - Blocked and completed ready-queue blocks remain inspectable.
 - The schedule board remains the dominant lower workspace.

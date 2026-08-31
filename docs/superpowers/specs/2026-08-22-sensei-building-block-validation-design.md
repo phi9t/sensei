@@ -39,8 +39,8 @@ F:stage:microbatch
 B:stage:microbatch
 ```
 
-The visible UI formats those operations compactly as `F0:S0:B1` and keeps the
-notation key `(F/B, stage_id, micro_batch_id)` in the ready queue.
+The visible UI formats those operations compactly as `F0:S0:D1` and keeps the
+notation key `(F/B, stage_id, data_id)` in the ready queue.
 
 `SENSEI-CURR-01` and `SENSEI-CURR-02` already added reference-policy projection,
 recognition, and compact policy-relative feedback for the current engine. This
@@ -195,8 +195,8 @@ Visible wording stays terse. Examples:
 - `Residue conflict on R1 at 2.`
 - `Stamp pattern`
 
-The notation key remains `(F/B, stage_id, micro_batch_id)`, and labels stay in
-the `F0:S0:B1` visual format.
+The notation key remains `(F/B, stage_id, data_id)`, and labels stay in
+the `F0:S0:D1` visual format.
 
 ## Data Flow
 
