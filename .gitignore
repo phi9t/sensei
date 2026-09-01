@@ -1,9 +1,4 @@
-# Agentic engineering runtime state.
 .worktrees/
-.agentic/
-.roborev/
-.kata.local.toml
-
 node_modules/
 dist/
 coverage/
