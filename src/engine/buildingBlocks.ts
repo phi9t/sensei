@@ -1,5 +1,7 @@
 import {
   deriveOperations,
+  isSplitBackwardLevel,
+  operationIdFor,
   parseOperationId,
   predecessorsOf,
   releasesActivation,
@@ -7,7 +9,10 @@ import {
 import { classifyOperation, replay } from './replay';
 import type {
   Action,
+  BuildingBlockAnalysis,
   BuildingBlockPlan,
+  BuildingBlockRankAnalysis,
+  BuildingBlockStageLifespan,
   BuildingBlockValidation,
   BuildingBlockViolation,
   LevelConfig,
@@ -18,7 +23,10 @@ import type {
 export type {
   BuildingBlockLevelMetadata,
   BuildingBlockOperation,
+  BuildingBlockAnalysis,
   BuildingBlockPlan,
+  BuildingBlockRankAnalysis,
+  BuildingBlockStageLifespan,
   BuildingBlockValidation,
   BuildingBlockViolation,
 } from './types';
@@ -75,6 +83,17 @@ function freezeValidation(
     period,
     violations: Object.freeze(violations.map(freezeViolation)),
     projectedPeakMemory: Object.freeze([...projectedPeakMemory]),
+  });
+}
+
+function freezeStageLifespan(lifespan: BuildingBlockStageLifespan): BuildingBlockStageLifespan {
+  return Object.freeze({ ...lifespan });
+}
+
+function freezeRankAnalysis(analysis: BuildingBlockRankAnalysis): BuildingBlockRankAnalysis {
+  return Object.freeze({
+    ...analysis,
+    stages: Object.freeze(analysis.stages.map(freezeStageLifespan)),
   });
 }
 
@@ -319,6 +338,107 @@ function validateMemoryCaps(
   return Object.freeze(violations);
 }
 
+function stageLifespans(
+  config: LevelConfig,
+  representativeOperations: readonly Operation[],
+  offsetsByRepresentativeId: ReadonlyMap<OperationId, number>,
+  plan: BuildingBlockPlan,
+): readonly BuildingBlockStageLifespan[] {
+  const operationByRepresentativeId = operationById(representativeOperations);
+  const lifespans: BuildingBlockStageLifespan[] = [];
+  const releaseKind = isSplitBackwardLevel(config) ? 'W' : 'B';
+
+  for (const acquireOperation of representativeOperations) {
+    if (acquireOperation.kind !== 'F') {
+      continue;
+    }
+
+    const releaseOperationId = operationIdFor(
+      config,
+      releaseKind,
+      acquireOperation.stage,
+      0,
+      acquireOperation.direction ?? 'asc',
+    );
+    const releaseOperation = operationByRepresentativeId.get(releaseOperationId);
+    const start = offsetsByRepresentativeId.get(acquireOperation.id);
+    const releaseStart = offsetsByRepresentativeId.get(releaseOperationId);
+
+    if (releaseOperation === undefined || start === undefined || releaseStart === undefined) {
+      continue;
+    }
+
+    const end = releaseStart + releaseOperation.duration;
+    const lifespan = end - start;
+    if (lifespan < 0) {
+      continue;
+    }
+
+    lifespans.push(
+      freezeStageLifespan({
+        stage: acquireOperation.stage,
+        rank: acquireOperation.rank,
+        ...(acquireOperation.direction ? { direction: acquireOperation.direction } : {}),
+        acquireOperationId: acquireOperation.id,
+        releaseOperationId,
+        start,
+        end,
+        lifespan,
+        repeatPeakActivation: Math.ceil(lifespan / plan.period),
+      }),
+    );
+  }
+
+  return Object.freeze(lifespans);
+}
+
+function rankWork(
+  representativeOperations: readonly Operation[],
+  offsetsByRepresentativeId: ReadonlyMap<OperationId, number>,
+): readonly number[] {
+  const rankCount =
+    Math.max(...representativeOperations.map((operation) => operation.rank), -1) + 1;
+  const work = new Array<number>(rankCount).fill(0);
+
+  for (const operation of representativeOperations) {
+    if (!offsetsByRepresentativeId.has(operation.id)) {
+      continue;
+    }
+    work[operation.rank]! += operation.duration;
+  }
+
+  return Object.freeze(work);
+}
+
+function rankAnalyses(
+  config: LevelConfig,
+  plan: BuildingBlockPlan,
+  lifespans: readonly BuildingBlockStageLifespan[],
+  workByRank: readonly number[],
+): readonly BuildingBlockRankAnalysis[] {
+  return Object.freeze(
+    Array.from({ length: config.rankCount }, (_, rank) => {
+      const stages = lifespans.filter((lifespan) => lifespan.rank === rank);
+      const work = workByRank[rank] ?? 0;
+      const stableBubble = Math.max(0, plan.period - work);
+      const lifespanSum = stages.reduce((total, lifespan) => total + lifespan.lifespan, 0);
+      const peakActivationBound = stages.reduce(
+        (total, lifespan) => total + lifespan.repeatPeakActivation,
+        0,
+      );
+
+      return freezeRankAnalysis({
+        rank,
+        work,
+        stableBubble,
+        lifespanSum,
+        peakActivationBound,
+        stages,
+      });
+    }),
+  );
+}
+
 export function validateBuildingBlockPlan(
   config: LevelConfig,
   plan: BuildingBlockPlan,
@@ -348,6 +468,58 @@ export function validateBuildingBlockPlan(
   violations.push(...validateMemoryCaps(config, peaks));
 
   return freezeValidation(plan.period, violations, peaks);
+}
+
+export function analyzeBuildingBlockPlan(
+  config: LevelConfig,
+  plan: BuildingBlockPlan,
+): BuildingBlockAnalysis {
+  const validation = validateBuildingBlockPlan(config, plan);
+
+  if (!isValidPeriod(plan.period)) {
+    return Object.freeze({
+      period: plan.period,
+      validation,
+      completeTemplate: false,
+      canRepeatWithoutCollision: false,
+      hasStablePhaseBubble: false,
+      stageLifespans: Object.freeze([]),
+      rankAnalyses: Object.freeze([]),
+    });
+  }
+
+  const representativeOperations = representativeInventory(config);
+  const representativeById = operationById(representativeOperations);
+  const knownEntries = knownRepresentativeEntries(representativeById, plan);
+  const offsetsByRepresentativeId = representativeOffsets(knownEntries);
+  const lifespans = stageLifespans(
+    config,
+    representativeOperations,
+    offsetsByRepresentativeId,
+    plan,
+  );
+  const workByRank = rankWork(representativeOperations, offsetsByRepresentativeId);
+  const ranks = rankAnalyses(config, plan, lifespans, workByRank);
+
+  return Object.freeze({
+    period: plan.period,
+    validation,
+    completeTemplate:
+      !validation.violations.some(
+        (violation) =>
+          violation.kind === 'unknown-operation' ||
+          violation.kind === 'duplicate-operation' ||
+          violation.kind === 'missing-operation' ||
+          violation.kind === 'invalid-offset' ||
+          violation.kind === 'invalid-period',
+      ) && representativeOperations.length > 0,
+    canRepeatWithoutCollision: !validation.violations.some(
+      (violation) => violation.kind === 'duplicate-rank-residue',
+    ),
+    hasStablePhaseBubble: ranks.some((rank) => rank.stableBubble > 0),
+    stageLifespans: lifespans,
+    rankAnalyses: ranks,
+  });
 }
 
 function replayFailureValidation(

@@ -79,6 +79,37 @@ export interface BuildingBlockValidation {
   readonly projectedPeakMemory: readonly number[];
 }
 
+export interface BuildingBlockStageLifespan {
+  readonly stage: number;
+  readonly rank: number;
+  readonly direction?: PipelineDirection;
+  readonly acquireOperationId: OperationId;
+  readonly releaseOperationId: OperationId;
+  readonly start: number;
+  readonly end: number;
+  readonly lifespan: number;
+  readonly repeatPeakActivation: number;
+}
+
+export interface BuildingBlockRankAnalysis {
+  readonly rank: number;
+  readonly work: number;
+  readonly stableBubble: number;
+  readonly lifespanSum: number;
+  readonly peakActivationBound: number;
+  readonly stages: readonly BuildingBlockStageLifespan[];
+}
+
+export interface BuildingBlockAnalysis {
+  readonly period: number;
+  readonly validation: BuildingBlockValidation;
+  readonly completeTemplate: boolean;
+  readonly canRepeatWithoutCollision: boolean;
+  readonly hasStablePhaseBubble: boolean;
+  readonly stageLifespans: readonly BuildingBlockStageLifespan[];
+  readonly rankAnalyses: readonly BuildingBlockRankAnalysis[];
+}
+
 export interface BuildingBlockLevelMetadata {
   readonly label: string;
   readonly plan: BuildingBlockPlan;
