@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { replay } from './replay';
 import { score } from './score';
 import {
+  analyzeBuildingBlockPlan,
   expandBuildingBlockPlan,
   validateBuildingBlockPlan,
   type BuildingBlockPlan,
@@ -103,6 +104,105 @@ describe('building-block plans', () => {
       'F:1:2': 7,
       'B:1:2': 8,
       'B:0:2': 10,
+    });
+  });
+
+  it('analyzes lifespan-derived memory and stable-phase occupancy', () => {
+    const analysis = analyzeBuildingBlockPlan(BASE_LEVEL, VALID_PLAN);
+
+    expect(analysis.validation.ok).toBe(true);
+    expect(analysis.completeTemplate).toBe(true);
+    expect(analysis.canRepeatWithoutCollision).toBe(true);
+    expect(analysis.hasStablePhaseBubble).toBe(false);
+    expect(analysis.stageLifespans).toEqual([
+      {
+        stage: 0,
+        rank: 0,
+        acquireOperationId: 'F:0:0',
+        releaseOperationId: 'B:0:0',
+        start: 0,
+        end: 6,
+        lifespan: 6,
+        repeatPeakActivation: 2,
+      },
+      {
+        stage: 1,
+        rank: 1,
+        acquireOperationId: 'F:1:0',
+        releaseOperationId: 'B:1:0',
+        start: 1,
+        end: 4,
+        lifespan: 3,
+        repeatPeakActivation: 1,
+      },
+    ]);
+    expect(analysis.rankAnalyses).toEqual([
+      {
+        rank: 0,
+        work: 3,
+        stableBubble: 0,
+        lifespanSum: 6,
+        peakActivationBound: 2,
+        stages: [analysis.stageLifespans[0]],
+      },
+      {
+        rank: 1,
+        work: 3,
+        stableBubble: 0,
+        lifespanSum: 3,
+        peakActivationBound: 1,
+        stages: [analysis.stageLifespans[1]],
+      },
+    ]);
+  });
+
+  it('surfaces stable-phase bubbles when period exceeds rank work', () => {
+    const analysis = analyzeBuildingBlockPlan(BASE_LEVEL, {
+      ...VALID_PLAN,
+      period: 4,
+      trajectory: VALID_PLAN.trajectory.map((entry) =>
+        entry.operationId === 'B:0:0' ? { ...entry, offset: 5 } : entry,
+      ),
+    });
+
+    expect(analysis.validation.ok).toBe(true);
+    expect(analysis.hasStablePhaseBubble).toBe(true);
+    expect(analysis.rankAnalyses.map((rank) => rank.stableBubble)).toEqual([1, 1]);
+  });
+
+  it('uses W as activation release for split-backward lifespan analysis', () => {
+    const splitLevel: LevelConfig = Object.freeze({
+      ...BASE_LEVEL,
+      id: 'test-split-building-block',
+      microbatchCount: 2,
+      durations: Object.freeze({ F: 1, B: 1, W: 1 }),
+      operationModel: Object.freeze({ backward: 'split' as const }),
+    });
+    const splitPlan: BuildingBlockPlan = Object.freeze({
+      period: 5,
+      trajectory: Object.freeze([
+        Object.freeze({ operationId: 'F:0:0', offset: 0 }),
+        Object.freeze({ operationId: 'F:1:0', offset: 1 }),
+        Object.freeze({ operationId: 'B:1:0', offset: 2 }),
+        Object.freeze({ operationId: 'B:0:0', offset: 3 }),
+        Object.freeze({ operationId: 'W:1:0', offset: 3 }),
+        Object.freeze({ operationId: 'W:0:0', offset: 4 }),
+      ]),
+    });
+
+    const analysis = analyzeBuildingBlockPlan(splitLevel, splitPlan);
+
+    expect(analysis.validation.ok).toBe(true);
+    expect(analysis.validation.projectedPeakMemory).toEqual([1, 1]);
+    expect(analysis.stageLifespans).toContainEqual({
+      stage: 0,
+      rank: 0,
+      acquireOperationId: 'F:0:0',
+      releaseOperationId: 'W:0:0',
+      start: 0,
+      end: 5,
+      lifespan: 5,
+      repeatPeakActivation: 1,
     });
   });
 
