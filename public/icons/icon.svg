@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Sensei Pipeline Scheduling</title>
+  <desc id="desc">A compact pipeline schedule mark with forward and backward blocks.</desc>
+  <rect width="128" height="128" rx="28" fill="#11191b" />
+  <path d="M30 30h36a20 20 0 0 1 0 40H42v26" fill="none" stroke="#f4c95d" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M80 36h12a14 14 0 0 1 0 28H80v28h18" fill="none" stroke="#8fd4c7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="39" cy="96" r="8" fill="#f06c64" />
+</svg>

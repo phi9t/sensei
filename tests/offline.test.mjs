@@ -244,6 +244,8 @@ describe('offline support', () => {
       expect(source).toContain(`"/assets/app-abc123.css"`);
       expect(source).toContain(`"/assets/app-abc123.js"`);
       expect(source).not.toContain('manifest.json');
+      expect(source).not.toContain('manifest.webmanifest');
+      expect(source).not.toContain('icon.svg');
 
       const harness = createServiceWorkerHarness(source);
       await harness.dispatch('install', {});

@@ -35,11 +35,13 @@ Use a Node.js and npm toolchain compatible with the pinned lockfile. This releas
 npm install
 npm run dev
 npm run verify
+npm run verify:production
 ```
 
 - `npm install` installs dependencies; use `npm ci` for a lockfile-exact release/CI install.
 - `npm run dev` starts the Vite development server.
-- `npm run verify` checks formatting, lint, types, all tests, the production build, and generated service worker.
+- `npm run verify` checks formatting, lint, types, all tests, the production build, generated service worker, and production static artifacts.
+- `npm run verify:production` rechecks the built `dist/` metadata, install manifest, icon, security headers, cache policy, and service-worker shell contract. See [`docs/production-readiness.md`](docs/production-readiness.md) before release.
 
 ## Architecture
 
