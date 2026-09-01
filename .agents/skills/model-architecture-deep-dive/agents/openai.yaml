@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Model Architecture Deep Dive'
+  short_description: 'Design rigorous interactive architecture explainers'
+  default_prompt: 'Use $model-architecture-deep-dive to design an accessible interactive deep dive for this model architecture.'
