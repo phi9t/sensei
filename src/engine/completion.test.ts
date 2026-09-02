@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVEL_IDS, getLevel } from '../levels/levels';
+import { MASTERED_ACTIONS } from '../levels/fixtures';
 import { initialState, replay } from './replay';
 import { score } from './score';
 import { completeFromCurrentState } from './completion';
@@ -39,6 +40,24 @@ describe('completeFromCurrentState', () => {
         ok: true,
         state: result.state,
       });
+    }
+  });
+
+  it('continues every curriculum model from an existing legal prefix', () => {
+    for (const levelId of LEVEL_IDS) {
+      const level = getLevel(levelId);
+      const fixture = MASTERED_ACTIONS[levelId];
+      const prefix = fixture.slice(0, Math.max(1, Math.floor(fixture.length / 2)));
+      const current = replay(level, prefix);
+
+      expect(current.ok, levelId).toBe(true);
+      if (!current.ok) continue;
+      const result = completeFromCurrentState(current.state);
+
+      expect(result.ok, levelId).toBe(true);
+      if (!result.ok) continue;
+      expect(result.state.actions.slice(0, prefix.length), levelId).toEqual(prefix);
+      expect(score(result.state).complete, levelId).toBe(true);
     }
   });
 });
