@@ -343,14 +343,14 @@ function frontierFailureResult(
   });
 }
 
-export function findExactSchedule(
-  config: LevelConfig,
+export function findExactScheduleFromState(
+  initial: ScheduleState,
   options: ExactScheduleSearchOptions = {},
 ): ExactScheduleSearchResult {
-  const initial = initialState(config);
   const maxOperations = options.maxOperations ?? DEFAULT_MAX_OPERATIONS;
   const maxStates = options.maxStates ?? DEFAULT_MAX_STATES;
   const stats = emptyMutableStats(initial.operations.length);
+  const remainingOperationCount = initial.operations.length - initial.placements.length;
 
   if (initial.config.dualPipeModel) {
     return failureResult({ kind: 'unsupported-dual-pipe' }, stats);
@@ -358,11 +358,11 @@ export function findExactSchedule(
   if (initial.config.residencyModel) {
     return failureResult({ kind: 'unsupported-residency' }, stats);
   }
-  if (initial.operations.length > maxOperations) {
+  if (remainingOperationCount > maxOperations) {
     return failureResult(
       {
         kind: 'too-many-operations',
-        operationCount: initial.operations.length,
+        operationCount: remainingOperationCount,
         maxOperations,
       },
       stats,
@@ -436,6 +436,13 @@ export function findExactSchedule(
     ranking: provenBest.ranking,
     stats: freezeStats(stats),
   });
+}
+
+export function findExactSchedule(
+  config: LevelConfig,
+  options: ExactScheduleSearchOptions = {},
+): ExactScheduleSearchResult {
+  return findExactScheduleFromState(initialState(config), options);
 }
 
 export function findExactScheduleFrontier(

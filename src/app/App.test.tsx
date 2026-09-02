@@ -230,6 +230,9 @@ describe('App', () => {
     expect(
       within(controls).getByRole('button', { name: /run until interesting boundary/i }),
     ).toHaveAccessibleDescription(/Automation is available on Memory Wall\./i);
+    expect(
+      within(controls).getByRole('button', { name: /solve from current state/i }),
+    ).toHaveAccessibleDescription(/best replay-verified schedule/i);
   });
 
   it('announces persistence notices through a polite status region', async () => {

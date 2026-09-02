@@ -1448,6 +1448,12 @@ summary:focus-visible {
   color: var(--paper);
 }
 
+.command-button--solve {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  color: var(--ink-strong);
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper-strong));
+}
+
 .command-button.command-button--primary:disabled {
   border-color: var(--line-strong);
   background: #cfd8d4;

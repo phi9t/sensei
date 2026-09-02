@@ -11,6 +11,7 @@ interface GameControlsProps {
   readonly readySetReason: string;
   readonly hintReason: string;
   readonly automationReason: string;
+  readonly canSolve: boolean;
   readonly patternCheck: PatternCheckModel | null;
   readonly onWait: (rank: number) => void;
   readonly onPlaceSelected: () => void;
@@ -21,6 +22,7 @@ interface GameControlsProps {
   readonly onReadySet: () => void;
   readonly onHint: () => void;
   readonly onAutomate: () => void;
+  readonly onSolve: () => void;
   readonly onStampPattern: () => void;
   readonly onReset: () => void;
 }
@@ -34,6 +36,7 @@ export function GameControls({
   readySetReason,
   hintReason,
   automationReason,
+  canSolve,
   patternCheck,
   onWait,
   onPlaceSelected,
@@ -44,6 +47,7 @@ export function GameControls({
   onReadySet,
   onHint,
   onAutomate,
+  onSolve,
   onStampPattern,
   onReset,
 }: GameControlsProps) {
@@ -148,6 +152,16 @@ export function GameControls({
           >
             Auto
           </button>
+          <button
+            type="button"
+            className="command-button command-button--solve"
+            aria-label="Solve from current state"
+            aria-describedby="solve-reason"
+            onClick={onSolve}
+            disabled={!canSolve}
+          >
+            Solve
+          </button>
         </div>
 
         {patternCheck ? <PatternCheck check={patternCheck} onStamp={onStampPattern} /> : null}
@@ -176,6 +190,9 @@ export function GameControls({
           <p id="ready-set-reason">{readySetReason}</p>
           <p id="hint-reason">{hintReason}</p>
           <p id="automation-reason">{automationReason}</p>
+          <p id="solve-reason">
+            Complete from here with the best replay-verified schedule the engine can find.
+          </p>
         </div>
       </div>
     </section>

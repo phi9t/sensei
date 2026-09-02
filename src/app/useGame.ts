@@ -17,6 +17,7 @@ import {
 } from '../engine/replay';
 import { expandBuildingBlockPlan, validateBuildingBlockPlan } from '../engine/buildingBlocks';
 import { compareToReferencePolicy, type PolicyComparison } from '../engine/policyComparison';
+import { completeFromCurrentState } from '../engine/completion';
 import { attemptRankingTuple, score } from '../engine/score';
 import { parseOperationId } from '../engine/operations';
 import type { Action, MetricMasteryTarget, Operation, OperationId } from '../engine/types';
@@ -87,6 +88,7 @@ export interface GameViewModel {
   readonly readySetReason: string;
   readonly hintReason: string;
   readonly automationReason: string;
+  readonly canSolve: boolean;
   readonly buildingBlockCheck: PatternCheckModel | null;
   readonly activateOperation: (operationId: OperationId) => void;
   readonly selectOperation: (operationId: OperationId) => void;
@@ -101,6 +103,7 @@ export interface GameViewModel {
   readonly showReadySet: () => void;
   readonly showHint: () => void;
   readonly automate: () => void;
+  readonly solveFromHere: () => void;
   readonly stampBuildingBlockPlan: () => void;
 }
 
@@ -635,7 +638,10 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   }
 
   const nextProgress = mergeProgress(current.progress, completedAttempt);
-  const message = completionMessage(current.levelId, currentActions) ?? current.overlay.message;
+  const completion = completionMessage(current.levelId, currentActions);
+  const message = current.overlay.message.includes('continuation placed')
+    ? `${current.overlay.message} ${completion ?? ''}`.trim()
+    : (completion ?? current.overlay.message);
   if (storage === null) {
     return {
       ...current,
@@ -1052,6 +1058,32 @@ export function useGame(
     });
   }
 
+  function solveFromHere(): void {
+    updateWithCurrentSchedule((current, currentSchedule) => {
+      const result = completeFromCurrentState(currentSchedule);
+      if (!result.ok) {
+        return {
+          ...current,
+          overlay: {
+            message:
+              result.reason === 'already-complete'
+                ? 'This schedule is already complete.'
+                : 'No completion was found from this state. Undo or reset and try again.',
+          },
+        };
+      }
+
+      const description =
+        result.optimality === 'proven' ? 'Optimal continuation' : `Best available ${result.label}`;
+      return appendBatch(
+        current,
+        result.actions,
+        null,
+        `${description} placed ${result.actions.length} block${result.actions.length === 1 ? '' : 's'}. Undo restores your starting state.`,
+      );
+    });
+  }
+
   function stampBuildingBlockPlan(): void {
     updateWithCurrentSchedule((current) => {
       const currentLevel = getLevel(current.levelId);
@@ -1111,6 +1143,7 @@ export function useGame(
     readySetReason,
     hintReason,
     automationReason,
+    canSolve: !scoreResult.complete,
     buildingBlockCheck,
     activateOperation,
     selectOperation,
@@ -1125,6 +1158,7 @@ export function useGame(
     showReadySet,
     showHint,
     automate,
+    solveFromHere,
     stampBuildingBlockPlan,
   };
 }

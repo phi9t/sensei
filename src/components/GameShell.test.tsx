@@ -1257,6 +1257,35 @@ describe('Game shell', () => {
     expect(within(board).queryByText(/wait/i)).not.toBeInTheDocument();
   });
 
+  it('solves from the current state as one undoable best-available batch', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /place F stage 0 microbatch 0/i }));
+
+    const controls = screen.getByRole('region', { name: /schedule command rail/i });
+    await user.click(within(controls).getByRole('button', { name: /solve from current state/i }));
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Optimal continuation placed 3 blocks/i,
+    );
+    const metrics = screen.getByRole('region', { name: /metrics panel/i });
+    expect(within(metrics).getByText(/^Legal completion$/i)).toBeInTheDocument();
+    expect(within(metricRowIn(metrics, /mastery/i)).getByText(/^Mastered$/i)).toBeInTheDocument();
+
+    await user.click(within(controls).getByRole('button', { name: /undo last action/i }));
+
+    expect(
+      within(metricRowIn(metrics, /completion/i)).getByText(/^Incomplete$/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /inspect F stage 0 microbatch 0, 1 tick, completed/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /place F stage 1 microbatch 0, 1 tick, ready/i }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps completed operations inspectable without duplicating placement', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);

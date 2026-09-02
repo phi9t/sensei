@@ -510,11 +510,19 @@ export function projectReferencePolicy(
   policyId: ReferencePolicyId,
 ): PolicyProjectionResult {
   const projectedConfig = configForPolicy(config, policyId);
-  let currentState = replay(projectedConfig, []);
+  const currentState = replay(projectedConfig, []);
   if (!currentState.ok) {
     throw new Error('initial replay unexpectedly failed');
   }
 
+  return projectReferencePolicyFromState(currentState.state, policyId);
+}
+
+export function projectReferencePolicyFromState(
+  initialState: ScheduleState,
+  policyId: ReferencePolicyId,
+): PolicyProjectionResult {
+  let currentState = { ok: true as const, state: initialState };
   const actions: Action[] = [];
   const maxSteps = currentState.state.operations.length;
 
