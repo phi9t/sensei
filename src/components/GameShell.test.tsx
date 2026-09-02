@@ -1267,7 +1267,7 @@ describe('Game shell', () => {
     await user.click(within(controls).getByRole('button', { name: /solve from current state/i }));
 
     expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
-      /Optimal continuation placed 3 blocks/i,
+      /Optimal mastered continuation by makespan, peak memory, gather count, idle, then action count placed 3 blocks/i,
     );
     const metrics = screen.getByRole('region', { name: /metrics panel/i });
     expect(within(metrics).getByText(/^Legal completion$/i)).toBeInTheDocument();

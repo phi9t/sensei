@@ -1,5 +1,5 @@
 import { findExactScheduleFromState } from './exactOracle';
-import { projectReferencePolicyFromState } from './policies';
+import { projectReferencePolicyFromState, referencePolicyCandidatesFor } from './policies';
 import {
   applyAction,
   classifyMoves,
@@ -7,7 +7,7 @@ import {
   type MoveClassification,
   type ScheduleState,
 } from './replay';
-import { attemptRankingTuple, compareAttempts } from './score';
+import { attemptRankingTuple, compareAttempts, score } from './score';
 import type { Action, Operation, ReferencePolicyId } from './types';
 
 export type CompletionStrategy = 'exact' | 'reference-policy' | 'heuristic';
@@ -110,7 +110,9 @@ function greedyCompletion(
 
     const action = Object.freeze({ type: 'place' as const, operationId: move.operation.id });
     const applied = applyAction(current, action);
-    if (!applied.ok) return null;
+    if (!applied.ok) {
+      throw new Error(`classified legal move was rejected: ${applied.reason.kind}`);
+    }
     actions.push(action);
     current = applied.state;
   }
@@ -142,14 +144,27 @@ function searchCompletion(
 ): readonly Action[] | null {
   const visited = new Set<string>();
   let statesVisited = 0;
+  let bestState: ScheduleState | null = null;
+  let bestActions: readonly Action[] | null = null;
 
-  function visit(state: ScheduleState, actions: readonly Action[]): readonly Action[] | null {
-    if (state.placements.length === state.operations.length) return actions;
-    if (statesVisited >= COMPLETION_STATE_LIMIT) return null;
+  function visit(state: ScheduleState, actions: readonly Action[]): void {
+    if (state.placements.length === state.operations.length) {
+      if (
+        bestState === null ||
+        Number(score(state).mastered) > Number(score(bestState).mastered) ||
+        (score(state).mastered === score(bestState).mastered &&
+          compareAttempts(attemptRankingTuple(state), attemptRankingTuple(bestState)) < 0)
+      ) {
+        bestState = state;
+        bestActions = actions;
+      }
+      return;
+    }
+    if (statesVisited >= COMPLETION_STATE_LIMIT) return;
     statesVisited += 1;
 
     const key = completionStateKey(state);
-    if (visited.has(key)) return null;
+    if (visited.has(key)) return;
     visited.add(key);
 
     const legalMoves = classifyMoves(state)
@@ -158,39 +173,37 @@ function searchCompletion(
     for (const move of legalMoves) {
       const action = Object.freeze({ type: 'place' as const, operationId: move.operation.id });
       const applied = applyAction(state, action);
-      if (!applied.ok) continue;
-      const result = visit(applied.state, [...actions, action]);
-      if (result) return result;
+      if (!applied.ok) {
+        throw new Error(`classified legal move was rejected: ${applied.reason.kind}`);
+      }
+      visit(applied.state, [...actions, action]);
     }
-
-    return null;
   }
 
-  return visit(initial, []);
+  visit(initial, []);
+  return bestActions;
 }
 
 function primaryPolicyIds(state: ScheduleState): readonly ReferencePolicyId[] {
-  if (state.config.referencePolicy) {
-    return state.config.referencePolicy.candidatePolicyIds;
-  }
+  const referencePolicies = referencePolicyCandidatesFor(state.config);
+  if (referencePolicies.length > 0) return referencePolicies;
 
-  switch (state.config.algorithm.family) {
-    case 'foundations':
-    case 'gpipe':
-      return Object.freeze(['gpipe-afab', 'one-f-one-b']);
-    case 'one-f-one-b':
-      return Object.freeze(['one-f-one-b', 'gpipe-afab']);
-    case 'building-block':
-    case 'interleaved-one-f-one-b':
-      return Object.freeze(['interleaved-one-f-one-b', 'one-f-one-b']);
-    case 'zero-bubble':
-      return Object.freeze(['zero-bubble-h1', 'zero-bubble-h2', 'zero-bubble-deep']);
-    case 'grouped':
-    case 'fsdp-residency':
-      return Object.freeze(['group-major', 'one-f-one-b']);
-    case 'dualpipe':
-      return Object.freeze(['dualpipe-balanced']);
-  }
+  // Residency lessons use grouped ordering as a completion heuristic even though
+  // they intentionally make no reference-policy recognition claim.
+  return state.config.algorithm.family === 'fsdp-residency'
+    ? Object.freeze(['group-major', 'one-f-one-b'])
+    : Object.freeze([]);
+}
+
+function compareCompletions(
+  left: Extract<CompletionResult, { ok: true }>,
+  right: Extract<CompletionResult, { ok: true }>,
+): number {
+  const masteryDelta = Number(score(right.state).mastered) - Number(score(left.state).mastered);
+  return (
+    masteryDelta ||
+    compareAttempts(attemptRankingTuple(left.state), attemptRankingTuple(right.state))
+  );
 }
 
 export function completeFromCurrentState(state: ScheduleState): CompletionResult {
@@ -198,6 +211,8 @@ export function completeFromCurrentState(state: ScheduleState): CompletionResult
   if (remaining === 0) {
     return Object.freeze({ ok: false as const, reason: 'already-complete' as const });
   }
+
+  const candidates: Array<Extract<CompletionResult, { ok: true }>> = [];
 
   if (
     remaining <= EXACT_REMAINING_LIMIT &&
@@ -216,7 +231,7 @@ export function completeFromCurrentState(state: ScheduleState): CompletionResult
         'proven',
         'optimal continuation',
       );
-      if (candidate) return candidate;
+      if (candidate) candidates.push(candidate);
     } else if (exact.bestSoFar) {
       const candidate = validatedCompletion(
         state,
@@ -225,11 +240,10 @@ export function completeFromCurrentState(state: ScheduleState): CompletionResult
         'best-available',
         'bounded exact-search continuation',
       );
-      if (candidate) return candidate;
+      if (candidate) candidates.push(candidate);
     }
   }
 
-  const candidates: Array<Extract<CompletionResult, { ok: true }>> = [];
   for (const policyId of primaryPolicyIds(state)) {
     if (policyId === 'dualpipe-one-direction') continue;
     const projected = projectReferencePolicyFromState(state, policyId);
@@ -258,8 +272,6 @@ export function completeFromCurrentState(state: ScheduleState): CompletionResult
     if (candidate) candidates.push(candidate);
   }
 
-  candidates.sort((left, right) =>
-    compareAttempts(attemptRankingTuple(left.state), attemptRankingTuple(right.state)),
-  );
+  candidates.sort(compareCompletions);
   return candidates[0] ?? Object.freeze({ ok: false as const, reason: 'no-completion' as const });
 }

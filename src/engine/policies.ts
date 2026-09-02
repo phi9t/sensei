@@ -644,7 +644,7 @@ function sameExactPlacement(left: ScheduleState, right: ScheduleState): boolean 
   return true;
 }
 
-function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[] {
+export function referencePolicyCandidatesFor(config: LevelConfig): readonly ReferencePolicyId[] {
   if (config.referencePolicy) {
     return Object.freeze([...config.referencePolicy.candidatePolicyIds]);
   }
@@ -669,7 +669,7 @@ function candidatePoliciesFor(config: LevelConfig): readonly ReferencePolicyId[]
 }
 
 export function recognizeSchedule(state: ScheduleState): RecognitionResult {
-  const candidatePolicyIds = candidatePoliciesFor(state.config);
+  const candidatePolicyIds = referencePolicyCandidatesFor(state.config);
   if (state.placements.length !== state.operations.length) {
     return Object.freeze({
       kind: 'incomplete' as const,

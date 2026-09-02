@@ -232,7 +232,9 @@ describe('App', () => {
     ).toHaveAccessibleDescription(/Automation is available on Memory Wall\./i);
     expect(
       within(controls).getByRole('button', { name: /solve from current state/i }),
-    ).toHaveAccessibleDescription(/best replay-verified schedule/i);
+    ).toHaveAccessibleDescription(
+      /preferring mastery, then makespan, peak memory, gather count, idle, and action count/i,
+    );
   });
 
   it('announces persistence notices through a polite status region', async () => {

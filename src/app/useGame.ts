@@ -639,9 +639,10 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
 
   const nextProgress = mergeProgress(current.progress, completedAttempt);
   const completion = completionMessage(current.levelId, currentActions);
-  const message = current.overlay.message.includes('continuation placed')
-    ? `${current.overlay.message} ${completion ?? ''}`.trim()
-    : (completion ?? current.overlay.message);
+  const message =
+    current.overlay.message.includes('continuation') && current.overlay.message.includes('placed')
+      ? `${current.overlay.message} ${completion ?? ''}`.trim()
+      : (completion ?? current.overlay.message);
   if (storage === null) {
     return {
       ...current,
@@ -1073,8 +1074,15 @@ export function useGame(
         };
       }
 
-      const description =
-        result.optimality === 'proven' ? 'Optimal continuation' : `Best available ${result.label}`;
+      const solvedScore = score(result.state);
+      const objective = 'makespan, peak memory, gather count, idle, then action count';
+      const description = solvedScore.mastered
+        ? result.optimality === 'proven'
+          ? `Optimal mastered continuation by ${objective}`
+          : `Best available mastered ${result.label} by ${objective}`
+        : result.optimality === 'proven'
+          ? `Optimal legal continuation by ${objective}; mastery is no longer reachable`
+          : `Best available legal ${result.label} by ${objective}; mastery was not found`;
       return appendBatch(
         current,
         result.actions,

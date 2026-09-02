@@ -35,7 +35,7 @@ describe('completeFromCurrentState', () => {
 
       expect(result.ok, levelId).toBe(true);
       if (!result.ok) continue;
-      expect(score(result.state).complete, levelId).toBe(true);
+      expect(score(result.state), levelId).toMatchObject({ complete: true, mastered: true });
       expect(replay(getLevel(levelId), result.state.actions), levelId).toEqual({
         ok: true,
         state: result.state,
@@ -57,7 +57,7 @@ describe('completeFromCurrentState', () => {
       expect(result.ok, levelId).toBe(true);
       if (!result.ok) continue;
       expect(result.state.actions.slice(0, prefix.length), levelId).toEqual(prefix);
-      expect(score(result.state).complete, levelId).toBe(true);
+      expect(score(result.state), levelId).toMatchObject({ complete: true, mastered: true });
     }
   });
 });

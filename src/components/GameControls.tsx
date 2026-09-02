@@ -191,7 +191,8 @@ export function GameControls({
           <p id="hint-reason">{hintReason}</p>
           <p id="automation-reason">{automationReason}</p>
           <p id="solve-reason">
-            Complete from here with the best replay-verified schedule the engine can find.
+            Complete from here, preferring mastery, then makespan, peak memory, gather count, idle,
+            and action count.
           </p>
         </div>
       </div>
