@@ -1286,6 +1286,17 @@ describe('Game shell', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps solver provenance when completion feedback wording changes', async () => {
+    const user = userEvent.setup();
+    render(<App initialLevelId="dependency-chain" />);
+
+    await user.click(screen.getByRole('button', { name: /solve from current state/i }));
+
+    expect(screen.getByRole('status', { name: /interaction feedback/i })).toHaveTextContent(
+      /Optimal mastered continuation.*Completed. Mastered./i,
+    );
+  });
+
   it('keeps completed operations inspectable without duplicating placement', async () => {
     const user = userEvent.setup();
     render(<App initialLevelId="dependency-chain" />);

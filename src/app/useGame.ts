@@ -35,6 +35,7 @@ import {
 
 interface OverlayState {
   readonly message: string;
+  readonly source?: 'solver';
 }
 
 export interface LevelOptionState {
@@ -597,12 +598,13 @@ function appendBatch(
   appendedActions: readonly Action[],
   selectedOperationId: OperationId | null,
   message: string,
+  overlaySource?: OverlayState['source'],
 ): GameState {
   if (appendedActions.length === 0) {
     return {
       ...current,
       selectedOperationId,
-      overlay: { message },
+      overlay: { message, ...(overlaySource ? { source: overlaySource } : {}) },
     };
   }
 
@@ -619,7 +621,7 @@ function appendBatch(
     cursor: nextActions.length,
     batchEnds: nextBatchEnds,
     selectedOperationId,
-    overlay: { message },
+    overlay: { message, ...(overlaySource ? { source: overlaySource } : {}) },
   };
 }
 
@@ -640,7 +642,7 @@ function persistIfComplete(current: GameState, storage: Storage | null): GameSta
   const nextProgress = mergeProgress(current.progress, completedAttempt);
   const completion = completionMessage(current.levelId, currentActions);
   const message =
-    current.overlay.message.includes('continuation') && current.overlay.message.includes('placed')
+    current.overlay.source === 'solver'
       ? `${current.overlay.message} ${completion ?? ''}`.trim()
       : (completion ?? current.overlay.message);
   if (storage === null) {
@@ -1081,13 +1083,14 @@ export function useGame(
           ? `Optimal mastered continuation by ${objective}`
           : `Best available mastered ${result.label} by ${objective}`
         : result.optimality === 'proven'
-          ? `Optimal legal continuation by ${objective}; mastery is no longer reachable`
+          ? `Optimal ranked continuation by ${objective}; this result is not mastered`
           : `Best available legal ${result.label} by ${objective}; mastery was not found`;
       return appendBatch(
         current,
         result.actions,
         null,
         `${description} placed ${result.actions.length} block${result.actions.length === 1 ? '' : 's'}. Undo restores your starting state.`,
+        'solver',
       );
     });
   }
