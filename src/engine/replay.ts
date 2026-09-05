@@ -213,7 +213,7 @@ function computeWeightResidencyTimelineByRank(
     Array.from({ length: config.rankCount }, (_, rank) => {
       const rankedPlacements = placements
         .filter((placement) => placement.rank === rank)
-        .sort((left, right) => left.end - right.end || left.start - right.start);
+        .sort((left, right) => left.start - right.start || left.end - right.end);
       const segments: MemoryTimelineSegment[] = [];
       let cursor = 0;
       let value = 0;
@@ -223,9 +223,11 @@ function computeWeightResidencyTimelineByRank(
         if (!effect) {
           continue;
         }
-        if (placement.end > cursor) {
-          segments.push({ start: cursor, end: placement.end, value });
-          cursor = placement.end;
+        // Residency is required before forward computation. Gather/eviction is
+        // instantaneous in this model; its communication cost is not simulated.
+        if (placement.start > cursor) {
+          segments.push({ start: cursor, end: placement.start, value });
+          cursor = placement.start;
         }
         value = effect.residentWeightMemory;
       }

@@ -13,17 +13,19 @@ Sensei introduces one constraint at a time:
 3. Account for asymmetric compute: `F = 1` tick and `B = 2` ticks.
 4. Schedule under activation-memory caps, where a dependency-ready forward can still be memory-blocked.
 
-The current model deliberately stays small: one physical rank per stage, integer time, forward/backward operations, and four levels. This makes every move explainable before we extend the same game language to broader parallelism.
+The curriculum now contains 25 levels: foundations, GPipe, 1F1B, periodic building blocks, virtual stages, interleaved scheduling, nonuniform costs, split backward and zero-bubble heuristics, grouping, weight residency, and simplified bidirectional resources. These are small, deterministic teaching models; they do not predict GPU throughput.
 
 ## Text walkthrough
 
 The page is arranged as a compact scheduling cockpit:
 
 - **Level guide:** a short level note and goal stay above play without becoming a rules panel.
-- **Ready queue:** every operation remains visible. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Names use `(F/B, stage_id, data_id)`.
+- **Ready queue:** during practice, every operation remains available. Legal blocks can be placed; blocked and completed blocks stay focusable so the inspector can explain them. Color follows the microbatch across stages and passes; F/B/W text and textures distinguish work. Compact codes retain the existing stage/data notation. Completed attempts replace the queue with a result and next-lesson action; the timeline remains inspectable and Undo restores practice.
 - **Schedule command rail:** undo, redo, place, clear, wait, coaching, sharing, and reset stay close to the schedule, with a thin feedback line for the latest interaction.
-- **Schedule board:** the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank activation memory.
-- **Score rail:** the move inspector and metrics stay together so selection state, completion, makespan, bubble ratio, activation peaks, and the ranking tuple remain scannable.
+- **Schedule board:** the timeline shows placed operations, dependency-forced or intentional gaps, and per-rank stored activations. Selection traces immediate predecessors and the stored activation interval. Completed policy comparisons can be expanded into a reference timeline on the same time scale.
+- **Score rail:** the inspector, metrics and rank-specific residency table explain the current selection without crowding the board. Empty runs have no bubble percentage; incomplete runs are labeled provisional.
+- **Understand this schedule:** directly below the timeline, every lesson has a concept explanation, algorithm walkthrough, linked dependency trace, practice question and primary-source reading guide. The trace uses actual engine predecessors and shares selection with the board. The bubble derivation explains the live numerator and denominator. Source assumptions distinguish each exercise from the paper.
+- **Inline help:** “How to read this” opens a dismissible explanation of stages, ranks, microbatches and time. It becomes a bottom sheet on mobile and supports keyboard, touch and Escape. Jump buttons move focus between theory, source guidance and practice without replacing shared attempt URLs.
 
 A legal completion unlocks the next level. Mastery is optional and records the stronger result separately.
 
@@ -57,14 +59,37 @@ The React shell in [`src/app`](src/app) and [`src/components`](src/components) h
 
 ## Levels
 
-Every level uses `F = 1`, `B = 2`, and one rank per stage. Exact definitions live in [`src/levels/levels.ts`](src/levels/levels.ts).
+Exact definitions live in [`src/levels/levels.ts`](src/levels/levels.ts). A legal completion unlocks the next level; mastery adds level-specific constraints.
 
-| ID                    | Title               | Ranks/stages | Microbatches | Memory caps | Coaching (`ready`, `hint`, `auto`) | Mastery targets                                                          |
-| --------------------- | ------------------- | -----------: | -----------: | ----------- | ---------------------------------- | ------------------------------------------------------------------------ |
-| `dependency-chain`    | Dependency Chain    |          2/2 |            1 | none        | no, no, no                         | makespan `<= 6`; intentional idle `<= 0`                                 |
-| `fill-the-pipe`       | Fill the Pipe       |          2/2 |            3 | none        | yes, no, no                        | makespan `<= 12`; intentional idle `<= 0`                                |
-| `backward-is-heavier` | Backward Is Heavier |          3/3 |            3 | none        | yes, yes, no                       | makespan `<= 15`; intentional idle `<= 0`                                |
-| `memory-wall`         | Memory Wall         |          3/3 |            4 | `[3, 2, 1]` | yes, yes, yes                      | makespan `<= 18`; intentional idle `<= 0`; peak activation memory `<= 3` |
+| Curriculum       | Levels | Model introduced                                                    |
+| ---------------- | -----: | ------------------------------------------------------------------- |
+| Foundations      |      4 | Dependencies, fill/drain, asymmetric backward cost, activation caps |
+| GPipe            |      1 | All-forward/all-backward ordering                                   |
+| 1F1B             |      3 | Alternation, ties, memory pressure                                  |
+| Building blocks  |      1 | Periodic offsets and collision validation                           |
+| Virtual stages   |      1 | Multiple logical stages on a physical rank                          |
+| Interleaved 1F1B |      2 | Virtual-stage ordering and ragged rounds                            |
+| Nonuniform cost  |      1 | Stage-specific operation duration                                   |
+| Zero bubble      |      4 | Split B/W, deferred weight gradients, local warmup heuristics       |
+| Grouped          |      2 | Microbatch grouping and group-major order                           |
+| FSDP residency   |      3 | Abstract gathered-weight reuse, eviction and cap pressure           |
+| DualPipe         |      3 | Abstract directional slots and shared capacity                      |
+
+Most fused-backward levels use F=1 and B=2 ticks. Split-gradient levels use F=B=W=1. Nonuniform levels override individual stage costs. Reference policies are local heuristics; matching them does not establish equivalence to a paper implementation.
+
+## Scientific model and sources
+
+Every lesson displays a primary-source link and a guided reading question under
+**Understand this schedule**, with expandable **Source & assumptions** for timing
+and memory conventions. The evidence map is in
+[`docs/research/2026-09-04-scientific-ui-evidence.md`](docs/research/2026-09-04-scientific-ui-evidence.md).
+
+- A tick is an abstract time unit. Communication, recomputation and optimizer time are omitted.
+- Stored activations use one unit per logical stage/microbatch, acquired at F completion and released at fused B completion or split W completion. This is a stored-output convention; transient compute allocations are omitted. Simultaneous acquisition precedes release for conservative peak scoring.
+- A residency lesson acquires/reuses or evicts stage weights at forward start. Gathers take zero simulated time. The cap includes current activations and resident weights; the headline peak reports activations only. Per-rank values are frontier snapshots, not simultaneous telemetry.
+- DualPipe uses direction slots and shared units. The one-direction baseline reduces shared capacity to one; the reference chart preserves this configuration. Slot utilization is not measured GPU utilization or communication overlap efficiency.
+- Internal bubble excludes each rank's fill/drain interval. Zero internal idle is not a claim of zero end-to-end training bubble.
+- All visual overlays read replay state. No legality, memory release rule or ranking is redefined by React. Persisted actions and level versions remain unchanged by this presentation update.
 
 ## Controls and accessibility
 
@@ -74,7 +99,22 @@ With a keyboard, use `Tab`/`Shift+Tab` to move through the native level picker, 
 
 ## Offline behavior
 
-Offline support is production-only. After the first successful production load, `/sw.js` installs a content-digested application-shell cache containing `/`, `/index.html`, and the current emitted JavaScript/CSS assets. Current static assets are cache-first; same-origin navigations are network-first with cached `/index.html` fallback. Non-GET, cross-origin, and arbitrary runtime/API data are not intercepted.
+Offline support is production-only. After the first successful production load, the service worker installs a content-digested application-shell cache containing the deployment's root, index, and current emitted JavaScript/CSS assets. Current static assets are cache-first; in-scope navigations are network-first with a cached index fallback. Non-GET, cross-origin, and out-of-scope requests are not intercepted. Project deployments use their own cache namespace.
+
+## GitHub Pages
+
+Play at [phi9t.github.io/sensei](https://phi9t.github.io/sensei/).
+The source repository is [phi9t/sensei](https://github.com/phi9t/sensei).
+
+Pushes to `master` run the full verification suite, build for `/sensei/`, and
+publish the `dist` artifact through GitHub Actions. The workflow uses the pinned
+Node/npm toolchain. GitHub Pages must use **GitHub Actions** as its build source.
+
+Run `npm run build:pages` to reproduce the Pages artifact locally. This sets the
+asset base, install-manifest scope and service-worker cache paths to `/sensei/`
+and verifies the generated files. `npm run build` still produces a root-hosted
+build for other static hosts. GitHub Pages does not apply the `_headers` file;
+those custom security/cache headers require a host that supports it.
 
 Registration occurs after page load and reports `ready`, `unavailable`, or `unsupported`. The latter two produce a non-blocking notice; online play continues if caching is unavailable. A successful new shell is populated before older `sensei-shell-*` caches are removed.
 
@@ -85,7 +125,8 @@ The formulas in [`src/engine/score.ts`](src/engine/score.ts) are:
 ```text
 makespan = max(rankFrontiers)
 totalWork = sum(duration of every placed operation)
-capacity = rankCount * makespan
+slotsPerRank = dualPipe ? min(sharedCapacity, directions * directionalSlots) : 1
+capacity = rankCount * makespan * slotsPerRank
 bubbleRatio = capacity == 0 ? 0 : (capacity - totalWork) / capacity
 intentionalIdle = sum(end - start for gaps whose kind is intentional)
 peakActivationMemoryByRank = replayed peak resident activations per rank
@@ -95,7 +136,7 @@ peakActivationMemory = max(peakActivationMemoryByRank)
 Completion requires exactly one placement for every inventory operation. Mastery requires completion plus every level target using exact JavaScript `<=` comparison. Attempts are ordered lexicographically by:
 
 ```text
-(makespan, peakActivationMemory, intentionalIdle, actionCount)
+(makespan, peakActivationMemory, [allGatherCount for residency levels], intentionalIdle, actionCount)
 ```
 
 Lower is better at the first differing field.

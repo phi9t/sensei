@@ -1,7 +1,12 @@
-import type { CSSProperties, KeyboardEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { TimelineHelp } from './TimelineHelp';
 import type { Gap, MemoryTimelineSegment, Placement, ScheduleState } from '../engine/replay';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import type { Operation, OperationId, OperationKind, PipelineDirection } from '../engine/types';
+import { predecessorsOf, releasesActivation } from '../engine/operations';
+import { projectReferencePolicy, REFERENCE_POLICIES } from '../engine/policies';
+import { replay } from '../engine/replay';
+import type { ReferencePolicyId } from '../engine/types';
 import { topologyForLevel } from '../engine/topology';
 import { operationVisualKey, operationVisualVars } from './operationVisuals';
 
@@ -14,7 +19,7 @@ const ROW_HEIGHT = 84;
 const DUALPIPE_ROW_HEIGHT = 132;
 const TOP_PADDING = 48;
 const LEFT_PADDING = 78;
-const MIN_BOARD_WIDTH = 920;
+const MIN_BOARD_WIDTH = 800;
 
 interface ScheduleBoardProps {
   readonly schedule: ScheduleState;
@@ -24,6 +29,7 @@ interface ScheduleBoardProps {
     readonly earliestStart: number;
   } | null;
   readonly onInspect: (operationId: OperationId) => void;
+  readonly referencePolicyId?: ReferencePolicyId;
 }
 
 function kindPatternId(kind: OperationKind): string {
@@ -204,7 +210,16 @@ export function ScheduleBoard({
   selectedOperationId,
   preview,
   onInspect,
+  referencePolicyId,
 }: ScheduleBoardProps) {
+  const [showReference, setShowReference] = useState(false);
+  const reference = useMemo(() => {
+    if (!showReference || !referencePolicyId) return null;
+    const projected = projectReferencePolicy(schedule.config, referencePolicyId);
+    if (!projected.ok) return null;
+    const validated = replay(projected.state.config, projected.state.actions);
+    return validated.ok ? validated.state : null;
+  }, [showReference, referencePolicyId, schedule.config]);
   const hasResidency = schedule.config.residencyModel !== undefined;
   const hasDualPipe = schedule.config.dualPipeModel !== undefined;
   const resourceStripHeight = hasResidency ? MEMORY_STRIP_HEIGHT * 2 + 2 : MEMORY_STRIP_HEIGHT;
@@ -215,17 +230,103 @@ export function ScheduleBoard({
   const rankOwners = rankOwnersForSchedule(schedule);
   const svgWidth = Math.max(
     timelineExtent(schedule),
+    reference ? timelineExtent(reference) : 0,
     MIN_BOARD_WIDTH,
     LEFT_PADDING + previewEnd * CELL_WIDTH + RIGHT_PADDING,
   );
-  const svgHeight = TOP_PADDING + schedule.config.rankCount * rowHeightForSchedule(schedule) + 20;
-  const timelineEnd = Math.max(maxEndTime(schedule), previewEnd);
+  const mainHeight = TOP_PADDING + schedule.config.rankCount * rowHeightForSchedule(schedule) + 20;
+  const svgHeight =
+    mainHeight + (reference ? 48 + schedule.config.rankCount * (hasDualPipe ? 60 : 34) : 0);
+  const timelineEnd = Math.max(
+    maxEndTime(schedule),
+    previewEnd,
+    reference ? maxEndTime(reference) : 0,
+    Math.floor((MIN_BOARD_WIDTH - LEFT_PADDING - RIGHT_PADDING) / CELL_WIDTH),
+  );
+  const selected = schedule.operations.find((operation) => operation.id === selectedOperationId);
+  const selectedPlacement =
+    schedule.placements.find((placement) => placement.operationId === selectedOperationId) ??
+    (preview && selected
+      ? {
+          operationId: selected.id,
+          rank: selected.rank,
+          start: preview.earliestStart,
+          end: previewEnd,
+        }
+      : null);
+  const dependencyIds = selected ? predecessorsOf(selected.id, schedule.config) : [];
+  const dependencies = schedule.placements.filter((placement) =>
+    dependencyIds.includes(placement.operationId),
+  );
+  const sameActivation = (operation: Operation) =>
+    selected &&
+    operation.stage === selected.stage &&
+    operation.microbatch === selected.microbatch &&
+    operation.direction === selected.direction;
+  const forward = schedule.operations.find(
+    (operation) => sameActivation(operation) && operation.kind === 'F',
+  );
+  const release = schedule.operations.find(
+    (operation) => sameActivation(operation) && releasesActivation(schedule.config, operation.kind),
+  );
+  const forwardPlacement = schedule.placements.find(
+    (placement) => placement.operationId === forward?.id,
+  );
+  const releasePlacement = schedule.placements.find(
+    (placement) => placement.operationId === release?.id,
+  );
+  const activationEnd =
+    releasePlacement?.end ?? (selected ? (schedule.rankFrontiers[selected.rank] ?? 0) : 0);
+  const laneY = (operation: Operation) =>
+    rankRowTopForSchedule(schedule, operation.rank) +
+    workTopOffset +
+    operationLaneOffset(operation, hasDualPipe);
 
   return (
     <section className="panel board-panel" aria-labelledby="schedule-board-heading">
       <div className="board-panel__header">
-        <h2 id="schedule-board-heading">Schedule board</h2>
-        <p className="panel-intro">Your pipeline, one move at a time.</p>
+        <div className="board-title-row">
+          <div>
+            <p className="panel-kicker">Execution timeline</p>
+            <h2 id="schedule-board-heading" tabIndex={-1}>
+              Schedule board
+            </h2>
+          </div>
+          <div className="board-tools">
+            <TimelineHelp level={schedule.config} />
+            <span>
+              {schedule.config.rankCount} ranks · {schedule.config.stageCount} stages ·{' '}
+              {schedule.config.microbatchCount} microbatches
+            </span>
+            {referencePolicyId ? (
+              <button
+                type="button"
+                className="command-button"
+                aria-pressed={showReference}
+                onClick={() => setShowReference(!showReference)}
+              >
+                Compare reference
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="board-legend" role="group" aria-label="Timeline legend">
+          <span>
+            <i data-kind="F" /> F · forward
+          </span>
+          <span>
+            <i data-kind="B" /> B ·{' '}
+            {schedule.config.operationModel?.backward === 'split' ? 'input gradient' : 'backward'}
+          </span>
+          {schedule.config.operationModel?.backward === 'split' ? (
+            <span>
+              <i data-kind="W" /> W · weight gradient
+            </span>
+          ) : null}
+          <span>Color = microbatch</span>
+          {hasDualPipe ? <span>Up = increasing stage · Down = decreasing stage</span> : null}
+          <span>A = stored activations{hasResidency ? ' · P = resident parameters' : ''}</span>
+        </div>
         {rankOwners.length > 0 ? (
           <div className="rank-owner-list" aria-label="Rank stage ownership">
             {rankOwners.map((owner) => (
@@ -254,7 +355,21 @@ export function ScheduleBoard({
             Rank timelines, placed blocks, gaps, activation memory, optional weight residency, and
             optional bidirectional overlap lanes.
           </desc>
+          <text x={LEFT_PADDING} y="18" className="time-axis-label">
+            Time → (ticks)
+          </text>
           <defs>
+            <marker
+              id="dependency-arrow"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0 L8 4 L0 8Z" fill="var(--accent)" />
+            </marker>
             <pattern
               id="pattern-forward"
               width="6"
@@ -262,20 +377,13 @@ export function ScheduleBoard({
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <rect width="6" height="6" className="tile-pattern-base tile-pattern-base--forward" />
               <line x1="0" y1="0" x2="0" y2="6" className="tile-pattern tile-pattern--forward" />
             </pattern>
             <pattern id="pattern-backward" width="8" height="8" patternUnits="userSpaceOnUse">
-              <rect
-                width="8"
-                height="8"
-                className="tile-pattern-base tile-pattern-base--backward"
-              />
               <line x1="0" y1="1" x2="8" y2="1" className="tile-pattern tile-pattern--backward" />
               <line x1="0" y1="5" x2="8" y2="5" className="tile-pattern tile-pattern--backward" />
             </pattern>
             <pattern id="pattern-weight" width="8" height="8" patternUnits="userSpaceOnUse">
-              <rect width="8" height="8" className="tile-pattern-base tile-pattern-base--weight" />
               <path d="M0 8 L8 0" className="tile-pattern tile-pattern--weight" />
               <path d="M-4 4 L4 -4 M4 12 L12 4" className="tile-pattern tile-pattern--weight" />
             </pattern>
@@ -353,7 +461,7 @@ export function ScheduleBoard({
                           y={stripY + MEMORY_STRIP_HEIGHT + 11}
                           className="memory-strip__label memory-strip__label--weights"
                         >
-                          W{segment.value}
+                          P{segment.value}
                         </text>
                       </g>
                     ))}
@@ -412,6 +520,27 @@ export function ScheduleBoard({
               );
             })}
 
+            {selected && forwardPlacement && activationEnd > forwardPlacement.end ? (
+              <g
+                className="activation-lifespan"
+                role="img"
+                aria-label={`Stored activation on rank ${selected.rank} from ${forwardPlacement.end} to ${activationEnd}${releasePlacement ? '' : ', still resident'}`}
+              >
+                <rect
+                  x={forwardPlacement.end * CELL_WIDTH}
+                  y={rankRowTopForSchedule(schedule, selected.rank) - 3}
+                  width={(activationEnd - forwardPlacement.end) * CELL_WIDTH}
+                  height={MEMORY_STRIP_HEIGHT + 6}
+                  rx="3"
+                />
+                <title>
+                  Stored activation: F completion →{' '}
+                  {releasePlacement
+                    ? `${release?.kind} completion`
+                    : 'rank frontier (still resident)'}
+                </title>
+              </g>
+            ) : null}
             {schedule.placements.map((placement) => {
               const operation = operationById(schedule, placement.operationId);
               const width = operation.duration * CELL_WIDTH;
@@ -428,6 +557,9 @@ export function ScheduleBoard({
                 <g
                   key={placement.operationId}
                   className="schedule-tile-control"
+                  data-related={
+                    !selected || operation.microbatch === selected.microbatch ? 'true' : 'false'
+                  }
                   role="button"
                   tabIndex={0}
                   aria-label={actionLabel}
@@ -450,8 +582,17 @@ export function ScheduleBoard({
                     data-direction={operation.direction}
                     data-duration={operation.duration}
                     data-selected={isSelected ? 'true' : 'false'}
-                    fill={`url(#${kindPatternId(operation.kind)})`}
+                    fill="hsl(var(--operation-hue) 52% 88%)"
                     style={operationVisualVars(operation) as CSSProperties}
+                  />
+                  <rect
+                    className="schedule-texture"
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={WORK_BLOCK_HEIGHT}
+                    rx="6"
+                    fill={`url(#${kindPatternId(operation.kind)})`}
                   />
                   {directionLabel(operation.direction) ? (
                     <text
@@ -474,6 +615,29 @@ export function ScheduleBoard({
               );
             })}
 
+            {selected && selectedPlacement
+              ? dependencies.map((dependency) => {
+                  const source = operationById(schedule, dependency.operationId);
+                  const x1 = dependency.end * CELL_WIDTH;
+                  const x2 = selectedPlacement.start * CELL_WIDTH;
+                  const y1 = laneY(source) + WORK_BLOCK_HEIGHT / 2;
+                  const y2 = laneY(selected) + WORK_BLOCK_HEIGHT / 2;
+                  return (
+                    <path
+                      key={`dependency-${dependency.operationId}`}
+                      className="dependency-link"
+                      data-testid={`dependency-${dependency.operationId}`}
+                      d={`M ${x1} ${y1} C ${x1 + 18} ${y1}, ${x2 - 18} ${y2}, ${x2} ${y2}`}
+                      markerEnd="url(#dependency-arrow)"
+                    >
+                      <title>
+                        {formatOperationCode(source)} must finish before{' '}
+                        {formatOperationCode(selected)}
+                      </title>
+                    </path>
+                  );
+                })
+              : null}
             {preview && previewOperation ? (
               <g>
                 <title>{`${formatOperationName(previewOperation)} preview on rank ${
@@ -535,9 +699,69 @@ export function ScheduleBoard({
               </g>
             ) : null}
           </g>
+          {reference && referencePolicyId ? (
+            <g
+              className="reference-schedule"
+              role="group"
+              aria-label="Reference timeline"
+              data-reference-end={maxEndTime(reference)}
+            >
+              <text x={LEFT_PADDING} y={mainHeight + 14} className="reference-title">
+                {REFERENCE_POLICIES[referencePolicyId].label} · local policy · same time scale
+                {reference.config.dualPipeModel
+                  ? ` · capacity ${reference.config.dualPipeModel.resourceModel.sharedCapacity}/rank`
+                  : ''}
+              </text>
+              {reference.rankFrontiers.map((_, rank) => (
+                <text
+                  key={rank}
+                  x="12"
+                  y={mainHeight + 46 + rank * (hasDualPipe ? 60 : 34)}
+                  className="rank-label"
+                >
+                  Rank {rank}
+                </text>
+              ))}
+              {reference.placements.map((placement) => {
+                const operation = operationById(reference, placement.operationId);
+                const x = LEFT_PADDING + placement.start * CELL_WIDTH;
+                const y =
+                  mainHeight +
+                  28 +
+                  placement.rank * (hasDualPipe ? 60 : 34) +
+                  (operation.direction === 'desc' ? 27 : 0);
+                return (
+                  <g key={operation.id} style={operationVisualVars(operation) as CSSProperties}>
+                    <title>
+                      {formatOperationName(operation)} · {placement.start}–{placement.end}
+                    </title>
+                    <rect
+                      x={x}
+                      y={y}
+                      width={operation.duration * CELL_WIDTH}
+                      height="25"
+                      rx="3"
+                      fill="hsl(var(--operation-hue) 52% 88%)"
+                      stroke="var(--operation-accent)"
+                    />
+                    <text x={x + 5} y={y + 17} className="reference-label">
+                      {operation.kind}
+                      {operation.stage}:D{operation.microbatch}
+                      {operation.direction === 'desc' ? ' ↓' : ''}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          ) : null}
         </svg>
       </div>
 
+      <p className="board-selection-note">
+        {selected
+          ? `${formatOperationCode(selected)} · Rank ${selected.rank} · ${dependencyIds.length} predecessor${dependencyIds.length === 1 ? '' : 's'}${forwardPlacement ? ` · stored activation ${forwardPlacement.end} → ${releasePlacement ? activationEnd : 'still resident'}` : ''}`
+          : 'Select a block to trace its dependencies and stored activation lifetime.'}
+      </p>
       <details className="board-details">
         <summary>Timeline details</summary>
         <div className="board-details__grid">

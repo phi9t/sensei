@@ -94,7 +94,7 @@ describe('accessibility', () => {
     const seriousOrCritical = results.violations.flatMap((violation) =>
       violation.nodes
         .filter((node) => node.impact === 'serious' || node.impact === 'critical')
-        .map((node) => ({ id: violation.id, impact: node.impact })),
+        .map((node) => ({ id: violation.id, impact: node.impact, target: node.target })),
     );
 
     expect(seriousOrCritical).toEqual([]);

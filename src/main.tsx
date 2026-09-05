@@ -8,6 +8,7 @@ import {
   type OfflineStatus,
 } from './offline/register';
 import './styles/app.css';
+import './styles/learning.css';
 
 const container = document.getElementById('root');
 if (!container) {

@@ -26,8 +26,8 @@ function toAssetPath(assetsDir, assetPath) {
   return `/${relative(assetsDir, assetPath).split(sep).join('/')}`;
 }
 
-function toManifestPath(assetsDir, assetPath) {
-  return `/assets${toAssetPath(assetsDir, assetPath)}`;
+function toManifestPath(assetsDir, assetPath, basePath) {
+  return `${basePath}assets${toAssetPath(assetsDir, assetPath)}`;
 }
 
 function hashManifest(entries) {
@@ -41,8 +41,10 @@ function hashManifest(entries) {
   return digest.digest('hex').slice(0, DIGEST_LENGTH);
 }
 
-function renderServiceWorker({ cacheName, shellManifest, staticAssets }) {
+function renderServiceWorker({ cacheName, cachePrefix, basePath, shellManifest, staticAssets }) {
   return `const CACHE_NAME = ${JSON.stringify(cacheName)};
+const BASE_PATH = ${JSON.stringify(basePath)};
+const INDEX_PATH = BASE_PATH + 'index.html';
 const SHELL_MANIFEST = ${JSON.stringify(shellManifest, null, 2)};
 const STATIC_ASSET_MANIFEST = new Set(${JSON.stringify(staticAssets, null, 2)});
 
@@ -66,7 +68,7 @@ self.addEventListener('activate', (event) => {
 
       await Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName.startsWith(${JSON.stringify(CACHE_PREFIX)}))
+          .filter((cacheName) => cacheName.startsWith(${JSON.stringify(cachePrefix)}))
           .filter((cacheName) => cacheName !== CACHE_NAME)
           .map((cacheName) => caches.delete(cacheName)),
       );
@@ -83,7 +85,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   const requestUrl = new URL(request.url);
-  if (requestUrl.origin !== self.location.origin) {
+  if (requestUrl.origin !== self.location.origin || !requestUrl.pathname.startsWith(BASE_PATH)) {
     return;
   }
 
@@ -113,11 +115,11 @@ self.addEventListener('fetch', (event) => {
         try {
           const networkResponse = await fetch(request);
           if (networkResponse.ok) {
-            await cache.put('/index.html', networkResponse.clone());
+            await cache.put(INDEX_PATH, networkResponse.clone());
           }
           return networkResponse;
         } catch {
-          const fallback = await cache.match('/index.html');
+          const fallback = await cache.match(INDEX_PATH);
           if (fallback) {
             return fallback;
           }
@@ -130,7 +132,7 @@ self.addEventListener('fetch', (event) => {
 `;
 }
 
-export async function generateServiceWorker({ distDir = DIST_DIR } = {}) {
+export async function generateServiceWorker({ distDir = DIST_DIR, basePath = '/' } = {}) {
   const resolvedDistDir = resolve(distDir);
   const indexHtmlPath = join(resolvedDistDir, 'index.html');
   const assetsDir = join(resolvedDistDir, 'assets');
@@ -140,7 +142,7 @@ export async function generateServiceWorker({ distDir = DIST_DIR } = {}) {
   const emittedAssets = (
     await Promise.all(
       assetPaths.map(async (assetPath) => ({
-        path: toManifestPath(assetsDir, assetPath),
+        path: toManifestPath(assetsDir, assetPath, basePath),
         content: await readFile(assetPath),
       })),
     )
@@ -149,13 +151,17 @@ export async function generateServiceWorker({ distDir = DIST_DIR } = {}) {
     .sort((left, right) => left.path.localeCompare(right.path));
 
   const shellEntries = [
-    { path: '/', content: indexHtmlContent },
-    { path: '/index.html', content: indexHtmlContent },
+    { path: basePath, content: indexHtmlContent },
+    { path: `${basePath}index.html`, content: indexHtmlContent },
     ...emittedAssets,
   ];
-  const cacheName = `${CACHE_PREFIX}${hashManifest(shellEntries)}`;
+  const cachePrefix =
+    basePath === '/' ? CACHE_PREFIX : `${CACHE_PREFIX}${encodeURIComponent(basePath)}-`;
+  const cacheName = `${cachePrefix}${hashManifest(shellEntries)}`;
   const serviceWorker = renderServiceWorker({
     cacheName,
+    cachePrefix,
+    basePath,
     shellManifest: shellEntries.map((entry) => entry.path),
     staticAssets: emittedAssets.map((entry) => entry.path),
   });

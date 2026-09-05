@@ -63,8 +63,12 @@ function assertNotContains(source, token, fileLabel) {
   }
 }
 
-function assertManifest(manifest) {
-  for (const [key, expected] of Object.entries(EXPECTED_MANIFEST)) {
+function assertManifest(manifest, basePath) {
+  for (const [key, expected] of Object.entries({
+    ...EXPECTED_MANIFEST,
+    start_url: basePath,
+    scope: basePath,
+  })) {
     if (manifest[key] !== expected) {
       throw new Error(`manifest.webmanifest field ${key} must be ${JSON.stringify(expected)}`);
     }
@@ -76,7 +80,7 @@ function assertManifest(manifest) {
 
   const hasExpectedIcon = manifest.icons.some(
     (icon) =>
-      icon.src === EXPECTED_ICON.src &&
+      icon.src === `${basePath}icons/icon.svg` &&
       icon.sizes === EXPECTED_ICON.sizes &&
       icon.type === EXPECTED_ICON.type &&
       icon.purpose === EXPECTED_ICON.purpose,
@@ -86,15 +90,15 @@ function assertManifest(manifest) {
   }
 }
 
-function assertHtmlMetadata(indexHtml) {
+function assertHtmlMetadata(indexHtml, basePath) {
   for (const token of [
     '<title>Sensei Pipeline Scheduling</title>',
     '<meta name="theme-color" content="#11191b" />',
     '<meta name="application-name" content="Sensei" />',
     '<meta name="color-scheme" content="light dark" />',
     '<meta name="description" content="An offline-capable pipeline scheduling game." />',
-    '<link rel="manifest" href="/manifest.webmanifest" />',
-    '<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />',
+    `<link rel="manifest" href="${basePath}manifest.webmanifest" />`,
+    `<link rel="icon" type="image/svg+xml" href="${basePath}icons/icon.svg" />`,
   ]) {
     assertContains(indexHtml, token, 'index.html');
   }
@@ -106,10 +110,10 @@ function assertHeaders(headers) {
   }
 }
 
-function assertServiceWorker(serviceWorker) {
+function assertServiceWorker(serviceWorker, basePath) {
   assertContains(serviceWorker, 'sensei-shell-', 'sw.js');
-  assertContains(serviceWorker, '"/"', 'sw.js');
-  assertContains(serviceWorker, '"/index.html"', 'sw.js');
+  assertContains(serviceWorker, JSON.stringify(basePath), 'sw.js');
+  assertContains(serviceWorker, JSON.stringify(`${basePath}index.html`), 'sw.js');
   assertNotContains(serviceWorker, '_headers', 'sw.js');
   assertNotContains(serviceWorker, 'manifest.webmanifest', 'sw.js');
   assertNotContains(serviceWorker, 'icon.svg', 'sw.js');
@@ -121,7 +125,7 @@ function assertIcon(iconSvg) {
   assertNotContains(iconSvg.toLowerCase(), '<script', 'icons/icon.svg');
 }
 
-export async function verifyProductionArtifacts({ distDir = DIST_DIR } = {}) {
+export async function verifyProductionArtifacts({ distDir = DIST_DIR, basePath = '/' } = {}) {
   const resolvedDistDir = resolve(distDir);
   const [indexHtml, manifestSource, iconSvg, headers, serviceWorker] = await Promise.all([
     readFile(join(resolvedDistDir, 'index.html'), 'utf8'),
@@ -131,11 +135,11 @@ export async function verifyProductionArtifacts({ distDir = DIST_DIR } = {}) {
     readFile(join(resolvedDistDir, 'sw.js'), 'utf8'),
   ]);
 
-  assertHtmlMetadata(indexHtml);
-  assertManifest(JSON.parse(manifestSource));
+  assertHtmlMetadata(indexHtml, basePath);
+  assertManifest(JSON.parse(manifestSource), basePath);
   assertIcon(iconSvg);
   assertHeaders(headers);
-  assertServiceWorker(serviceWorker);
+  assertServiceWorker(serviceWorker, basePath);
 
   return {
     ok: true,

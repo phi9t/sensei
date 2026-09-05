@@ -3,6 +3,7 @@ import type { ScoreResult } from '../engine/score';
 import type { LevelOptionState } from '../app/useGame';
 import type { LevelConfig, MasteryTarget, MetricMasteryTarget } from '../engine/types';
 import { LEVEL_IDS, getLevel } from '../levels/levels';
+import { SectionJump } from './SectionJump';
 
 interface LevelGuideProps {
   readonly level: LevelConfig;
@@ -176,6 +177,9 @@ export function LevelGuide({ level, score, levelOptions }: LevelGuideProps) {
             </span>
           ))}
         </div>
+        <SectionJump className="level-guide__learn-link" target="learn">
+          Theory & source material ↓
+        </SectionJump>
         <details
           className="level-guide-panel__concepts"
           data-testid="level-guide-concepts"

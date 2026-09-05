@@ -1,11 +1,14 @@
+import { useEffect, useRef } from 'react';
 import { OperationTray } from '../components/OperationTray';
 import { ScheduleBoard } from '../components/ScheduleBoard';
 import { MoveInspector } from '../components/MoveInspector';
 import { MetricsPanel } from '../components/MetricsPanel';
 import { GameControls } from '../components/GameControls';
 import { LevelGuide } from '../components/LevelGuide';
+import { LearningLab } from '../components/LearningLab';
+import { memoryByRank } from '../engine/score';
 import { useGame, type LevelOptionState } from './useGame';
-import type { LevelId } from '../levels/levels';
+import { LEVEL_IDS, type LevelId } from '../levels/levels';
 import type { OfflineStatus } from '../offline/register';
 
 interface AppProps {
@@ -78,9 +81,17 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
   const resolvedStorage = defaultStorage?.storage ?? storage ?? null;
   const initialPersistenceNotice = defaultStorage?.notice ?? null;
   const game = useGame(initialLevelId, resolvedStorage, initialPersistenceNotice);
+  const resultHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (game.score.complete) resultHeading.current?.focus({ preventScroll: true });
+  }, [game.score.complete]);
   const offlineNotice = offlineNoticeFor(offlineStatus);
   const placedBlockCount = game.schedule.placements.length;
   const totalBlockCount = game.schedule.operations.length;
+  const nextLevelId = LEVEL_IDS[LEVEL_IDS.indexOf(game.levelId) + 1];
+  const nextLevel = game.levelOptions.find(
+    (option) => option.levelId === nextLevelId && option.unlocked,
+  );
   const preview =
     game.selectedExplanation?.status === 'legal'
       ? {
@@ -160,19 +171,61 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
         </div>
       </header>
 
-      <main className="app-shell">
+      <main
+        className="app-shell"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') game.clearSelection();
+        }}
+      >
         <div className="cockpit-grid" id="play-surface">
-          <LevelGuide level={game.level} score={game.score} levelOptions={game.levelOptions} />
-
-          <OperationTray
+          <LevelGuide
+            key={`guide-${game.levelId}`}
             level={game.level}
-            classifications={game.moveClassifications}
-            selectedOperationId={game.selectedOperationId}
-            onActivate={game.activateOperation}
-            onInspect={game.selectOperation}
+            score={game.score}
+            levelOptions={game.levelOptions}
           />
 
+          {game.score.complete ? (
+            <section className="attempt-result" aria-label="Completed attempt">
+              <div className="attempt-result__mark" aria-hidden="true">
+                ✓
+              </div>
+              <div>
+                <p className="learning-label">
+                  {game.score.mastered ? 'Goal achieved' : 'Schedule complete'}
+                </p>
+                <h2 ref={resultHeading} tabIndex={-1}>
+                  {game.score.makespan} ticks{' '}
+                  <span>· {game.score.peakActivationMemory} peak activation units</span>
+                </h2>
+                <p>
+                  {game.score.mastered
+                    ? 'Inspect your schedule, explain the tradeoff, then take the next challenge.'
+                    : 'Your schedule is legal. Inspect the remaining mastery targets or Undo to try a different order.'}
+                </p>
+              </div>
+              {nextLevel ? (
+                <button
+                  className="command-button command-button--primary"
+                  type="button"
+                  onClick={() => game.changeLevel(nextLevel.levelId)}
+                >
+                  Next lesson →
+                </button>
+              ) : null}
+            </section>
+          ) : (
+            <OperationTray
+              level={game.level}
+              classifications={game.moveClassifications}
+              selectedOperationId={game.selectedOperationId}
+              onActivate={game.activateOperation}
+              onInspect={game.selectOperation}
+            />
+          )}
+
           <GameControls
+            complete={game.score.complete}
             level={game.level}
             selectedBlockStatus={game.selectedBlockStatus}
             canUndo={game.cursor > 0}
@@ -208,10 +261,22 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
           </div>
 
           <ScheduleBoard
+            key={`board-${game.levelId}`}
+            {...(game.policyComparison
+              ? { referencePolicyId: game.policyComparison.policyId }
+              : {})}
             schedule={game.schedule}
             selectedOperationId={game.selectedOperationId}
             preview={preview}
             onInspect={game.selectOperation}
+          />
+
+          <LearningLab
+            key={`learning-${game.levelId}`}
+            schedule={game.schedule}
+            selectedOperationId={game.selectedOperationId}
+            onInspect={game.selectOperation}
+            onClearSelection={game.clearSelection}
           />
 
           <aside className="score-rail" aria-label="Score rail">
@@ -226,6 +291,7 @@ export function App({ initialLevelId = 'dependency-chain', storage, offlineStatu
               currentMemory={game.schedule.currentMemory}
               attemptTuple={game.attemptTuple}
               policyComparison={game.policyComparison}
+              rankMemory={memoryByRank(game.schedule)}
             />
           </aside>
         </div>

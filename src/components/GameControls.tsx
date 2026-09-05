@@ -1,8 +1,10 @@
 import type { LevelConfig } from '../engine/types';
 import type { SelectedBlockStatus } from '../app/useGame';
 import { PatternCheck, type PatternCheckModel } from './PatternCheck';
+import { SectionJump } from './SectionJump';
 
 interface GameControlsProps {
+  readonly complete?: boolean;
   readonly level: LevelConfig;
   readonly selectedBlockStatus: SelectedBlockStatus;
   readonly canUndo: boolean;
@@ -28,6 +30,7 @@ interface GameControlsProps {
 }
 
 export function GameControls({
+  complete = false,
   level,
   selectedBlockStatus,
   canUndo,
@@ -52,7 +55,11 @@ export function GameControls({
   onReset,
 }: GameControlsProps) {
   return (
-    <section className="schedule-command-rail" aria-label="Schedule command rail">
+    <section
+      className="schedule-command-rail"
+      aria-label="Schedule command rail"
+      data-complete={complete}
+    >
       <div className="schedule-command-rail__primary">
         <h2 id="game-controls-heading">Schedule</h2>
         <button
@@ -77,6 +84,7 @@ export function GameControls({
           type="button"
           className="command-button command-button--primary"
           aria-label="Place selected operation"
+          hidden={complete}
           onClick={onPlaceSelected}
           disabled={!selectedBlockStatus.canPlace}
         >
@@ -84,6 +92,7 @@ export function GameControls({
         </button>
         <div
           className="selected-block-status"
+          hidden={complete}
           role="group"
           aria-label="Selected block status"
           data-state={selectedBlockStatus.state}
@@ -102,10 +111,15 @@ export function GameControls({
         >
           Clear
         </button>
+        {complete ? (
+          <SectionJump className="completion-review-link" target="learn">
+            Review the theory ↓
+          </SectionJump>
+        ) : null}
       </div>
 
       <div className="schedule-command-rail__secondary">
-        <div className="control-cluster" aria-label="Rank wait controls">
+        <div className="control-cluster" aria-label="Rank wait controls" hidden={complete}>
           <span className="control-cluster__label">Wait</span>
           {Array.from({ length: level.rankCount }, (_, rank) => (
             <button
@@ -120,7 +134,7 @@ export function GameControls({
           ))}
         </div>
 
-        <div className="control-cluster" aria-label="Learning controls">
+        <div className="control-cluster" aria-label="Learning controls" hidden={complete}>
           <span className="control-cluster__label">Assist</span>
           <button
             type="button"

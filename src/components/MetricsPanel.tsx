@@ -1,4 +1,4 @@
-import type { AttemptRankingTuple, ScoreResult } from '../engine/score';
+import type { AttemptRankingTuple, ScoreResult, memoryByRank } from '../engine/score';
 import type { PolicyComparison } from '../engine/policyComparison';
 import type { LevelConfig, MetricMasteryTarget } from '../engine/types';
 
@@ -8,6 +8,7 @@ interface MetricsPanelProps {
   readonly currentMemory: readonly number[];
   readonly attemptTuple: AttemptRankingTuple;
   readonly policyComparison: PolicyComparison | null;
+  readonly rankMemory: ReturnType<typeof memoryByRank>;
 }
 
 function formatTuple(tuple: AttemptRankingTuple): string {
@@ -98,16 +99,13 @@ export function MetricsPanel({
   currentMemory,
   attemptTuple,
   policyComparison,
+  rankMemory,
 }: MetricsPanelProps) {
   const masteryTargets =
     level.masteryTargets.length === 0
       ? 'None'
       : level.masteryTargets.map(formatMasteryTarget).join('; ');
-  const memoryCap = level.memoryCaps === null ? null : Math.max(...level.memoryCaps);
-  const memorySummary =
-    memoryCap === null
-      ? `${score.peakActivationMemory} peak`
-      : `${score.peakActivationMemory}/${memoryCap} peak`;
+  const memorySummary = `${score.peakActivationMemory} units`;
 
   return (
     <section className="panel metrics-panel" aria-labelledby="metrics-panel-heading">
@@ -118,11 +116,17 @@ export function MetricsPanel({
       <div className="scoreboard" role="group" aria-label="Scoreboard">
         <div className="scoreboard-card scoreboard-card--primary">
           <span className="scoreboard-card__label">Makespan</span>
-          <strong>{score.makespan}</strong>
+          <strong>
+            {score.makespan}
+            <small> ticks</small>
+          </strong>
         </div>
         <div className="scoreboard-card">
           <span className="scoreboard-card__label">Bubble</span>
-          <strong>{(score.bubbleRatio * 100).toFixed(1)}%</strong>
+          <strong>{score.capacity === 0 ? '—' : `${(score.bubbleRatio * 100).toFixed(1)}%`}</strong>
+          {!score.complete ? (
+            <small>{score.capacity === 0 ? 'Place work to measure' : 'Provisional'}</small>
+          ) : null}
         </div>
         {score.internalBubbleRatio !== undefined ? (
           <div className="scoreboard-card">
@@ -131,7 +135,7 @@ export function MetricsPanel({
           </div>
         ) : null}
         <div className="scoreboard-card">
-          <span className="scoreboard-card__label">Memory</span>
+          <span className="scoreboard-card__label">Peak activations</span>
           <strong>{memorySummary}</strong>
         </div>
         {score.allGatherCount !== undefined ? (
@@ -147,6 +151,44 @@ export function MetricsPanel({
           </strong>
         </div>
       </div>
+      <details className="rank-memory">
+        <summary>
+          Memory by rank <span>abstract units</span>
+        </summary>
+        <p>Current residency at each rank’s frontier. Peaks refer to stored activations only.</p>
+        <div className="rank-memory__scroll">
+          <table>
+            <caption className="sr-only">Rank memory snapshots</caption>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>
+                  <abbr title="Current stored activations">Act.</abbr>
+                </th>
+                <th>Weights</th>
+                <th>Total</th>
+                <th>Cap</th>
+                <th>
+                  <abbr title="Peak stored activations">Peak A</abbr>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankMemory.map((memory) => (
+                <tr key={memory.rank}>
+                  <th>R{memory.rank}</th>
+                  <td>{memory.activationUnits}</td>
+                  <td>{level.residencyModel ? memory.weightUnits : '—'}</td>
+                  <td>{memory.totalUnits}</td>
+                  <td>{memory.cap ?? '—'}</td>
+                  <td>{memory.peakActivationUnits}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!level.residencyModel ? <p>Weights are not modeled in this lesson.</p> : null}
+      </details>
       {policyComparison ? (
         <details className="policy-comparison">
           <summary>

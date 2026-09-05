@@ -229,6 +229,60 @@ function createServiceWorkerHarness(source, { initialCaches = {}, fetchImpl, fai
 }
 
 describe('offline support', () => {
+  it('scopes project-page assets, navigation fallback and cache cleanup to the project', async () => {
+    const rootDir = await createTempDirFixture();
+    try {
+      const fixture = await writeDistFixture(rootDir);
+      const result = await generateServiceWorker({
+        distDir: fixture.distDir,
+        basePath: '/sensei/',
+      });
+      const source = await readFile(result.serviceWorkerPath, 'utf8');
+      const oldCache = `${result.cacheName.slice(0, -16)}old`;
+      const harness = createServiceWorkerHarness(source, {
+        initialCaches: {
+          [result.cacheName]: {
+            '/sensei/index.html': 'project shell',
+            '/sensei/assets/app-abc123.js': 'project script',
+          },
+          [oldCache]: {},
+          'sensei-shell-root-deployment': { '/index.html': 'other shell' },
+        },
+        fetchImpl: vi.fn().mockRejectedValue(new Error('offline')),
+      });
+      await harness.dispatch('install', {});
+      expect(harness.addAllCalls[0].manifest).toEqual([
+        '/sensei/',
+        '/sensei/index.html',
+        '/sensei/assets/app-abc123.css',
+        '/sensei/assets/app-abc123.js',
+      ]);
+      const shell = await harness.dispatchFetch({
+        method: 'GET',
+        mode: 'navigate',
+        url: 'https://example.test/sensei/',
+      });
+      expect(await shell.text()).toBe('project shell');
+      const script = await harness.dispatchFetch({
+        method: 'GET',
+        url: 'https://example.test/sensei/assets/app-abc123.js',
+      });
+      expect(await script.text()).toBe('project script');
+      expect(
+        await harness.dispatchFetch({
+          method: 'GET',
+          mode: 'navigate',
+          url: 'https://example.test/another-project/',
+        }),
+      ).toBeUndefined();
+      await harness.dispatch('activate', {});
+      expect(harness.deleteCalls).toEqual([oldCache]);
+      expect(harness.buckets.has('sensei-shell-root-deployment')).toBe(true);
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
+  });
+
   it('writes a digest-named service worker that precaches the current shell manifest and installs atomically', async () => {
     const rootDir = await createTempDirFixture();
     try {

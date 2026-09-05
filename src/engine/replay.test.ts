@@ -378,10 +378,27 @@ describe('memory and activation', () => {
     );
 
     expect(state.weightResidencyTimelineByRank[0]).toEqual([
-      { start: 0, end: 1, value: 0 },
-      { start: 1, end: 2, value: 1 },
-      { start: 2, end: 3, value: 1 },
+      { start: 0, end: 1, value: 1 },
+      { start: 1, end: 3, value: 1 },
     ]);
+  });
+
+  it('acquires weights after idle but before the forward computation begins', () => {
+    const config = makeConfig({
+      durationOverrides: [{ kind: 'F', stage: 0, duration: 3 }],
+      residencyModel: { weightUnit: 2 },
+    });
+    const state = expectState(
+      replay(config, [
+        { type: 'wait', rank: 0 },
+        { type: 'place', operationId: 'F:0:0' },
+      ]),
+    );
+    expect(state.weightResidencyTimelineByRank[0]).toEqual([
+      { start: 0, end: 1, value: 0 },
+      { start: 1, end: 4, value: 2 },
+    ]);
+    expect(state.allGatherCount).toBe(1);
   });
 
   it('F acquire followed by B release: current+peak memory correct', () => {

@@ -50,7 +50,7 @@ export async function registerOfflineSupport({
   }
 
   try {
-    await serviceWorker.register('/sw.js');
+    await serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
     if (serviceWorker.ready) {
       await serviceWorker.ready;
     }

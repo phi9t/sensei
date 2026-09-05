@@ -23,6 +23,23 @@ export interface ScoreResult {
   mastered: boolean;
 }
 
+/** Rank-local frontier snapshots, not simultaneous device telemetry. */
+export function memoryByRank(state: ScheduleState) {
+  return state.currentMemory.map((activationUnits, rank) => {
+    const weightUnits =
+      (state.residentWeightsByRank[rank]?.length ?? 0) *
+      (state.config.residencyModel?.weightUnit ?? 0);
+    return {
+      rank,
+      activationUnits,
+      weightUnits,
+      totalUnits: activationUnits + weightUnits,
+      peakActivationUnits: state.peakMemory[rank] ?? 0,
+      cap: state.config.memoryCaps?.[rank] ?? null,
+    };
+  });
+}
+
 function totalPlacedWork(state: ScheduleState): number {
   const durationById = new Map(
     state.operations.map((operation) => [operation.id, operation.duration]),

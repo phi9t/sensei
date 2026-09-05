@@ -1,5 +1,6 @@
 node_modules
 dist
+.superpowers/
 docs/research/pipeline-parallelism-tutor-source-study.md
 docs/superpowers/specs/2026-08-19-pipeline-parallelism-tutor-deep-dive-design.md
 docs/superpowers/specs/2026-08-19-sensei-pipeline-game-design.md

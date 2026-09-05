@@ -4,7 +4,7 @@ import type { LevelConfig, OperationId, OperationKind } from '../engine/types';
 import { formatOperationCode, formatOperationName } from '../app/useGame';
 import { microbatchGroupLabel } from '../engine/microbatchGroups';
 import { operationNotationKey } from '../engine/operations';
-import { operationVisualKey, operationVisualVars } from './operationVisuals';
+import { operationHue, operationVisualKey, operationVisualVars } from './operationVisuals';
 
 const OPERATION_KIND_ORDER: readonly OperationKind[] = ['F', 'B', 'W'];
 
@@ -139,7 +139,7 @@ function batchPhaseLabel(group: BatchGroup): string {
 }
 
 function batchVisualVars(microbatch: number): CSSProperties {
-  const hue = (184 + microbatch * 42) % 360;
+  const hue = operationHue({ kind: 'F', stage: 0, microbatch });
   return {
     '--batch-hue': String(hue),
     '--batch-accent': `hsl(${hue} 44% 40%)`,
